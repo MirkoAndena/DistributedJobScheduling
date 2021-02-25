@@ -2,9 +2,9 @@ using System;
 using Communication;
 using Routines;
 
-public class Main
+public class Program
 {
-    public void main()
+    static void Main(string[] args)
     {
         // Start the server
         Listener listener = new Listener();

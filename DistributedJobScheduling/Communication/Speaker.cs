@@ -20,12 +20,12 @@ namespace Communication
             this._closeCallback = closeCallback;
             this._buffer = new byte[1024];
             this._routine = routine;
+            this._routine.Communicator = this;
         }
 
         public static void CreateAndRun(string host, Routine routine)
         {
             Speaker speaker = new Speaker(null, null, routine);
-            routine.Communicator = speaker;
             speaker.Connect(host);
         }
 
@@ -35,6 +35,7 @@ namespace Communication
             _socket.BeginConnect(host, Listener.PORT, result => 
             {
                 _socket.EndConnect(result);
+                _routine.Communicator = this;
                 _routine.Start();
             }, null);
         }
