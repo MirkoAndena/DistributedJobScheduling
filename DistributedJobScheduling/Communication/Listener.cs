@@ -2,14 +2,13 @@
 using System.Collections.Generic;
 using System.Net;  
 using System.Net.Sockets;  
-using System.Text;  
-using System.Threading;  
+using Routines;
 
 namespace Communication
 {
     public class Listener
     {
-        const int PORT = 30308;
+        public const int PORT = 30308;
         private Socket _socket;
         private Dictionary<int, Speaker> _speakers;
         private int _lastSpeakerIndex;
@@ -39,7 +38,7 @@ namespace Communication
                     _socket.BeginAccept(result => 
                     {
                         int currentIndex = _lastSpeakerIndex;
-                        Speaker speaker = new Speaker(_socket.EndAccept(result), () => _speakers.Remove(currentIndex));
+                        Speaker speaker = new Speaker(_socket.EndAccept(result), () => _speakers.Remove(currentIndex), new DefaultRoutine());
                         _speakers.Add(currentIndex, speaker);
                         _lastSpeakerIndex++;
                     }, null);

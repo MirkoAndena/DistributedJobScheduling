@@ -1,7 +1,7 @@
 namespace Communication
 {
-    public interface IMessage
+    public abstract class Message
     {
-        string ToString();
+        
     }
 }
