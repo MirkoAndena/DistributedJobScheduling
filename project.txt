@@ -1,0 +1,9 @@
+
+Assunzioni
+1. i nodi sono sulla stessa rete
+2. link affidabili (grazie all'uso di TCP)
+3. il primo nodo che parte non può crashare finche il gruppo non è stato creato e ci sono almeno 2 partecipanti
+
+
+1. Bully election ma si manda a id minore per non rieleggere tutte le volte che entra un nodo
+2. Ogni TH si manda un HeartBeat con cui si scopre se il coordinatore è vivo
