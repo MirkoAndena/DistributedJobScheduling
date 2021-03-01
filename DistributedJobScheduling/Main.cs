@@ -6,6 +6,9 @@ public class Program
 {
     static void Main(string[] args)
     {
+        WorkerGroup group = WorkerGroup.Build("group.json", 2);
+        Console.WriteLine($"Me: {group.Me}, Coordinator: {group.Coordinator}");
+
         // Start the server
         Listener listener = new Listener();
 
@@ -26,6 +29,7 @@ class DummyRoutine : Routine
         Message message = new DummyMessage("Hello World!");
         Send(message);
         Console.WriteLine($"Sent: {message.ToString()}");
+        Close();
     }
 }
 

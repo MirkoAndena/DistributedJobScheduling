@@ -3,7 +3,25 @@ Assunzioni
 1. i nodi sono sulla stessa rete
 2. link affidabili (grazie all'uso di TCP)
 3. il primo nodo che parte non può crashare finche il gruppo non è stato creato e ci sono almeno 2 partecipanti
+4. quando un worker faila poi riprende i job assegnati
 
 
 1. Bully election ma si manda a id minore per non rieleggere tutte le volte che entra un nodo
 2. Ogni TH si manda un HeartBeat con cui si scopre se il coordinatore è vivo
+3. Tabella replicata per evitare di perderla se crasha il coordinator
+
+
+Procedura di inserimento job
+1. client manda job a worker 1
+2. worker 1 manda job al coordinator che lo assegna a worker 2
+3. coordinator inizia procedura di aggiornamento datastore mandando j a worker 2 e id di j a tutti
+4. ack di tutti a tutti
+5. a chi è stato assegnato j mette il job in pending
+6. worker 1 manda al client id di j (serve ack da client a worker 1)
+7. client manda ack a worker 1
+8. worker 1 manda a tutti che client ha ricevuto id
+9. worker 2 comincia a lavorare a j
+
+
+
+TODO: gestire richiesta di update con id non esistente
