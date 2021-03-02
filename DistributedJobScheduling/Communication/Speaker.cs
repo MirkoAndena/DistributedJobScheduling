@@ -4,19 +4,21 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using Routines;
+using System.Threading;
 
 namespace Communication
 {
     public class Speaker : ICommunicator
     {
-        private Socket _socket;
+        private TcpClient _client;
         private Action _closeCallback;
         private byte[] _buffer;
         private Routine _routine;
+        private CancellationTokenSource _cancellationTokenSource;
 
-        public Speaker(Socket socket, Action closeCallback, Routine routine)
+        public Speaker(TcpClient tcpClient, Action closeCallback, Routine routine)
         {
-            this._socket = socket;
+            this._client = tcpClient;
             this._closeCallback = closeCallback;
             this._buffer = new byte[1024];
             this._routine = routine;
@@ -33,20 +35,17 @@ namespace Communication
 
         public void Connect(string host)
         {
-            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Tcp);
-            _socket.BeginConnect(host, Listener.PORT, result => 
-            {
-                _socket.EndConnect(result);
-                _routine.Communicator = this;
-                _routine.Start();
-            }, null);
+            _client = new TcpClient();
+            _client.ConnectAsync(host, Listener.PORT, _cancellationTokenSource.Token);
         }
 
         public void Close()
         {
-            _socket.Shutdown(SocketShutdown.Both);
-            _socket.Close();
-            _closeCallback?.Invoke();
+            if (_client != null)
+            {
+                _client.Close();
+                _closeCallback?.Invoke();
+            }
         }
 
         public bool ReceiveCallBack(Action<Message> callback)

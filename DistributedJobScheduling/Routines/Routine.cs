@@ -5,20 +5,18 @@ namespace Routines
     public abstract class Routine
     {
         private ICommunicator _communicator;
+        public ICommunicator Communicator { set { _communicator = value; } }
 
-        public ICommunicator Communicator
+        public void Start()
         {
-            set
-            {
-                this._communicator = value;
-                this._communicator.ReceiveCallBack(message => OnMessageReceived(message));
-            }
+            this._communicator.ReceiveCallBack(message => OnMessageReceived(message));
+            this.Build();
+            this._communicator.Close();
         }
 
-        protected void Close() => _communicator.Close();
         protected bool Send(Message message) => _communicator.Send(message);
 
         public abstract void OnMessageReceived(Message message);
-        public abstract void Start();
+        public abstract void Build();
     }
 }
