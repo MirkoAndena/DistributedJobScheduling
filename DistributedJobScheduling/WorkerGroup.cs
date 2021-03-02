@@ -1,8 +1,8 @@
 using System.Net;
 using System.Collections.Generic;
 using Communication;
-using System.Text.Json;
 using System.IO;
+using Newtonsoft.Json;
 
 class Node
 {
@@ -50,7 +50,7 @@ class WorkerGroup
     private static List<Node> ReadFromJson(string jsonPath)
     {
         string json = File.ReadAllText(jsonPath);
-        StoredGroup stored = JsonSerializer.Deserialize<StoredGroup>(json);
+        StoredGroup stored = JsonConvert.DeserializeObject<StoredGroup>(json);
         return stored.Nodes;
     }
     
