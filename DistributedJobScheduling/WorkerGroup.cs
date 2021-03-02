@@ -4,7 +4,7 @@ using Communication;
 using System.IO;
 using Newtonsoft.Json;
 
-class Node
+public class Node
 {
     public string IP;
     public int ID;

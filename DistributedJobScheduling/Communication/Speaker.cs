@@ -23,6 +23,8 @@ namespace Communication
             this._routine.Communicator = this;
         }
 
+        public static void CreateAndRun(Node node, Routine routine) => CreateAndRun(node.IP, routine);
+
         public static void CreateAndRun(string host, Routine routine)
         {
             Speaker speaker = new Speaker(null, null, routine);

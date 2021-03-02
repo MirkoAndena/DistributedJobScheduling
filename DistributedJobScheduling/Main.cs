@@ -4,16 +4,19 @@ using Routines;
 
 public class Program
 {
+    const int ID = 2;
+
     static void Main(string[] args)
     {
-        WorkerGroup group = WorkerGroup.Build("group.json", 2);
+        WorkerGroup group = WorkerGroup.Build("group.json", ID);
         Console.WriteLine($"Me: {group.Me}, Coordinator: {group.Coordinator}");
 
         // Start the server
         Listener listener = new Listener();
 
         // Talk with someone
-        Speaker.CreateAndRun("127.0.0.1", new DummyRoutine());    
+        Speaker.CreateAndRun(group.Coordinator, new DummyRoutine());    
+        Speaker.CreateAndRun(group.Others[1], new DummyRoutine());    
     }
 }
 
