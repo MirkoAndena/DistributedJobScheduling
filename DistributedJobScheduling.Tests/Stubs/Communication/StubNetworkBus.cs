@@ -14,14 +14,14 @@ namespace Tests.Communication
         private static StubNetworkBus _instance;
         public static StubNetworkBus Instance => (_instance ??= new StubNetworkBus());
 
-        private Dictionary<Node, ICommunicator> _networkMap;
+        private Dictionary<Node, ICommunicationManager> _networkMap;
 
         public StubNetworkBus()
         {
-            _networkMap = new Dictionary<Node, ICommunicator>();
+            _networkMap = new Dictionary<Node, ICommunicationManager>();
         }
 
-        public void RegisterToNetwork(Node node, ICommunicator communicator)
+        public void RegisterToNetwork(Node node, ICommunicationManager communicator)
         {
             if(!_networkMap.ContainsKey(node))
                 _networkMap.Add(node, communicator);
