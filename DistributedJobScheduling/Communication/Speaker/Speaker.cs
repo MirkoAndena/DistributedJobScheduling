@@ -7,25 +7,25 @@ namespace Communication
 {
     public class Speaker : BaseSpeaker
     {
-        private CancellationTokenSource _connectToken;
-
         public Speaker() : base(new TcpClient())
         {
-            _connectToken = new CancellationTokenSource();
+
         }
 
-        public async Task Connect(Node node)
+        public async Task Connect(Node node, int timeout)
         {
-            try
-            {
-                _interlocutor = node;
-                await _client.ConnectAsync(node.IP, Listener.PORT, _connectToken.Token);
-            }
-            catch
+            _interlocutor = node;
+            Task connectTask = _client.ConnectAsync(node.IP, Listener.PORT);
+            Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeout));
+            await Task.WhenAny(connectTask, timeoutTask);
+
+            connectTask.Dispose();
+            timeoutTask.Dispose();
+
+            if (timeoutTask.IsCompleted)
             {
                 this.Close();
                 Console.WriteLine($"An exception occured during connection to {node}");
-                throw;
             }
         }
     }

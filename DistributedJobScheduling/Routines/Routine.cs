@@ -34,7 +34,7 @@ namespace Routines
 
             // Create a new speaker and connect to remote
             speaker = new Speaker();
-            await ((Speaker)speaker).Connect(node);
+            await ((Speaker)speaker).Connect(node, 1); // todo prendere il timeout da un altra parte
             return speaker;
         }
     }

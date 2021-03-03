@@ -13,6 +13,8 @@ namespace Communication
         private TcpListener _listener;
         private CancellationTokenSource _cancellationTokenSource;
 
+        private Listener() { }
+
         public static Listener CreateAndStart()
         {
             Listener listener = new Listener();
@@ -63,7 +65,7 @@ namespace Communication
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
                     Node interlocutor = SearchFromIP(client.Client.RemoteEndPoint);
-                    ConnectedSpeaker speaker = new ConnectedSpeaker(client, interlocutor, node => _interlocutors.Remove(node));
+                    ConnectedSpeaker speaker = new ConnectedSpeaker(client, interlocutor, node => Interlocutors.Instance.Remove(node));
                     Interlocutors.Instance.Add(interlocutor, speaker);
                 }
             }

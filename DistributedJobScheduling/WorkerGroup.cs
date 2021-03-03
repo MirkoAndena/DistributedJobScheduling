@@ -4,8 +4,6 @@ using Communication;
 using System.IO;
 using Newtonsoft.Json;
 
-using static OthersEnumerator = System.Collections.Generic.Dictionary<int, Node>.ValueCollection.Enumerator;
-
 public class Node
 {
     public string IP;
@@ -32,7 +30,7 @@ class StoredGroup
     }
 }
 
-class WorkerGroup
+public class WorkerGroup
 {
     public static WorkerGroup Instance { get; private set; }
 

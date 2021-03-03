@@ -12,7 +12,7 @@ public class Program
         Console.WriteLine($"Me: {group.Me}, Coordinator: {group.Coordinator}");
 
         // Start the server
-        Listener listener = new Listener();
+        Listener listener = Listener.CreateAndStart();
 
         Console.ReadKey();
 
