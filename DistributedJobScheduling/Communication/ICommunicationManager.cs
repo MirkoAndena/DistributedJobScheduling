@@ -6,7 +6,6 @@ using Communication;
 ///</summary>
 public interface ICommunicationManager
 {
-
     event Action<Node, Message> OnMessageReceived;
     Task<Message> SendAndWait(Node node, Message message, int timeout = 30);
     Task Send(Node node, Message message, int timeout = 30);
