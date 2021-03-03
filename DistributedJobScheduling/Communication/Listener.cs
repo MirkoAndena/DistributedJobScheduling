@@ -11,19 +11,11 @@ namespace Communication
     {
         public const int PORT = 30308;
         private TcpListener _listener;
-        private List<ConnectedSpeaker> _speakers;
         private CancellationTokenSource _cancellationTokenSource;
-        private Routine _routine;
 
-        public Listener(Routine routine)
+        public static Listener CreateAndStart()
         {
-            _speakers = new List<ConnectedSpeaker>();
-            _routine = routine;
-        }
-
-        public static Listener CreateAndStart(Routine routine)
-        {
-            Listener listener = new Listener(routine);
+            Listener listener = new Listener();
             listener.Start();
             return listener;
         }
@@ -45,7 +37,6 @@ namespace Communication
 
                 _cancellationTokenSource = new CancellationTokenSource();
                 AcceptConnection(_cancellationTokenSource.Token);
-                
             }
             catch (Exception e)
             {
@@ -54,17 +45,26 @@ namespace Communication
             }
         }
 
+        private Node SearchFromIP(EndPoint endPoint)
+        {
+            string ip = ((IPEndPoint)endPoint).Address.ToString();
+            if (ip == WorkerGroup.Instance.Coordinator.IP) return WorkerGroup.Instance.Coordinator;
+            foreach (Node node in WorkerGroup.Instance.Others.Values) 
+                if (ip == node.IP)
+                    return node;
+            throw new Exception($"Received a connection request from someone that's not in the group: ${ip}");
+        }
+
         private async void AcceptConnection(CancellationToken token)
         {
             try
             {
                 while(!token.IsCancellationRequested)
                 {
-                    int speakerIndex = _speakers.Count;
                     TcpClient client = await _listener.AcceptTcpClientAsync();
-                    ConnectedSpeaker speaker = new ConnectedSpeaker(client, () => _speakers.RemoveAt(speakerIndex));
-                    _routine.Communicator = speaker;
-                    _speakers.Add(speaker);
+                    Node interlocutor = SearchFromIP(client.Client.RemoteEndPoint);
+                    ConnectedSpeaker speaker = new ConnectedSpeaker(client, interlocutor, node => _interlocutors.Remove(node));
+                    Interlocutors.Instance.Add(interlocutor, speaker);
                 }
             }
             catch when (token.IsCancellationRequested) { }
@@ -80,12 +80,7 @@ namespace Communication
         public void Close()
         {
             _cancellationTokenSource?.Cancel();
-
-            using (Dictionary<int, Speaker>.ValueCollection.Enumerator enumerator = _speakers.Values.GetEnumerator())
-            {
-                while(enumerator.MoveNext())
-                    enumerator.Current.Close();
-            }
+            Interlocutors.Instance.CloseAll();
         }
     }
 }

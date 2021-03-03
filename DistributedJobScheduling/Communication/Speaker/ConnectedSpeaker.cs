@@ -5,17 +5,18 @@ namespace Communication
 {
     public class ConnectedSpeaker : BaseSpeaker
     {
-        private Action _closeCallback;
+        private Action<Node> _closeCallback;
         
-        public ConnectedSpeaker(TcpClient tcpClient, Action closeCallback) : base(tcpClient)
+        public ConnectedSpeaker(TcpClient tcpClient, Node interlocutor, Action<Node> closeCallback) : base(tcpClient)
         {
             this._closeCallback = closeCallback;
+            this._interlocutor = interlocutor;
         }
 
         public new void Close()
         {
             base.Close();
-            _closeCallback?.Invoke();
+            _closeCallback?.Invoke(_interlocutor);
         }
     }
 }

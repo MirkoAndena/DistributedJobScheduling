@@ -12,11 +12,7 @@ public class Program
         Console.WriteLine($"Me: {group.Me}, Coordinator: {group.Coordinator}");
 
         // Start the server
-        Listener listener = Listener.CreateAndStart(new DummyRoutine());
-
-        // Talk with someone
-        //Speaker.CreateAndRun(group.Coordinator, new DummyRoutine());    
-        Speaker.CreateAndRun(group.Others[3], new DummyRoutine());   
+        Listener listener = new Listener();
 
         Console.ReadKey();
 

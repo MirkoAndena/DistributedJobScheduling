@@ -1,22 +1,41 @@
+using System.Threading.Tasks;
 using Communication;
 
 namespace Routines
 {
     public abstract class Routine
     {
-        private ICommunicator _communicator;
-        public ICommunicator Communicator { set { _communicator = value; } }
-
         public void Start()
         {
-            this._communicator.ReceiveCallBack(message => OnMessageReceived(message));
             this.Build();
-            this._communicator.Close();
         }
 
-        protected bool Send(Message message) => _communicator.Send(message);
+        protected async Task SendTo(Node node, Message message)
+        {
+            BaseSpeaker speaker = await GetSpeakerTo(node);
+            await speaker.Send(message);
+        }
 
-        public abstract void OnMessageReceived(Message message);
+        protected async Task<T> ReceiveFrom<T>(Node node) where T: Message
+        {
+            BaseSpeaker speaker = await GetSpeakerTo(node);
+            return await speaker.Receive<T>();
+        }
+
         public abstract void Build();
+
+        private BaseSpeaker SearchConnectedSpeakerTo(Node node) => Interlocutors.Instance.GetSpeaker(node);
+
+        private async Task<BaseSpeaker> GetSpeakerTo(Node node)
+        {
+            // Retrieve an already connected speaker
+            BaseSpeaker speaker = SearchConnectedSpeakerTo(node);
+            if (speaker != null) return speaker;
+
+            // Create a new speaker and connect to remote
+            speaker = new Speaker();
+            await ((Speaker)speaker).Connect(node);
+            return speaker;
+        }
     }
 }
