@@ -4,6 +4,8 @@ using Communication;
 using System.IO;
 using Newtonsoft.Json;
 
+using static OthersEnumerator = System.Collections.Generic.Dictionary<int, Node>.ValueCollection.Enumerator;
+
 public class Node
 {
     public string IP;
@@ -32,6 +34,8 @@ class StoredGroup
 
 class WorkerGroup
 {
+    public static WorkerGroup Instance { get; private set; }
+
     private Dictionary<int, Node> _others;
     private Node _me;
     private Node _coordinator;
@@ -56,11 +60,11 @@ class WorkerGroup
     
     public static WorkerGroup Build(string groupJsonFile, int myID)
     {
-        return new WorkerGroup(ReadFromJson(groupJsonFile), myID);
+        WorkerGroup.Instance = new WorkerGroup(ReadFromJson(groupJsonFile), myID);
+        return WorkerGroup.Instance;
     }
 
     public Node Me => _me;
     public Node Coordinator => _coordinator;
     public Dictionary<int, Node> Others => _others;
-    public Dictionary<int, Node>.ValueCollection.Enumerator OthersEnumerator => _others.Values.GetEnumerator();
 }
