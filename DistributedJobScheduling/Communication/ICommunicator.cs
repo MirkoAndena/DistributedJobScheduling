@@ -1,11 +1,12 @@
 using System;
+using System.Threading.Tasks;
 
 namespace Communication
 {
     public interface ICommunicator
     {
         void Close();
-        bool Send(Message message);
-        bool ReceiveCallBack(Action<Message> callback);
+        Task Send(Message message);
+        Task<T> Receive<T>() where T: Message;
     }
 }

@@ -25,6 +25,17 @@ namespace Communication
             this._routine.Communicator = this;
         }
 
+        public Speaker(Routine routine)
+        {
+            this._client = null;
+            this._closeCallback = null;
+            this._buffer = new byte[1024];
+            this._routine = routine;
+            this._routine.Communicator = this;
+        }
+
+        
+
         public static void CreateAndRun(Node node, Routine routine) => CreateAndRun(node.IP, routine);
 
         public static void CreateAndRun(string host, Routine routine)

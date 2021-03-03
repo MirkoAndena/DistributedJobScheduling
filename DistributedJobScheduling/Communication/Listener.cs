@@ -11,15 +11,13 @@ namespace Communication
     {
         public const int PORT = 30308;
         private TcpListener _listener;
-        private Dictionary<int, Speaker> _speakers;
-        private int _lastSpeakerIndex;
+        private List<ConnectedSpeaker> _speakers;
         private CancellationTokenSource _cancellationTokenSource;
         private Routine _routine;
 
         public Listener(Routine routine)
         {
-            _lastSpeakerIndex = 0;
-            _speakers = new Dictionary<int, Speaker>();
+            _speakers = new List<ConnectedSpeaker>();
             _routine = routine;
         }
 
@@ -62,11 +60,11 @@ namespace Communication
             {
                 while(!token.IsCancellationRequested)
                 {
-                    int currentIndex = _lastSpeakerIndex;
+                    int speakerIndex = _speakers.Count;
                     TcpClient client = await _listener.AcceptTcpClientAsync();
-                    Speaker speaker = new Speaker(socketToRemote, () => _speakers.Remove(currentIndex), _routine);
-                    _speakers.Add(currentIndex, speaker);
-                    _lastSpeakerIndex++;
+                    ConnectedSpeaker speaker = new ConnectedSpeaker(client, () => _speakers.RemoveAt(speakerIndex));
+                    _routine.Communicator = speaker;
+                    _speakers.Add(speaker);
                 }
             }
             catch when (token.IsCancellationRequested) { }
