@@ -7,7 +7,7 @@ using Communication;
 public interface ICommunicationManager
 {
     event Action<Node, Message> OnMessageReceived;
-    Task<Message> SendAndWait(Node node, Message message, int timeout = 30);
+    Task<T> SendAndWait<T>(Node node, Message message, int timeout = 30) where T: Message;
     Task Send(Node node, Message message, int timeout = 30);
     ITopicPublisher GetPublisher(Type topicType);
 }

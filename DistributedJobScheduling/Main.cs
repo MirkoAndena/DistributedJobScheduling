@@ -1,6 +1,5 @@
 using System;
 using Communication;
-using Routines;
 
 public class Program
 {
@@ -8,7 +7,7 @@ public class Program
 
     static void Main(string[] args)
     {
-        WorkerGroup group = WorkerGroup.Build("group.json", ID);
+        Workers group = Workers.Build("group.json", ID);
         Console.WriteLine($"Me: {group.Me}, Coordinator: {group.Coordinator}");
 
         // Start the server

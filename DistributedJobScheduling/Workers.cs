@@ -30,15 +30,15 @@ class StoredGroup
     }
 }
 
-public class WorkerGroup
+public class Workers
 {
-    public static WorkerGroup Instance { get; private set; }
+    public static Workers Instance { get; private set; }
 
     private Dictionary<int, Node> _others;
     private Node _me;
     private Node _coordinator;
 
-    private WorkerGroup(List<Node> nodes, int myID) 
+    private Workers(List<Node> nodes, int myID) 
     {
         _others = new Dictionary<int, Node>();
         nodes.ForEach(node => 
@@ -56,10 +56,10 @@ public class WorkerGroup
         return stored.Nodes;
     }
     
-    public static WorkerGroup Build(string groupJsonFile, int myID)
+    public static Workers Build(string groupJsonFile, int myID)
     {
-        WorkerGroup.Instance = new WorkerGroup(ReadFromJson(groupJsonFile), myID);
-        return WorkerGroup.Instance;
+        Workers.Instance = new Workers(ReadFromJson(groupJsonFile), myID);
+        return Workers.Instance;
     }
 
     public Node Me => _me;

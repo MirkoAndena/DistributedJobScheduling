@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;  
-using System.Net.Sockets;  
-using Routines;
+using System.Net.Sockets;
 using System.Threading;
 
 namespace Communication
@@ -50,8 +49,8 @@ namespace Communication
         private Node SearchFromIP(EndPoint endPoint)
         {
             string ip = ((IPEndPoint)endPoint).Address.ToString();
-            if (ip == WorkerGroup.Instance.Coordinator.IP) return WorkerGroup.Instance.Coordinator;
-            foreach (Node node in WorkerGroup.Instance.Others.Values) 
+            if (ip == Workers.Instance.Coordinator.IP) return Workers.Instance.Coordinator;
+            foreach (Node node in Workers.Instance.Others.Values) 
                 if (ip == node.IP)
                     return node;
             throw new Exception($"Received a connection request from someone that's not in the group: ${ip}");
