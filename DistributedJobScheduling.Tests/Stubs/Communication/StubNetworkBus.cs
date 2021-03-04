@@ -1,12 +1,8 @@
 using System.Collections.Generic;
-using System;
-using System.IO;
-using System.Net.Sockets;
-using System.Text;
-using System.Text.Json;
-using Communication;
+using DistributedJobScheduling.Communication;
+using DistributedJobScheduling.Communication.Basic;
 
-namespace Tests.Communication
+namespace DistributedJobScheduling.Tests.Communication
 {
     public class StubNetworkBus
     {
