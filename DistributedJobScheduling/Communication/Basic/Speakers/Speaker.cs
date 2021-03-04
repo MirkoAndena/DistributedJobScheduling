@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 using System.Threading;
 using Newtonsoft.Json;
 
-namespace Communication
+namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
-    public class Speaker : ICommunicator
+    public class Speaker
     {
         protected TcpClient _client;
         private NetworkStream _stream;

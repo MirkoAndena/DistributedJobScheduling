@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Net;  
 using System.Net.Sockets;
 using System.Threading;
+using DistributedJobScheduling.Communication.Basic.Speakers;
 
-namespace Communication
+namespace DistributedJobScheduling.Communication.Basic
 {
     public class Listener
     {
@@ -55,8 +55,8 @@ namespace Communication
                 while(!token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
-                    Speaker speaker = new Speaker(client);
                     Node interlocutor = SearchFromIP(client.Client.RemoteEndPoint);
+                    Speaker speaker = new Speaker(client, interlocutor);
                     OnSpeakerCreated?.Invoke(interlocutor, speaker);
                 }
             }

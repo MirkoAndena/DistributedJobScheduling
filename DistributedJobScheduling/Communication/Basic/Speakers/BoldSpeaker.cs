@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Communication
+namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
     public class BoldSpeaker : Speaker
     {
