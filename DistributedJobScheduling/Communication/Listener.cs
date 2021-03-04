@@ -11,15 +11,7 @@ namespace Communication
         public const int PORT = 30308;
         private TcpListener _listener;
         private CancellationTokenSource _cancellationTokenSource;
-
-        private Listener() { }
-
-        public static Listener CreateAndStart()
-        {
-            Listener listener = new Listener();
-            listener.Start();
-            return listener;
-        }
+        public event Action<Node, Speaker> OnSpeakerCreated;
 
         public void Start()
         {
@@ -63,9 +55,9 @@ namespace Communication
                 while(!token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
+                    Speaker speaker = new Speaker(client);
                     Node interlocutor = SearchFromIP(client.Client.RemoteEndPoint);
-                    ConnectedSpeaker speaker = new ConnectedSpeaker(client, interlocutor, node => Interlocutors.Instance.Remove(node));
-                    Interlocutors.Instance.Add(interlocutor, speaker);
+                    OnSpeakerCreated?.Invoke(interlocutor, speaker);
                 }
             }
             catch when (token.IsCancellationRequested) { }
@@ -81,7 +73,6 @@ namespace Communication
         public void Close()
         {
             _cancellationTokenSource?.Cancel();
-            Interlocutors.Instance.CloseAll();
         }
     }
 }
