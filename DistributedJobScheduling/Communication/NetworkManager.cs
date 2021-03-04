@@ -10,12 +10,17 @@ namespace DistributedJobScheduling.Communication
     {
         private Dictionary<int, Speaker> _speakers;
         private Listener _listener;
+        private Shouter _shouter;
 
         public event Action<Node, Message> OnMessageReceived;
 
         public NetworkManager()
         {
             _speakers = new Dictionary<int, Speaker>();
+
+            _shouter = new Shouter();
+            _shouter.Start();
+
             _listener = new Listener();
             _listener.OnSpeakerCreated += OnSpeakerCreated;
             _listener.Start();
@@ -63,13 +68,14 @@ namespace DistributedJobScheduling.Communication
             return speaker;
         }
 
-        public Task SendMulticast(Message message)
+        public async Task SendMulticast(Message message)
         {
-            throw new NotImplementedException();
+            await _shouter.SendMulticast(message);
         }
 
         public void Close() 
         {
+            _shouter.Close();
             _listener.Close();
             _speakers.ForEach((id, speaker) => 
             {
