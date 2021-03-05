@@ -12,9 +12,9 @@ namespace DistributedJobScheduling.Tests.Communication.Messaging
             _node = node;
         }
 
-        public string CreateTimeStamp()
+        public int CreateTimeStamp()
         {
-            return $"{_node.ID}_{_idCount++}";
+            return _idCount++;
         }
     }
 }

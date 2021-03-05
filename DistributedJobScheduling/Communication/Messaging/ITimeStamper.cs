@@ -5,6 +5,6 @@ namespace DistributedJobScheduling.Communication.Messaging
 {
     public interface ITimeStamper
     {
-        string CreateTimeStamp();
+        int CreateTimeStamp();
     }
 }

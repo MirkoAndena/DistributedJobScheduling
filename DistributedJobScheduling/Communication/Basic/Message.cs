@@ -9,8 +9,11 @@ namespace DistributedJobScheduling.Communication.Basic
     /// </summary>
     public abstract class Message
     {
-        private string _messageID;
-        private string _isResponseOf;
+        private int _messageID;
+        private int _isResponseOf;
+
+        public int? SenderID;
+        public int? ReceiverID;
 
         public Message(ITimeStamper timestampMechanism = null)
         {
@@ -26,7 +29,14 @@ namespace DistributedJobScheduling.Communication.Basic
             _isResponseOf = message._messageID;
         }
 
-        public bool IsTheExpectedMessage(Message previous) => _isResponseOf == previous._messageID;
+        public bool NodesInfoPresent => SenderID.HasValue && ReceiverID.HasValue;
+
+        public bool IsTheExpectedMessage(Message previous)
+        {
+            bool idCheck = _isResponseOf == previous._messageID;
+            bool nodeCheckEnabled = this.NodesInfoPresent && previous.NodesInfoPresent;
+            return idCheck && nodeCheckEnabled ? SenderID.Value == previous.ReceiverID.Value && ReceiverID.Value == previous.SenderID.Value : true;
+        }
 
         public byte[] Serialize()
         {
