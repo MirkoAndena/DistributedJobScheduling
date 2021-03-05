@@ -1,4 +1,5 @@
 using System.Text;
+using DistributedJobScheduling.Communication.Messaging;
 using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Basic
@@ -8,20 +9,19 @@ namespace DistributedJobScheduling.Communication.Basic
     /// </summary>
     public abstract class Message
     {
-        private static int _idCount = 0;
         private string _messageID;
         private string _isResponseOf;
 
-        public Message()
+        public Message(ITimeStamper timestampMechanism = null)
         {
-            _messageID = $"{Workers.Instance.Me.ID}_{_idCount}";
-            _idCount++;
+            timestampMechanism ??= new ScalarTimeStamper();
+            _messageID = timestampMechanism.CreateTimeStamp();
         }
 
         /// <summary>
         /// Create a message that is the response of another message
         /// </summary>
-        public Message(Message message) : this()
+        public Message(Message message, ITimeStamper timestampMechanism = null) : this(timestampMechanism)
         {
             _isResponseOf = message._messageID;
         }

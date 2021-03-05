@@ -1,3 +1,6 @@
+using System.Linq;
+using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
@@ -6,20 +9,22 @@ namespace DistributedJobScheduling.Tests.Communication
 {
     public class StubNetworkBus
     {
-        private static StubNetworkBus _instance;
-        public static StubNetworkBus Instance => (_instance ??= new StubNetworkBus());
+        private Dictionary<Node, StubNetworkManager> _networkMap;
+        private Random _random;
 
-        private Dictionary<Node, ICommunicationManager> _networkMap;
-
-        public StubNetworkBus()
+        public StubNetworkBus(int randomSeed)
         {
-            _networkMap = new Dictionary<Node, ICommunicationManager>();
+            _networkMap = new Dictionary<Node, StubNetworkManager>();
+            _random = new Random(randomSeed);
         }
 
-        public void RegisterToNetwork(Node node, ICommunicationManager communicator)
+        public void RegisterToNetwork(Node node, StubNetworkManager communicator)
         {
             if(!_networkMap.ContainsKey(node))
+            {
                 _networkMap.Add(node, communicator);
+                communicator.RegisteredToNetwork(this);
+            }
         }
 
         public void UnregisterFromNetwork(Node node)
@@ -28,10 +33,22 @@ namespace DistributedJobScheduling.Tests.Communication
                 _networkMap.Remove(node);
         }
 
-        public void SendTo(Node to, Message message)
+        public async Task SendTo(Node from, Node to, Message message, int timeout)
         {
-            //if(_networkMap.ContainsKey(to))
-            //    _networkMap[to].
+            await Task.Delay(_random.Next(5,17));
+
+            if(_networkMap.ContainsKey(to))
+                _networkMap[to].FakeReceive(from, message);
+            else
+                await Task.Delay(TimeSpan.FromSeconds(timeout));
+        }
+
+        public async Task SendMulticast(Node from,Message message)
+        {
+            var nodesToSendTo = _networkMap.Keys.Where(x => x != from).OrderBy(n => _random.Next());
+
+            await Task.Delay(_random.Next(5,17));
+            nodesToSendTo.ForEach(x => _networkMap[x].FakeReceive(from, message));
         }
     }
 }
