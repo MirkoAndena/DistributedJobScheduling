@@ -2,6 +2,7 @@ using System.Net;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
+using System;
 
 namespace DistributedJobScheduling
 {
@@ -66,5 +67,15 @@ namespace DistributedJobScheduling
         public Node Me => _me;
         public Node Coordinator => _coordinator;
         public Dictionary<int, Node> Others => _others;
+
+        public static Node SearchFromIP(EndPoint endPoint)
+        {
+            string ip = ((IPEndPoint)endPoint).Address.ToString();
+            if (ip == Workers.Instance.Coordinator.IP) return Workers.Instance.Coordinator;
+            foreach (Node node in Workers.Instance.Others.Values) 
+                if (ip == node.IP)
+                    return node;
+            throw new Exception($"Received a connection request from someone that's not in the group: ${ip}");
+        }
     }
 }

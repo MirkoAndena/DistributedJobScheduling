@@ -44,25 +44,13 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
         }
 
-        private byte[] Serialize(Message message)
-        {
-            string json = JsonConvert.SerializeObject(message);
-            return Encoding.UTF8.GetBytes(json);
-        }
-
-        private T Deserialize<T>(byte[] bytes)
-        {
-            string json = Encoding.UTF8.GetString(bytes);
-            return JsonConvert.DeserializeObject<T>(json);
-        }
-
         public async Task<T> Receive<T>() where T: Message
         {
             try
             {
                 byte[] bytes = new byte[1024];
                 await _stream.ReadAsync(bytes, 0, bytes.Length, _receiveToken.Token);
-                return Deserialize<T>(bytes);
+                return Message.Deserialize<T>(bytes);
             }
             catch
             {
@@ -96,7 +84,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         {
             try
             {
-                byte[] bytes = Serialize(message);
+                byte[] bytes = message.Serialize();
                 await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
             }
             catch

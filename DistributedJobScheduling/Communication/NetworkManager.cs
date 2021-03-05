@@ -19,6 +19,7 @@ namespace DistributedJobScheduling.Communication
             _speakers = new Dictionary<int, Speaker>();
 
             _shouter = new Shouter();
+            _shouter.OnMessageReceived += _OnMessageReceived;
             _shouter.Start();
 
             _listener = new Listener();
@@ -36,7 +37,7 @@ namespace DistributedJobScheduling.Communication
         {
             OnMessageReceived?.Invoke(node, message);
         }
-
+        
         public ITopicPublisher GetPublisher(Type topicType)
         {
             throw new NotImplementedException();
@@ -75,8 +76,12 @@ namespace DistributedJobScheduling.Communication
 
         public void Close() 
         {
+            _shouter.OnMessageReceived -= OnMessageReceived;
+            _listener.OnSpeakerCreated -= OnSpeakerCreated;
+
             _shouter.Close();
             _listener.Close();
+
             _speakers.ForEach((id, speaker) => 
             {
                 speaker.Close();

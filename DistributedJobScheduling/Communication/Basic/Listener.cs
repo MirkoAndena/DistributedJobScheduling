@@ -38,16 +38,6 @@ namespace DistributedJobScheduling.Communication.Basic
             }
         }
 
-        private Node SearchFromIP(EndPoint endPoint)
-        {
-            string ip = ((IPEndPoint)endPoint).Address.ToString();
-            if (ip == Workers.Instance.Coordinator.IP) return Workers.Instance.Coordinator;
-            foreach (Node node in Workers.Instance.Others.Values) 
-                if (ip == node.IP)
-                    return node;
-            throw new Exception($"Received a connection request from someone that's not in the group: ${ip}");
-        }
-
         private async void AcceptConnection(CancellationToken token)
         {
             try
@@ -55,7 +45,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 while(!token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
-                    Node interlocutor = SearchFromIP(client.Client.RemoteEndPoint);
+                    Node interlocutor = Workers.SearchFromIP(client.Client.RemoteEndPoint);
                     Speaker speaker = new Speaker(client, interlocutor);
                     OnSpeakerCreated?.Invoke(interlocutor, speaker);
                 }
