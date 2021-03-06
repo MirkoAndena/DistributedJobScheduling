@@ -16,14 +16,17 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         private CancellationTokenSource _receiveToken;
         private CancellationTokenSource _globalReceiveToken;
 
-        public event Action<string, Message> OnMessageReceived;
+        protected Node _remote;
 
-        public Speaker(TcpClient client)
+        public event Action<Node, Message> OnMessageReceived;
+
+        public Speaker(TcpClient client, Node remote)
         {
             _stream = _client.GetStream();
             _sendToken = new CancellationTokenSource();
             _receiveToken = new CancellationTokenSource();
             _globalReceiveToken = new CancellationTokenSource();
+            _remote = remote;
         }
 
         public void AbortSend() => _sendToken.Cancel();
@@ -63,7 +66,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 try
                 {
                     Message response = await Receive<Message>();
-                    OnMessageReceived?.Invoke(NetworkUtils.GetRemoteIP(_client), response);
+                    OnMessageReceived?.Invoke(_remote, response);
                 }
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 

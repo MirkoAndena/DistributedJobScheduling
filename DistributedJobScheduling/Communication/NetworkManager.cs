@@ -27,13 +27,13 @@ namespace DistributedJobScheduling.Communication
             _listener.Start();
         }
 
-        private void OnSpeakerCreated(string ip, Speaker speaker)
+        private void OnSpeakerCreated(Node node, Speaker speaker)
         {
             _speakers.Add(node, speaker);
             speaker.OnMessageReceived += _OnMessageReceived;
         }
 
-        private void _OnMessageReceived(string ip, Message message)
+        private void _OnMessageReceived(Node node, Message message)
         {
             OnMessageReceived?.Invoke(node, message);
         }
@@ -63,8 +63,8 @@ namespace DistributedJobScheduling.Communication
                 return _speakers[node];
 
             // Create a new speaker and connect to remote
-            BoldSpeaker speaker = new BoldSpeaker();
-            await speaker.Connect(node.IP, timeout);
+            BoldSpeaker speaker = new BoldSpeaker(node.IP);
+            await speaker.Connect(timeout);
             
             if (!_speakers.ContainsKey(node))
                 _speakers.Add(node, speaker);

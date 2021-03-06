@@ -11,7 +11,7 @@ namespace DistributedJobScheduling.Communication.Basic
         public const int PORT = 30308;
         private TcpListener _listener;
         private CancellationTokenSource _cancellationTokenSource;
-        public event Action<string, Speaker> OnSpeakerCreated;
+        public event Action<Node, Speaker> OnSpeakerCreated;
 
         public void Start()
         {
@@ -45,8 +45,9 @@ namespace DistributedJobScheduling.Communication.Basic
                 while(!token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
-                    Speaker speaker = new Speaker(client);
-                    OnSpeakerCreated?.Invoke(NetworkUtils.GetRemoteIP(client), speaker);
+                    Node remote = new Node(NetworkUtils.GetRemoteIP(client));
+                    Speaker speaker = new Speaker(client, remote);
+                    OnSpeakerCreated?.Invoke(remote, speaker);
                 }
             }
             catch when (token.IsCancellationRequested) { }

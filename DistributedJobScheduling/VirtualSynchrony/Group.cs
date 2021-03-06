@@ -1,6 +1,7 @@
 using System.Net;
 using System.Collections.Generic;
 using System;
+using DistributedJobScheduling.Communication.Basic;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -12,21 +13,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         public Group(int id, bool coordinator = false) 
         {
-            _me = new Node() { ID = id, IP = "" };
+            string myip = null;
+            _me = new Node(myip, id);
+
+            if (coordinator)
+                _coordinator = _me;
         }
 
         public Node Me => _me;
         public Node Coordinator => _coordinator;
         public Dictionary<int, Node> Others => _others;
-
-        public static Node SearchFromIP(EndPoint endPoint)
-        {
-            string ip = ((IPEndPoint)endPoint).Address.ToString();
-            if (ip == Group.Instance.Coordinator.IP) return Group.Instance.Coordinator;
-            foreach (Node node in Group.Instance.Others.Values) 
-                if (ip == node.IP)
-                    return node;
-            throw new Exception($"Received a connection request from someone that's not in the group: ${ip}");
-        }
     }
 }

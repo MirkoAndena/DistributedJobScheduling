@@ -1,6 +1,6 @@
 using System;
 using DistributedJobScheduling;
-using DistributedJobScheduling.Vi;
+using DistributedJobScheduling.VirtualSynchrony;
 
 public class Program
 {

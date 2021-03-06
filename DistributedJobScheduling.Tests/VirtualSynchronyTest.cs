@@ -44,7 +44,7 @@ namespace DistributedJobScheduling.Tests
 
         private FakeNode StartUpNode(int id, bool coordinator, StubNetworkBus networkBus)
         {
-            Node node = new Node($"127.0.0.{id}", id, coordinator);
+            Node node = new Node($"127.0.0.{id}", id);
             StubNetworkManager commMgr = new StubNetworkManager(node);
             IGroupViewManager groupManager = new GroupViewManager(commMgr);
             ITimeStamper nodeTimeStamper = new StubScalarTimeStamper(node);
