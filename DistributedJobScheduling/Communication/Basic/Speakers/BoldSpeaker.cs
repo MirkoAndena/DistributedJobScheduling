@@ -7,14 +7,14 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
     public class BoldSpeaker : Speaker
     {
-        public BoldSpeaker(Node interlocutor) : base(new TcpClient(), interlocutor)
+        public BoldSpeaker(string remoteIP) : base(new TcpClient(), new Node(remoteIP))
         {
 
         }
 
         public async Task Connect(int timeout)
         {
-            Task connectTask = _client.ConnectAsync(_interlocutor.IP, Listener.PORT);
+            Task connectTask = _client.ConnectAsync(_remote.IP, Listener.PORT);
             Task timeoutTask = Task.Delay(TimeSpan.FromSeconds(timeout));
             await Task.WhenAny(connectTask, timeoutTask);
 
@@ -24,7 +24,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             if (timeoutTask.IsCompleted)
             {
                 this.Close();
-                Console.WriteLine($"An exception occured during connection to {_interlocutor}");
+                Console.WriteLine($"An exception occured during connection to {_remote}");
             }
         }
     }

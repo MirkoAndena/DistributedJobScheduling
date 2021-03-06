@@ -45,9 +45,9 @@ namespace DistributedJobScheduling.Communication.Basic
                 while(!token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
-                    Node interlocutor = Workers.SearchFromIP(client.Client.RemoteEndPoint);
-                    Speaker speaker = new Speaker(client, interlocutor);
-                    OnSpeakerCreated?.Invoke(interlocutor, speaker);
+                    Node remote = new Node(NetworkUtils.GetRemoteIP(client));
+                    Speaker speaker = new Speaker(client, remote);
+                    OnSpeakerCreated?.Invoke(remote, speaker);
                 }
             }
             catch when (token.IsCancellationRequested) { }

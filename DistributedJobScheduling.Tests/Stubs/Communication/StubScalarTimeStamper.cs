@@ -1,3 +1,4 @@
+using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.Tests.Communication.Messaging

@@ -39,7 +39,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 {
                     UdpReceiveResult result = await _client.ReceiveAsync();
                     Message message = Message.Deserialize<Message>(result.Buffer);
-                    Node remote = Workers.SearchFromIP(result.RemoteEndPoint);
+                    Node remote = new Node(NetworkUtils.GetRemoteIP(_client));
                     OnMessageReceived?.Invoke(remote, message);
                 }
             }

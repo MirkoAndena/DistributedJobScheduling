@@ -8,7 +8,7 @@ namespace DistributedJobScheduling.Communication
 {
     public class NetworkManager : ICommunicationManager
     {
-        private Dictionary<int, Speaker> _speakers;
+        private Dictionary<Node, Speaker> _speakers;
         private Listener _listener;
         private Shouter _shouter;
 
@@ -16,7 +16,7 @@ namespace DistributedJobScheduling.Communication
 
         public NetworkManager()
         {
-            _speakers = new Dictionary<int, Speaker>();
+            _speakers = new Dictionary<Node, Speaker>();
 
             _shouter = new Shouter();
             _shouter.OnMessageReceived += _OnMessageReceived;
@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.Communication
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
         {
-            _speakers.Add(node.ID, speaker);
+            _speakers.Add(node, speaker);
             speaker.OnMessageReceived += _OnMessageReceived;
         }
 
@@ -59,13 +59,16 @@ namespace DistributedJobScheduling.Communication
         private async Task<Speaker> GetSpeakerTo(Node node, int timeout)
         {
             // Retrieve an already connected speaker
-            if (_speakers.ContainsKey(node.ID))
-                return _speakers[node.ID];
+            if (_speakers.ContainsKey(node))
+                return _speakers[node];
 
             // Create a new speaker and connect to remote
-            BoldSpeaker speaker = new BoldSpeaker(node);
+            BoldSpeaker speaker = new BoldSpeaker(node.IP);
             await speaker.Connect(timeout);
-            OnSpeakerCreated(node, speaker);
+            
+            if (!_speakers.ContainsKey(node))
+                _speakers.Add(node, speaker);
+
             return speaker;
         }
 
@@ -76,7 +79,7 @@ namespace DistributedJobScheduling.Communication
 
         public void Close() 
         {
-            _shouter.OnMessageReceived -= OnMessageReceived;
+            _shouter.OnMessageReceived -= _OnMessageReceived;
             _listener.OnSpeakerCreated -= OnSpeakerCreated;
 
             _shouter.Close();
