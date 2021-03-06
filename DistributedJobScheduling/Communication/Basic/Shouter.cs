@@ -12,7 +12,7 @@ namespace DistributedJobScheduling.Communication.Basic
         const int PORT = 30309;
         const string MULTICAST_IP = "226.122.24.12";
 
-        public Action<Node, Message> OnMessageReceived;
+        public Action<string, Message> OnMessageReceived;
         private CancellationTokenSource _closeTokenSource;
         private UdpClient _client;
 
@@ -39,8 +39,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 {
                     UdpReceiveResult result = await _client.ReceiveAsync();
                     Message message = Message.Deserialize<Message>(result.Buffer);
-                    Node remote = Workers.SearchFromIP(result.RemoteEndPoint);
-                    OnMessageReceived?.Invoke(remote, message);
+                    OnMessageReceived?.Invoke(NetworkUtils.GetRemoteIP(_client), message);
                 }
             }
             catch when (_closeTokenSource.Token.IsCancellationRequested) { }
