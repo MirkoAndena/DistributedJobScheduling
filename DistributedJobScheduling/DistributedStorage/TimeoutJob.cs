@@ -3,7 +3,17 @@ using System.Threading.Tasks;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
-    public class TimeoutJob : Job<bool>
+    public class BooleanJobResult : IJobResult 
+    { 
+        public bool Value;
+
+        public BooleanJobResult(bool value)
+        {
+            this.Value = value;
+        }
+    }
+
+    public class TimeoutJob : Job
     {
         private int _seconds;
 
@@ -12,10 +22,10 @@ namespace DistributedJobScheduling.DistributedStorage
             _seconds = seconds;
         }
 
-        public override async Task<bool> Run()
+        public override async Task<IJobResult> Run()
         {
             await Task.Delay(TimeSpan.FromSeconds(_seconds));
-            return true;
+            return new BooleanJobResult(true);
         }
     }
 }

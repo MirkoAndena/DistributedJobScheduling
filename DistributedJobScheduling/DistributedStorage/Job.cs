@@ -10,11 +10,17 @@ namespace DistributedJobScheduling.DistributedStorage
         REMOVED
     }
 
-    public abstract class Job<T>
+    public interface IJobResult { }
+
+    public abstract class Job
     {
         protected JobStatus _status;
         protected int? _id;
         protected int? _node;
+
+        public JobStatus Status => _status;
+        public int ID { get { return _id.Value; } set { _id = value; } }
+        public int Node { get { return _node.Value; } set { _node = value; } }
 
         // ? The constructor will be called only by the client??
         protected Job()
@@ -24,6 +30,6 @@ namespace DistributedJobScheduling.DistributedStorage
             _node = null;
         }
 
-        public abstract Task<T> Run();
+        public abstract Task<IJobResult> Run();
     }
 }
