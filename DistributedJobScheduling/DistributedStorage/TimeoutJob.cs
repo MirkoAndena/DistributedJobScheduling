@@ -22,7 +22,7 @@ namespace DistributedJobScheduling.DistributedStorage
             _seconds = seconds;
         }
 
-        public override async Task<IJobResult> Run()
+        public override async Task<IJobResult> _run()
         {
             await Task.Delay(TimeSpan.FromSeconds(_seconds));
             return new BooleanJobResult(true);

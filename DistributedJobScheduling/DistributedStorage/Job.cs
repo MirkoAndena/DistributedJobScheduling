@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 
 namespace DistributedJobScheduling.DistributedStorage
@@ -18,6 +19,8 @@ namespace DistributedJobScheduling.DistributedStorage
         protected int? _id;
         protected int? _node;
 
+        public Action<Job> OnStatusChanged;
+
         public JobStatus Status => _status;
         public int ID { get { return _id.Value; } set { _id = value; } }
         public int Node { get { return _node.Value; } set { _node = value; } }
@@ -30,6 +33,22 @@ namespace DistributedJobScheduling.DistributedStorage
             _node = null;
         }
 
-        public abstract Task<IJobResult> Run();
+        private void ChangeStatus(JobStatus jobStatus)
+        {
+            _status = jobStatus;
+            OnStatusChanged?.Invoke(this);
+        }
+
+        public async Task<IJobResult> Run()
+        {
+            ChangeStatus(JobStatus.RUNNING);
+            IJobResult result = await _run();
+            ChangeStatus(JobStatus.COMPLETED);
+            return result;
+        }
+
+        public abstract Task<IJobResult> _run();
+
+        public void SetRemoved() => ChangeStatus(JobStatus.REMOVED);
     }
 }

@@ -9,8 +9,8 @@ namespace DistributedJobScheduling.DistributedStorage
     {
         private int _jobIdCount = 0;
         private List<Job> _value;
-
         private Action<Job> OnJobAssigned;
+        private Action<Job> OnJobStatusChanged;
 
         public List<Job> Value => _value;
 
@@ -19,15 +19,32 @@ namespace DistributedJobScheduling.DistributedStorage
             _value = new List<Job>();
         }
 
-        public void DeletePendingJobs()
+        public void DeletePendingAndRemovedJobs()
         {
-            _value.RemoveAll(job => job.Status == JobStatus.PENDING);
+            _value.RemoveAll(job => 
+                job.Status == JobStatus.PENDING || 
+                job.Status == JobStatus.REMOVED);
         }
 
         public void Add(Job job)
         {
+            job.OnStatusChanged += _OnJobStatusChanged;
             _value.Add(job);
-        } 
+        }
+
+        public void SetJobDeliveredToClient(Job job)
+        {
+            if (_value.Contains(job))
+            {
+                job.OnStatusChanged -= _OnJobStatusChanged;
+                job.SetRemoved();
+            }
+        }
+
+        private void _OnJobStatusChanged(Job job)
+        {
+            OnJobStatusChanged?.Invoke(job);
+        }
 
         public void AddAndAssign(Job job, Group group)
         {
@@ -63,6 +80,27 @@ namespace DistributedJobScheduling.DistributedStorage
             });
 
             return min.Item1;
+        }
+
+        public async void RunAssignedJob(Group group)
+        {
+            while (true)
+            {
+                Job current = FindJobToExecute(group.Me);
+                if (current != null)
+                    await current.Run();
+            }
+        }
+
+        private Job FindJobToExecute(Node me)
+        {
+            Job toExecute = null;
+            _value.ForEach(job => 
+            {
+                if (job.Status == JobStatus.PENDING && job.Node == me.ID)
+                    toExecute = job;
+            });
+            return toExecute;
         }
     }
 }
