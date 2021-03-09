@@ -6,9 +6,11 @@ namespace DistributedJobScheduling.Communication
 {
     public interface ITopicPublisher
     {
-        List<Type> TopicMessageTypes { get; }
+        HashSet<Type> TopicMessageTypes { get; }
         event Action<Node, Message> OnMessagePublished;
-        void RouteMessage(Node node, Message message);
+
+        // messageType is passed as arguement to only compute its type once
+        void RouteMessage(Type messageType, Node node, Message message);
         void RegisterForMessage(Type messageType, Action<Node, Message> onMessageReceived);
         void UnregisterForMessage(Type messageType, Action<Node, Message> onMessageReceived);
     }

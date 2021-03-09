@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Topics;
 
 namespace DistributedJobScheduling.Tests.Communication
 {
@@ -15,7 +16,10 @@ namespace DistributedJobScheduling.Tests.Communication
 
         public StubNetworkManager(Node node)
         {
-            _topics = new Dictionary<Type, ITopicPublisher>();
+            _topics = new Dictionary<Type, ITopicPublisher>
+            {
+                [typeof(VirtualSynchronyTopicPublisher)] = new VirtualSynchronyTopicPublisher() //Virtual Synchrony
+            };
             _me = node;
         }
 
@@ -58,7 +62,8 @@ namespace DistributedJobScheduling.Tests.Communication
         public void FakeReceive(Node node, Message message)
         {
             OnMessageReceived?.Invoke(node, message);
-            _topics.Values.ForEach(t => t.RouteMessage(node, message));
+            Type messageType = message.GetType();
+            _topics.Values.ForEach(t => t.RouteMessage(messageType, node, message));
         }
     }
 }

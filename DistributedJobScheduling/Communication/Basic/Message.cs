@@ -49,5 +49,15 @@ namespace DistributedJobScheduling.Communication.Basic
             string json = Encoding.UTF8.GetString(bytes);
             return JsonConvert.DeserializeObject<T>(json);
         }
+
+        /// <summary>
+        /// Binds message to this one (copies the IDs)
+        /// </summary>
+        /// <param name="message"></param>
+        public void Bind(Message message)
+        {
+            message._messageID = _messageID;
+            message._isResponseOf = _isResponseOf;
+        }
     }
 }
