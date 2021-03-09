@@ -22,8 +22,6 @@ namespace DistributedJobScheduling.DistributedStorage
         public int ID { get { return _id.Value; } set { _id = value; } }
         public int Node { get { return _node.Value; } set { _node = value; } }
 
-        public bool IsAssigned => _node.HasValue;
-
         // ? The constructor will be called only by the client??
         protected Job()
         {

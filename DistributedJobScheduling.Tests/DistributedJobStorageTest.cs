@@ -21,8 +21,7 @@ namespace DistributedJobScheduling.Tests
         private void CreateJobAndAssign(DistributedList storage, Group group)
         {
             Job job = new TimeoutJob(0);
-            storage.Add(job);
-            storage.Assign(job, group);
+            storage.AddAndAssign(job, group);
         }
 
         [Fact]

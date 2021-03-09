@@ -9,7 +9,7 @@ namespace DistributedJobScheduling.DistributedStorage
     {
         private int _jobIdCount = 0;
         private List<Job> _value;
-        private Action<Job> OnJobInserted;
+
         private Action<Job> OnJobAssigned;
 
         public List<Job> Value => _value;
@@ -27,23 +27,14 @@ namespace DistributedJobScheduling.DistributedStorage
         public void Add(Job job)
         {
             _value.Add(job);
-            OnJobInserted?.Invoke(job);
         } 
 
-        public void Assign(Job job, Group group)
+        public void AddAndAssign(Job job, Group group)
         {
-            foreach (Job stored in _value)
-            {
-                if (stored == job)
-                {
-                    stored.Node = FindNodeWithLessJobs(group);
-                    stored.ID = _jobIdCount++;
-                    OnJobAssigned?.Invoke(job);
-                    return;
-                }
-            }
-
-            throw new System.Exception("No job found int the local storage");
+            job.Node = FindNodeWithLessJobs(group);
+            job.ID = _jobIdCount++;
+            _value.Add(job);
+            OnJobAssigned?.Invoke(job);
         }
 
         private int FindNodeWithLessJobs(Group group)
@@ -57,13 +48,10 @@ namespace DistributedJobScheduling.DistributedStorage
             // For each node calculate how many jobs are assigned
             foreach (Job job in _value)
             {
-                if (job.IsAssigned)
-                {
-                    if (nodeJobCount.ContainsKey(job.Node))
-                        nodeJobCount[job.Node]++;
-                    else
-                        nodeJobCount.Add(job.Node, 1);
-                }
+                if (nodeJobCount.ContainsKey(job.Node))
+                    nodeJobCount[job.Node]++;
+                else
+                    nodeJobCount.Add(job.Node, 1);
             }
 
             // Find the node with the less number of assignment
