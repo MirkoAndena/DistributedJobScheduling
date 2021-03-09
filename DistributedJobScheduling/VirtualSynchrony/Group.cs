@@ -7,7 +7,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 {
     public class Group
     {
-        private Dictionary<int, Node> _others;
+        private List<Node> _others;
         private Node _me;
         private Node _coordinator;
 
@@ -18,10 +18,23 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             if (coordinator)
                 _coordinator = _me;
+
+            _others = new List<Node>();
         }
 
         public Node Me => _me;
         public Node Coordinator => _coordinator;
-        public Dictionary<int, Node> Others => _others;
+        public List<Node> Others => _others;
+
+        public void Add(Node node) => _others.Add(node);
+        public void AddCoordinator(Node node) => _coordinator = node;
+
+        public void Remove(Node node)
+        {
+            if (_coordinator == node)
+                _coordinator = null;
+            if (_others.Contains(node))
+                _others.Remove(node);
+        }
     }
 }
