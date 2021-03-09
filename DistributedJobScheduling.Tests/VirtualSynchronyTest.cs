@@ -46,8 +46,8 @@ namespace DistributedJobScheduling.Tests
         {
             Node node = new Node($"127.0.0.{id}", id);
             StubNetworkManager commMgr = new StubNetworkManager(node);
-            IGroupViewManager groupManager = new GroupViewManager(commMgr);
             ITimeStamper nodeTimeStamper = new StubScalarTimeStamper(node);
+            IGroupViewManager groupManager = new GroupViewManager(commMgr, nodeTimeStamper);
 
             networkBus.RegisterToNetwork(node, commMgr);
 
