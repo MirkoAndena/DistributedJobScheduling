@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Basic.Speakers;
+using DistributedJobScheduling.Communication.Topics;
 
 namespace DistributedJobScheduling.Communication
 {
@@ -11,6 +12,10 @@ namespace DistributedJobScheduling.Communication
         private Dictionary<Node, Speaker> _speakers;
         private Listener _listener;
         private Shouter _shouter;
+
+        public ITopicOutlet Topics { get; private set; } = new GenericTopicOutlet(
+            new VirtualSynchronyTopicPublisher()
+        );
 
         public event Action<Node, Message> OnMessageReceived;
 
@@ -36,11 +41,6 @@ namespace DistributedJobScheduling.Communication
         private void _OnMessageReceived(Node node, Message message)
         {
             OnMessageReceived?.Invoke(node, message);
-        }
-        
-        public ITopicPublisher GetPublisher(Type topicType)
-        {
-            throw new NotImplementedException();
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)

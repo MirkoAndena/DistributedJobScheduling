@@ -8,6 +8,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
     public class GroupViewManager : IGroupViewManager
     {
+        public ITopicOutlet Topics { get; private set; } = new GenericTopicOutlet();
+
         private ICommunicationManager _communicationManager;
         public GroupViewManager() : this(DependencyManager.Get<ICommunicationManager>()) {}
         internal GroupViewManager(ICommunicationManager communicationManager)
@@ -16,11 +18,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
         }
 
         public event Action<Node, Message> OnMessageReceived;
-
-        public ITopicPublisher GetPublisher(Type topicType)
-        {
-            throw new NotImplementedException();
-        }
 
         public Task Send(Node node, Message message, int timeout = 30)
         {

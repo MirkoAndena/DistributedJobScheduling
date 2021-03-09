@@ -10,24 +10,16 @@ namespace DistributedJobScheduling.Tests.Communication
     public class StubNetworkManager : ICommunicationManager
     {
         public event Action<Node, Message> OnMessageReceived;
-        private Dictionary<Type, ITopicPublisher> _topics;
         private StubNetworkBus _networkBus;
         private Node _me;
 
+        public ITopicOutlet Topics { get; private set; } = new GenericTopicOutlet(
+            new VirtualSynchronyTopicPublisher()
+        );
+
         public StubNetworkManager(Node node)
         {
-            _topics = new Dictionary<Type, ITopicPublisher>
-            {
-                [typeof(VirtualSynchronyTopicPublisher)] = new VirtualSynchronyTopicPublisher() //Virtual Synchrony
-            };
             _me = node;
-        }
-
-        public ITopicPublisher GetPublisher(Type topicType)
-        {
-            if(_topics.ContainsKey(topicType))
-                return _topics[topicType];
-            return null;
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)
@@ -62,8 +54,6 @@ namespace DistributedJobScheduling.Tests.Communication
         public void FakeReceive(Node node, Message message)
         {
             OnMessageReceived?.Invoke(node, message);
-            Type messageType = message.GetType();
-            _topics.Values.ForEach(t => t.RouteMessage(messageType, node, message));
         }
     }
 }
