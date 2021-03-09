@@ -9,6 +9,7 @@ namespace DistributedJobScheduling.Communication.Basic
     /// </summary>
     public abstract class Message
     {
+        public int TimeStamp => _messageID;
         private int _messageID;
         private int _isResponseOf;
 
