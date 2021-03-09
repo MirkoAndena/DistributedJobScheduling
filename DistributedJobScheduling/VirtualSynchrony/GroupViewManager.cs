@@ -8,13 +8,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
     public class GroupViewManager : IGroupViewManager
     {
-        public ITopicOutlet Topics { get; private set; } = new GenericTopicOutlet();
+        public ITopicOutlet Topics { get; private set; }
 
         private ICommunicationManager _communicationManager;
         public GroupViewManager() : this(DependencyManager.Get<ICommunicationManager>()) {}
         internal GroupViewManager(ICommunicationManager communicationManager)
         {
             _communicationManager = communicationManager;
+
+            Topics = new GenericTopicOutlet(this);
         }
 
         public event Action<Node, Message> OnMessageReceived;

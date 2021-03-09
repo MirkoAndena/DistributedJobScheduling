@@ -13,9 +13,7 @@ namespace DistributedJobScheduling.Communication
         private Listener _listener;
         private Shouter _shouter;
 
-        public ITopicOutlet Topics { get; private set; } = new GenericTopicOutlet(
-            new VirtualSynchronyTopicPublisher()
-        );
+        public ITopicOutlet Topics { get; private set; }
 
         public event Action<Node, Message> OnMessageReceived;
 
@@ -30,6 +28,10 @@ namespace DistributedJobScheduling.Communication
             _listener = new Listener();
             _listener.OnSpeakerCreated += OnSpeakerCreated;
             _listener.Start();
+
+            Topics = new GenericTopicOutlet(this,
+                new VirtualSynchronyTopicPublisher()
+            );
         }
 
         private void OnSpeakerCreated(Node node, Speaker speaker)

@@ -13,13 +13,15 @@ namespace DistributedJobScheduling.Tests.Communication
         private StubNetworkBus _networkBus;
         private Node _me;
 
-        public ITopicOutlet Topics { get; private set; } = new GenericTopicOutlet(
-            new VirtualSynchronyTopicPublisher()
-        );
+        public ITopicOutlet Topics { get; private set; }
 
         public StubNetworkManager(Node node)
         {
             _me = node;
+
+            Topics = new GenericTopicOutlet(this,
+                new VirtualSynchronyTopicPublisher()
+            );
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)

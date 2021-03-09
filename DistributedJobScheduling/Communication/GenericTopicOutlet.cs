@@ -11,10 +11,11 @@ namespace DistributedJobScheduling.Communication
     {
         private Dictionary<Type, ITopicPublisher> _topics;
 
-        public GenericTopicOutlet(params ITopicPublisher[] topics)
+        public GenericTopicOutlet(ICommunicationManager communicationManger, params ITopicPublisher[] topics)
         {
             _topics = new Dictionary<Type, ITopicPublisher>();
             topics.ForEach(RegisterPublisher);
+            communicationManger.OnMessageReceived += PublishMessage;
         }
 
         public void RegisterPublisher<T>(T publisher) where T : ITopicPublisher
