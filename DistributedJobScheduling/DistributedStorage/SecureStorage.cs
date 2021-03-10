@@ -4,11 +4,16 @@ using System.IO;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
-    class Jobs { public List<Job> value; }
+    public class Jobs
+    { 
+        public List<Job> value;
+
+        public Jobs() { }
+    }
 
     public class SecureStorage
     {
-        const string FILENAME = "secure_storage.json";
+        private string FILENAME = "secure_storage.json";
         private static SecureStorage _instance;
         private List<Job> _value;
 
