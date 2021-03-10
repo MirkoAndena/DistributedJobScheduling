@@ -1,5 +1,7 @@
 using System;
 using DistributedJobScheduling;
+using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.VirtualSynchrony;
 
 public class Program
@@ -13,7 +15,9 @@ public class Program
             return;
         }
 
-        Group group = new Group(commandlineParams.Value.Item1, commandlineParams.Value.Item2);
+        var nodeRegistry = DependencyManager.Get<Node.INodeRegistry>();
+        Node me = nodeRegistry.GetOrCreate(id: commandlineParams.Value.Item1);
+        Group group = new Group(me, commandlineParams.Value.Item2);
         
     }
 

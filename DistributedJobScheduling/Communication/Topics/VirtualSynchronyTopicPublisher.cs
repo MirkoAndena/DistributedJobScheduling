@@ -10,7 +10,9 @@ namespace DistributedJobScheduling.Communication.Topics
         private HashSet<Type> _topics = new HashSet<Type>
         {
             typeof(TemporaryMessage),
-            typeof(TemporaryAckMessage)
+            typeof(TemporaryAckMessage),
+            typeof(ViewChangeMessage),
+            typeof(FlushMessage)
         };
         public override HashSet<Type> TopicMessageTypes => _topics;
     }

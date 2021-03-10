@@ -7,7 +7,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
     public class BoldSpeaker : Speaker
     {
-        public BoldSpeaker(string remoteIP) : base(new TcpClient(), new Node(remoteIP))
+        public BoldSpeaker(Node remote) : base(new TcpClient(), remote)
         {
 
         }

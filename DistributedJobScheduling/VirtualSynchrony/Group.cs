@@ -7,34 +7,28 @@ namespace DistributedJobScheduling.VirtualSynchrony
 {
     public class Group
     {
-        private List<Node> _others;
-        private Node _me;
-        private Node _coordinator;
+        public Node Me { get; private set; }
+        public Node Coordinator  { get; private set; }
+        public HashSet<Node> Others  { get; private set; }
 
-        public Group(int id, bool coordinator = false) 
+        public Group(Node me, bool coordinator = false) 
         {
-            string myip = null;
-            _me = new Node(myip, id);
+            Me = me;
 
             if (coordinator)
-                _coordinator = _me;
+                Coordinator = Me;
 
-            _others = new List<Node>();
+            Others = new HashSet<Node>();
         }
 
-        public Node Me => _me;
-        public Node Coordinator => _coordinator;
-        public List<Node> Others => _others;
-
-        public void Add(Node node) => _others.Add(node);
-        public void AddCoordinator(Node node) => _coordinator = node;
+        public void Add(Node node) => Others.Add(node);
+        public void UpdateCoordinator(Node node) => Coordinator = node;
 
         public void Remove(Node node)
         {
-            if (_coordinator == node)
-                _coordinator = null;
-            if (_others.Contains(node))
-                _others.Remove(node);
+            if (Coordinator == node)
+                Coordinator = null;
+            Others.Remove(node);
         }
     }
 }

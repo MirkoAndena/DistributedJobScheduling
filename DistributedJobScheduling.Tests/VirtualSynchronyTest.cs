@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using System;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
+using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.Tests.Communication;
 using DistributedJobScheduling.Tests.Communication.Messaging;
 using DistributedJobScheduling.VirtualSynchrony;
@@ -44,10 +46,17 @@ namespace DistributedJobScheduling.Tests
 
         private FakeNode StartUpNode(int id, bool coordinator, StubNetworkBus networkBus)
         {
-            Node node = new Node($"127.0.0.{id}", id);
+            //FIXME: Shift to new nodeRegistry paradigm
+            Node.INodeRegistry nodeRegistry = new Node.NodeRegistryService();
+            Node node = nodeRegistry.GetOrCreate($"127.0.0.{id}", id);
             StubNetworkManager commMgr = new StubNetworkManager(node);
             ITimeStamper nodeTimeStamper = new StubScalarTimeStamper(node);
-            IGroupViewManager groupManager = new GroupViewManager(commMgr, nodeTimeStamper);
+            IGroupViewManager groupManager = new GroupViewManager(nodeRegistry,
+                                                                  commMgr, 
+                                                                  nodeTimeStamper, 
+                                                                  new FakeConfigurator(new Dictionary<string, object> {
+                                                                    ["nodeId"] = id
+                                                                }));
 
             networkBus.RegisterToNetwork(node, commMgr);
 

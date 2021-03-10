@@ -12,9 +12,17 @@ namespace DistributedJobScheduling.Communication.Basic
         const int PORT = 30309;
         const string MULTICAST_IP = "226.122.24.12";
 
+        private Node.INodeRegistry _nodeRegistry;
+
         public Action<Node, Message> OnMessageReceived;
         private CancellationTokenSource _closeTokenSource;
         private UdpClient _client;
+
+        public Shouter() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>()) {}
+        public Shouter(Node.INodeRegistry nodeRegistry)
+        {
+            _nodeRegistry = nodeRegistry;
+        }
 
         public void Start()
         {
@@ -39,7 +47,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 {
                     UdpReceiveResult result = await _client.ReceiveAsync();
                     Message message = Message.Deserialize<Message>(result.Buffer);
-                    Node remote = new Node(NetworkUtils.GetRemoteIP(_client));
+                    Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(_client));
                     OnMessageReceived?.Invoke(remote, message);
                 }
             }

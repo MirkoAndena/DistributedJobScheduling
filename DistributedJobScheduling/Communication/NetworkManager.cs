@@ -65,7 +65,7 @@ namespace DistributedJobScheduling.Communication
                 return _speakers[node];
 
             // Create a new speaker and connect to remote
-            BoldSpeaker speaker = new BoldSpeaker(node.IP);
+            BoldSpeaker speaker = new BoldSpeaker(node);
             await speaker.Connect(timeout);
             
             if (!_speakers.ContainsKey(node))

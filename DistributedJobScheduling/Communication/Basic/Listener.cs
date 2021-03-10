@@ -8,10 +8,18 @@ namespace DistributedJobScheduling.Communication.Basic
 {
     public class Listener
     {
+        private Node.INodeRegistry _nodeRegistry;
+
         public const int PORT = 30308;
         private TcpListener _listener;
         private CancellationTokenSource _cancellationTokenSource;
         public event Action<Node, Speaker> OnSpeakerCreated;
+
+        public Listener() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>()) {}
+        public Listener(Node.INodeRegistry nodeRegistry)
+        {
+            _nodeRegistry = nodeRegistry;
+        }
 
         public void Start()
         {
@@ -45,7 +53,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 while(!token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
-                    Node remote = new Node(NetworkUtils.GetRemoteIP(client));
+                    Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(client));
                     Speaker speaker = new Speaker(client, remote);
                     OnSpeakerCreated?.Invoke(remote, speaker);
                 }

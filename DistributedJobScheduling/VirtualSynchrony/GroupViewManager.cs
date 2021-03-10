@@ -1,26 +1,31 @@
+using System;
+using System.Threading.Tasks;
 using System.Collections.Generic;
+using DistributedJobScheduling.Communication;
+using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Topics;
+using DistributedJobScheduling.Communication.Messaging;
+using DistributedJobScheduling.Configuration;
+using DistributedJobScheduling.DependencyInjection;
 namespace DistributedJobScheduling.VirtualSynchrony
 {
-    using System;
-    using System.Threading.Tasks;
-    using DependencyInjection;
-    using Communication.Basic;
-    using Communication;
-    using DistributedJobScheduling.Communication.Topics;
-    using DistributedJobScheduling.Communication.Messaging;
 
     //TODO: Timeouts?
     public class GroupViewManager : IGroupViewManager
     {
         private class MulticastNotDeliveredException : Exception {}
 
+        public Group View { get; private set; }
+
         public ITopicOutlet Topics { get; private set; }
-        public Node Me => null;
-        public HashSet<Node> GroupView { get; private set; } 
 
         private ICommunicationManager _communicationManager;
         private ITimeStamper _messageTimeStamper;
+        private Node.INodeRegistry _nodeRegistry;
         private ITopicPublisher _virtualSynchronyTopic;
+
+        
+        #region Messaging Variables
 
         /// <summary>
         /// Maps the tuple (senderID, timestamp) to the hashset of nodes that need to acknowledge the message
@@ -31,8 +36,24 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private HashSet<TemporaryMessage> _sentTemporaryMessages;
         private Dictionary<TemporaryMessage, TaskCompletionSource<bool>> _sendComplenentionMap;
 
-        public GroupViewManager() : this(DependencyManager.Get<ICommunicationManager>(), DependencyManager.Get<ITimeStamper>()) {}
-        internal GroupViewManager(ICommunicationManager communicationManager, ITimeStamper timeStamper)
+        #endregion
+
+        #region View Change Variables
+
+        private ViewChangeMessage _pendingViewChange;
+        private TaskCompletionSource<bool> _viewChangeInProgress;
+
+        #endregion
+
+        public GroupViewManager() : this(DependencyManager.Get<Node.INodeRegistry>(),
+                                         DependencyManager.Get<ICommunicationManager>(), 
+                                         DependencyManager.Get<ITimeStamper>(),
+                                         DependencyManager.Get<IConfigurationService>()
+                                         ) {}
+        internal GroupViewManager(Node.INodeRegistry nodeRegistry,
+                                  ICommunicationManager communicationManager, 
+                                  ITimeStamper timeStamper,
+                                  IConfigurationService configurationService)
         {
             _communicationManager = communicationManager;
             _messageTimeStamper = timeStamper;
@@ -43,35 +64,48 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
             Topics = new GenericTopicOutlet(this);
-            GroupView = new HashSet<Node>();
+            View = new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), false);
 
             _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryMessage), OnTemporaryMessageReceived);
             _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryAckMessage), OnTemporaryAckReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(ViewChangeMessage), OnTemporaryAckReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(FlushMessage), OnTemporaryAckReceived);
         }
 
         public event Action<Node, Message> OnMessageReceived;
 
-        public Task Send(Node node, Message message, int timeout = 30)
+        private async Task CheckViewChanges()
         {
+            if(_viewChangeInProgress != null)
+                if(!await _viewChangeInProgress.Task)
+                    throw new MulticastNotDeliveredException(); //FATAL, TODO: Fatal exceptions?
+        }
+
+        public async Task Send(Node node, Message message, int timeout = 30)
+        {
+            await CheckViewChanges();
             throw new NotImplementedException();
         }
 
-        public Task<T> SendAndWait<T>(Node node, Message message, int timeout = 30) where T : Message
+        public async Task<T> SendAndWait<T>(Node node, Message message, int timeout = 30) where T : Message
         {
+            await CheckViewChanges();
             throw new NotImplementedException();
         }
 
         public async Task SendMulticast(Message message)
         {
+            await CheckViewChanges();
+
             TemporaryMessage tempMessage = new TemporaryMessage(message);
-            var messageKey = (Me.ID.Value, tempMessage.TimeStamp);
+            var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp);
             _confirmationQueue.Add(messageKey, tempMessage);
             _sentTemporaryMessages.Add(tempMessage);
             _sendComplenentionMap.Add(tempMessage, new TaskCompletionSource<bool>(false));
 
             await _communicationManager.SendMulticast(tempMessage);
 
-            ProcessAcknowledge(messageKey, Me);
+            ProcessAcknowledge(messageKey, View.Me);
 
             //True if every node in the view acknowledged the message
             if(!await _sendComplenentionMap[tempMessage].Task)
@@ -83,7 +117,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             TemporaryMessage tempMessage = message as TemporaryMessage;
 
             //Only care about messages from nodes in my current group view
-            if(GroupView.Contains(node))
+            if(View.Others.Contains(node))
             {
                 var messageKey = (node.ID.Value, tempMessage.TimeStamp);
                 _confirmationQueue.Add(messageKey, tempMessage);
@@ -98,7 +132,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             TemporaryAckMessage tempAckMessage = message as TemporaryAckMessage;
             
             //Only care about messages from nodes in my current group view
-            if(GroupView.Contains(node))
+            if(View.Others.Contains(node))
             {
                 var messageKey = (tempAckMessage.OriginalSenderID, tempAckMessage.OriginalTimestamp);
                 ProcessAcknowledge(messageKey, node);   
@@ -111,7 +145,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private void ProcessAcknowledge((int,int) messageKey, Node node)
         {
             if(!_confirmationMap.ContainsKey(messageKey))
-                _confirmationMap.Add(messageKey, new HashSet<Node>(GroupView));
+                _confirmationMap.Add(messageKey, new HashSet<Node>(View.Others));
             
             var confirmationSet = _confirmationMap[messageKey];
             confirmationSet.Remove(node);
@@ -131,9 +165,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _confirmationMap.Remove(messageKey);
             _confirmationQueue.Remove(messageKey);
             
-            //If sender, notify events
             if(_sentTemporaryMessages.Contains(message))
             {
+                //If sender, notify events
                 _sentTemporaryMessages.Remove(message);
                 _sendComplenentionMap[message].SetResult(true);
                 _sendComplenentionMap.Remove(message);
@@ -141,9 +175,56 @@ namespace DistributedJobScheduling.VirtualSynchrony
             else
             {
                 //If receiver notify reception
-                //FIXME: Get node instance
-                Node sender = null;
+                Node sender = _nodeRegistry.GetNode(message.SenderID.Value);
                 OnMessageReceived?.Invoke(sender, message.UnstablePayload);
+            }
+        }
+
+        private void OnFlushMessageReceived(Node node, Message message)
+        {
+            //FIXME: Flush messages should be tied to a viewchange
+            var flushMessage = message as FlushMessage;
+            if(View.Others.Contains(node))
+            {
+                if(_pendingViewChange == null)
+                    throw new Exception("FATAL: Received flush before view change!");
+            }
+        }
+
+        private void OnViewChangeReceived(Node node, Message message)
+        {
+            //TODO: Duplicates?
+            var viewChangeMessage = message as ViewChangeMessage;
+            if(View.Others.Contains(node))
+                HandleViewChange(node, viewChangeMessage);
+        }
+
+        /// <summary>
+        /// Handles a View change notified by someone
+        /// </summary>
+        /// <param name="viewChangeMessage">Message containing the view change</param>
+        private void HandleViewChange(Node initiator, ViewChangeMessage viewChangeMessage)
+        {
+            Node viewChange = _nodeRegistry.GetOrCreate(viewChangeMessage.Node);
+            //Assume no view change while changing view
+            if(_viewChangeInProgress == null)
+            {
+                _viewChangeInProgress = new TaskCompletionSource<bool>();
+                _pendingViewChange = viewChangeMessage;
+
+                if(_pendingViewChange.ViewChange == ViewChangeMessage.ViewChangeOperation.Left)
+                {
+                    //FIXME: Shouldn't we multicast unstable messages from the dead node? Probably handled by timeout (either all or none)
+                    //FIXME: Doesn't this potentially lead to the consolidation of messages we don't have? (everyone ACKed the message but the crashed node still didn't send it to us)
+                    //Ignore acknowledges from the dead node
+                    _confirmationMap.Keys.ForEach(messageKey => ProcessAcknowledge(messageKey, viewChange));
+                }
+            }
+            else if(initiator == View.Me || initiator != viewChange)
+            {
+                //FATAL: Double View Change
+                _viewChangeInProgress.SetResult(false);
+                throw new Exception("FATAL: ViewChange during view change");
             }
         }
     }

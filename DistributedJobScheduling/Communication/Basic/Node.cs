@@ -1,11 +1,11 @@
 namespace DistributedJobScheduling.Communication.Basic
 {
-    public class Node
+    public partial class Node
     {
-        public string IP;
-        public int? ID;
+        public string IP { get; private set; }
+        public int? ID { get; private set; }
 
-        public Node(string ip, int? id = null)
+        private Node(string ip, int? id = null)
         {
             IP = ip;
             ID = id;
@@ -15,6 +15,6 @@ namespace DistributedJobScheduling.Communication.Basic
         {
             if (ID.HasValue) return $"{ID} ({IP})";
             else return $"anonymous ({IP})";
-        } 
+        }
     }
 }
