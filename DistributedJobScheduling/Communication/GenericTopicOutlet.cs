@@ -20,7 +20,7 @@ namespace DistributedJobScheduling.Communication
 
         public void RegisterPublisher<T>(T publisher) where T : ITopicPublisher
         {
-            Type publisherType = typeof(T);
+            Type publisherType = publisher.GetType();
             if(!_topics.ContainsKey(publisherType))
                 _topics.Add(publisherType, publisher);
         }

@@ -1,3 +1,5 @@
+using System.Threading;
+using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
 using DistributedJobScheduling.Communication;
@@ -19,21 +21,36 @@ namespace DistributedJobScheduling.Tests
         }
         
         [Fact]
-        public void VirtualSynchronyJoin()
+        public async void VirtualSynchronyJoin()
         {
             StubNetworkBus networkBus = new StubNetworkBus(123);
 
             var node1 = StartUpNode(0, true, networkBus);
             var node2 = StartUpNode(2, false, networkBus);
             var node3 = StartUpNode(3, false, networkBus);
-
-            bool _wasReceivedBy2 = false, _wasReceivedBy3 = false;
-            node2.commMgr.OnMessageReceived += (n,m) => _wasReceivedBy2 = true;
-            node3.commMgr.OnMessageReceived += (n,m) => _wasReceivedBy3 = true;
+            CancellationTokenSource cts = new CancellationTokenSource();
+            TaskCompletionSource<bool>[] _received = new TaskCompletionSource<bool>[]
+            {
+                new TaskCompletionSource<bool>(),
+                new TaskCompletionSource<bool>()
+            };
+            node2.commMgr.OnMessageReceived += (n,m) => _received[0].SetResult(true);
+            node3.commMgr.OnMessageReceived += (n,m) => _received[1].SetResult(true);
 
             node1.commMgr.SendMulticast(new EmptyMessage(node1.timeStamper)).Wait();
+            for(int i = 0; i < _received.Length; i++)
+            {
+                Task task = Task.Run(async () =>
+                {
+                    await Task.Delay(1000, cts.Token);
+                    _received[i].SetResult(false);
+                });
+            }
 
-            Assert.True(_wasReceivedBy2 && _wasReceivedBy3);
+            await Task.WhenAll(_received[0].Task, _received[1].Task);
+
+            Assert.True(_received[0].Task.Result && _received[0].Task.Result);
+            cts.Cancel();
         }
 
         private struct FakeNode
@@ -46,7 +63,6 @@ namespace DistributedJobScheduling.Tests
 
         private FakeNode StartUpNode(int id, bool coordinator, StubNetworkBus networkBus)
         {
-            //FIXME: Shift to new nodeRegistry paradigm
             Node.INodeRegistry nodeRegistry = new Node.NodeRegistryService();
             Node node = nodeRegistry.GetOrCreate($"127.0.0.{id}", id);
             StubNetworkManager commMgr = new StubNetworkManager(node);

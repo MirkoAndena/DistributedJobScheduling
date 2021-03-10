@@ -10,14 +10,13 @@ namespace DistributedJobScheduling.Tests
     {
         private Group CreateStubGroup()
         {
-            //FIXME: Need to shift to new registry paradigm
-            return null;
+            Node.INodeRegistry registry = new Node.NodeRegistryService();
             // Group with 4 nodes
-            //Group group = new Group(0);
-            //group.UpdateCoordinator(new Node("127.0.0.1", 1));
-            //group.Add(new Node("127.0.0.1", 2));
-            //group.Add(new Node("127.0.0.1", 3));
-            //return group;
+            Group group = new Group(registry.GetOrCreate("127.0.0.1", 0));
+            group.UpdateCoordinator(registry.GetOrCreate("127.0.0.2", 1));
+            group.Add(registry.GetOrCreate("127.0.0.3", 2));
+            group.Add(registry.GetOrCreate("127.0.0.4", 3));
+            return group;
         }
 
         private void CreateJobAndAssign(DistributedList storage, Group group)

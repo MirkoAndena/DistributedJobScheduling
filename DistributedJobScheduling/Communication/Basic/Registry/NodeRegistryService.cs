@@ -3,6 +3,7 @@ namespace DistributedJobScheduling.Communication.Basic
 {
     public partial class Node
     {
+        //TODO: Check constraints? Unique IP and NodeID?
         public class NodeRegistryService : INodeRegistry
         {
             private HashSet<Node> _localNodes = new HashSet<Node>();

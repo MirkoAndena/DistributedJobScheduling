@@ -61,6 +61,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                                   ITimeStamper timeStamper,
                                   IConfigurationService configurationService)
         {
+            _nodeRegistry = nodeRegistry;
             _communicationManager = communicationManager;
             _messageTimeStamper = timeStamper;
             _confirmationMap = new Dictionary<(int, int), HashSet<Node>>();
