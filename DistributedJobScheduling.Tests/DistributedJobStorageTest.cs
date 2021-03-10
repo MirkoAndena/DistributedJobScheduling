@@ -27,7 +27,7 @@ namespace DistributedJobScheduling.Tests
         [Fact]
         public void JobAssignment()
         {
-            DistributedList storage = new DistributedList();
+            DistributedList storage = new DistributedList(new SecureStorageStub());
             Group group = CreateStubGroup();
 
             CreateJobAndAssign(storage, group);
@@ -47,7 +47,7 @@ namespace DistributedJobScheduling.Tests
             int max = 0;
 
             Dictionary<int, int> occurences = new Dictionary<int, int>();
-            foreach (Job job in SecureStorage.Instance.Value)
+            foreach (Job job in list.Values)
                 if (occurences.ContainsKey(job.Node))
                     occurences[job.Node]++;
                 else

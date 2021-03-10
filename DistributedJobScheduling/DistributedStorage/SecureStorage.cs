@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using DistributedJobScheduling.DependencyInjection;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
@@ -11,33 +12,33 @@ namespace DistributedJobScheduling.DistributedStorage
         public Jobs() { }
     }
 
+    public interface IStore
+    {
+        string Read();
+        void Write(byte[] data);
+    }
+
     public class SecureStorage
     {
-        private string FILENAME = "secure_storage.json";
-        private static SecureStorage _instance;
         private List<Job> _value;
+        private IStore _store;
 
         public Action ValueChanged;
 
-        public static SecureStorage Instance => _instance ??= new SecureStorage();
-        public List<Job> Value => _value;
+        public List<Job> Values => _value;
 
-        private SecureStorage()
+        public SecureStorage() : this(DependencyManager.Get<Storage>()) { }
+        public SecureStorage(IStore store)
         {
+            _store = store;
             _value = Read();
             ValueChanged += Write;
         }
 
         private List<Job> Read()
         {
-            if (!File.Exists(FILENAME))
-            {
-                File.Create(FILENAME);
-                return new List<Job>();
-            }
-
-            string content = File.ReadAllText(FILENAME);
-            Jobs jobs = JsonSerialization.Deserialize<Jobs>(content);
+            string stored = _store.Read();
+            Jobs jobs = JsonSerialization.Deserialize<Jobs>(stored);
             if (jobs != null && jobs.value != null) return jobs.value;
             return new List<Job>();
         }
@@ -46,12 +47,11 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             Jobs jobs = new Jobs() { value = _value };
             byte[] json = JsonSerialization.Serialize(jobs);
-            File.WriteAllBytes(FILENAME, json);
+            _store.Write(json);
         }
 
         public void Close()
         {
-            _instance = null;
             _value = null;
             ValueChanged -= Write;
         }
