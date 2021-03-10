@@ -251,30 +251,32 @@ namespace DistributedJobScheduling.VirtualSynchrony
         }
 
         //If we are not waiting any more messages from alive nodes we need to consolidate messages
-        private bool FlushCondition() => !_flushed && !_confirmationMap.Any(pair => { return !pair.Value.IsSubsetOf(_flushedNodes); });
+        private bool FlushCondition() => !_confirmationMap.Any(pair => { return !pair.Value.IsSubsetOf(_flushedNodes); });
         private void HandleFlushCondition()
         {
             if(FlushCondition())
             {
-                _communicationManager.SendMulticast(new FlushMessage());
+                if(!_flushed)
+                    _communicationManager.SendMulticast(new FlushMessage());
+
+                if(_flushedNodes.SetEquals(_newGroupView))
+                {
+                    //Enstablish new View
+                    View.Update(_newGroupView);
+                    var viewChangeTask = _viewChangeInProgress;
+
+                    //Reset view state change
+                    _flushed = false;
+                    _flushedNodes = null;
+                    _pendingViewChange = null;
+                    _viewChangeInProgress = null;
+                    _newGroupView = null;
+
+                    //Unlock group communication
+                    viewChangeTask.SetResult(true);
+                }
+
                 _flushed = true;
-            }
-
-            if(_flushedNodes.SetEquals(_newGroupView))
-            {
-                //Enstablish new View
-                View.Update(_newGroupView);
-                var viewChangeTask = _viewChangeInProgress;
-
-                //Reset view state change
-                _flushed = false;
-                _flushedNodes = null;
-                _pendingViewChange = null;
-                _viewChangeInProgress = null;
-                _newGroupView = null;
-
-                //Unlock group communication
-                viewChangeTask.SetResult(true);
             }
         }
     }
