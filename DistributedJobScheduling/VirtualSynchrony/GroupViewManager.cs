@@ -7,6 +7,8 @@ using DistributedJobScheduling.Communication.Topics;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.DependencyInjection;
+using System.Linq;
+
 namespace DistributedJobScheduling.VirtualSynchrony
 {
 
@@ -42,6 +44,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private ViewChangeMessage _pendingViewChange;
         private TaskCompletionSource<bool> _viewChangeInProgress;
+        private HashSet<Node> _newGroupView;
+        private HashSet<Node> _flushedNodes;
+        private bool _flushed;
 
         #endregion
 
@@ -182,14 +187,19 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private void OnFlushMessageReceived(Node node, Message message)
         {
-            //FIXME: Flush messages should be tied to a viewchange
+            //FIXME: What about flush messages before the view change message?
             var flushMessage = message as FlushMessage;
             if(View.Others.Contains(node))
             {
                 if(_pendingViewChange == null)
                     throw new Exception("FATAL: Received flush before view change!");
+
+                _flushedNodes.Add(node);
+
+                HandleFlushCondition();
             }
         }
+
 
         private void OnViewChangeReceived(Node node, Message message)
         {
@@ -219,12 +229,52 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     //Ignore acknowledges from the dead node
                     _confirmationMap.Keys.ForEach(messageKey => ProcessAcknowledge(messageKey, viewChange));
                 }
+
+                //Setup Message Flushing and check if we can already flush
+                _flushed = false;
+                _flushedNodes = new HashSet<Node>();
+                _newGroupView = new HashSet<Node>(View.Others);
+                
+                if(viewChangeMessage.ViewChange == ViewChangeMessage.ViewChangeOperation.Joined)
+                    _newGroupView.Add(viewChange);
+                else
+                    _newGroupView.Remove(viewChange);
+
+                HandleFlushCondition(); 
             }
             else if(initiator == View.Me || initiator != viewChange)
             {
                 //FATAL: Double View Change
                 _viewChangeInProgress.SetResult(false);
                 throw new Exception("FATAL: ViewChange during view change");
+            }
+        }
+
+        //If we are not waiting any more messages from alive nodes we need to consolidate messages
+        private bool FlushCondition() => !_flushed && !_confirmationMap.Any(pair => { return !pair.Value.IsSubsetOf(_flushedNodes); });
+        private void HandleFlushCondition()
+        {
+            if(FlushCondition())
+            {
+                _communicationManager.SendMulticast(new FlushMessage());
+                _flushed = true;
+            }
+
+            if(_flushedNodes.SetEquals(_newGroupView))
+            {
+                //Enstablish new View
+                View.Update(_newGroupView);
+                var viewChangeTask = _viewChangeInProgress;
+
+                //Reset view state change
+                _flushed = false;
+                _flushedNodes = null;
+                _pendingViewChange = null;
+                _viewChangeInProgress = null;
+                _newGroupView = null;
+
+                //Unlock group communication
+                viewChangeTask.SetResult(true);
             }
         }
     }
