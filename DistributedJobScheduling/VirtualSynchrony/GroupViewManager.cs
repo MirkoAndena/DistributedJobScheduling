@@ -13,6 +13,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 {
 
     //TODO: Timeouts?
+    //FIXME: Resource Locks? Messages are asynchronous, some blocks should have mutual exclusion
     public class GroupViewManager : IGroupViewManager
     {
         private class MulticastNotDeliveredException : Exception {}

@@ -7,6 +7,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
 {
     public class Group
     {
+        /// <summary>
+        /// Event notified when the current group view changes
+        /// </summary>
+        public event Action ViewChanged;
         public Node Me { get; private set; }
         public Node Coordinator  { get; private set; }
         public HashSet<Node> Others  { get; private set; }
@@ -21,12 +25,22 @@ namespace DistributedJobScheduling.VirtualSynchrony
             Others = new HashSet<Node>();
         }
 
-        public void Add(Node node) => Others.Add(node);
-        public void UpdateCoordinator(Node node) => Coordinator = node;
+        public void Add(Node node)
+        {
+            Others.Add(node);
+            ViewChanged?.Invoke();
+        }
+
+        public void UpdateCoordinator(Node node)
+        {
+            Coordinator = node;
+            ViewChanged?.Invoke();
+        }
 
         public void Update(HashSet<Node> newView)
         {
             Others = newView;
+            ViewChanged?.Invoke();
         }
 
         public void Remove(Node node)
@@ -34,6 +48,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             if (Coordinator == node)
                 Coordinator = null;
             Others.Remove(node);
+            ViewChanged?.Invoke();
         }
     }
 }
