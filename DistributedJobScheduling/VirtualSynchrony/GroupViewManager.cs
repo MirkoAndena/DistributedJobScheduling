@@ -187,12 +187,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private void OnFlushMessageReceived(Node node, Message message)
         {
-            //FIXME: What about flush messages before the view change message?
             var flushMessage = message as FlushMessage;
             if(View.Others.Contains(node))
             {
-                if(_pendingViewChange == null)
-                    throw new Exception("FATAL: Received flush before view change!");
+                //Flush messages can arrive before anyone notified this node about the change
+                if(_viewChangeInProgress == null)
+                    HandleViewChange(View.Me, new ViewChangeMessage(flushMessage.RelatedChangeNode, flushMessage.RelatedChangeOperation)); //Self-Report Viewchange
 
                 _flushedNodes.Add(node);
 
@@ -200,10 +200,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
         }
 
-
         private void OnViewChangeReceived(Node node, Message message)
         {
-            //TODO: Duplicates?
             var viewChangeMessage = message as ViewChangeMessage;
             if(View.Others.Contains(node))
                 HandleViewChange(node, viewChangeMessage);
@@ -242,8 +240,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 HandleFlushCondition(); 
             }
-            else if(initiator == View.Me || initiator != viewChange)
+            else if((initiator == View.Me || initiator != viewChange) && !_pendingViewChange.IsSame(viewChangeMessage))
             {
+                //If we got a new viewchange that isn't the same as the one already received
                 //FATAL: Double View Change
                 _viewChangeInProgress.SetResult(false);
                 throw new Exception("FATAL: ViewChange during view change");
@@ -251,13 +250,16 @@ namespace DistributedJobScheduling.VirtualSynchrony
         }
 
         //If we are not waiting any more messages from alive nodes we need to consolidate messages
-        private bool FlushCondition() => !_confirmationMap.Any(pair => { return !pair.Value.IsSubsetOf(_flushedNodes); });
+        private bool FlushCondition() => _pendingViewChange != null && !_confirmationMap.Any(pair => { return !pair.Value.IsSubsetOf(_flushedNodes); });
         private void HandleFlushCondition()
         {
             if(FlushCondition())
             {
                 if(!_flushed)
-                    _communicationManager.SendMulticast(new FlushMessage());
+                {
+                    _communicationManager.SendMulticast(new FlushMessage(_pendingViewChange.Node, _pendingViewChange.ViewChange));
+                    _flushed = true;
+                }
 
                 if(_flushedNodes.SetEquals(_newGroupView))
                 {
@@ -275,8 +277,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     //Unlock group communication
                     viewChangeTask.SetResult(true);
                 }
-
-                _flushed = true;
             }
         }
     }
