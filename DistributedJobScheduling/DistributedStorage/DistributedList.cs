@@ -8,49 +8,42 @@ namespace DistributedJobScheduling.DistributedStorage
     public class DistributedList
     {
         private int _jobIdCount = 0;
-        private List<Job> _value;
+        
         private Action<Job> OnJobAssigned;
-        private Action<Job> OnJobStatusChanged;
 
-        public List<Job> Value => _value;
-
-        public DistributedList()
-        {
-            _value = new List<Job>();
-        }
+        public DistributedList() { }
 
         public void DeletePendingAndRemovedJobs()
         {
-            _value.RemoveAll(job => 
+            SecureStorage.Instance.Value.RemoveAll(job => 
                 job.Status == JobStatus.PENDING || 
                 job.Status == JobStatus.REMOVED);
+            SecureStorage.Instance.ValueChanged.Invoke();
         }
 
         public void Add(Job job)
-        {
-            job.OnStatusChanged += _OnJobStatusChanged;
-            _value.Add(job);
+        {        
+            SecureStorage.Instance.Value.Add(job);
+            SecureStorage.Instance.ValueChanged.Invoke();
         }
 
         public void SetJobDeliveredToClient(Job job)
         {
-            if (_value.Contains(job))
+            if (SecureStorage.Instance.Value.Contains(job))
             {
-                job.OnStatusChanged -= _OnJobStatusChanged;
-                job.SetRemoved();
+                job.Status = JobStatus.REMOVED;
+                SecureStorage.Instance.ValueChanged.Invoke();
             }
-        }
-
-        private void _OnJobStatusChanged(Job job)
-        {
-            OnJobStatusChanged?.Invoke(job);
         }
 
         public void AddAndAssign(Job job, Group group)
         {
             job.Node = FindNodeWithLessJobs(group);
             job.ID = _jobIdCount++;
-            _value.Add(job);
+
+            SecureStorage.Instance.Value.Add(job);
+            SecureStorage.Instance.ValueChanged.Invoke();
+            
             OnJobAssigned?.Invoke(job);
         }
 
@@ -63,7 +56,7 @@ namespace DistributedJobScheduling.DistributedStorage
             group.Others.ForEach(node => nodeJobCount.Add(node.ID.Value, 0));
 
             // For each node calculate how many jobs are assigned
-            foreach (Job job in _value)
+            foreach (Job job in SecureStorage.Instance.Value)
             {
                 if (nodeJobCount.ContainsKey(job.Node))
                     nodeJobCount[job.Node]++;
@@ -88,14 +81,22 @@ namespace DistributedJobScheduling.DistributedStorage
             {
                 Job current = FindJobToExecute(group.Me);
                 if (current != null)
+                {
+                    current.Status = JobStatus.RUNNING;
+                    SecureStorage.Instance.ValueChanged.Invoke();
+
                     await current.Run();
+                    
+                    current.Status = JobStatus.COMPLETED;
+                    SecureStorage.Instance.ValueChanged.Invoke();
+                }
             }
         }
 
         private Job FindJobToExecute(Node me)
         {
             Job toExecute = null;
-            _value.ForEach(job => 
+            SecureStorage.Instance.Value.ForEach(job => 
             {
                 if (job.Status == JobStatus.PENDING && job.Node == me.ID)
                     toExecute = job;

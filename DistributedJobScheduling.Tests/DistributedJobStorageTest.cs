@@ -47,7 +47,7 @@ namespace DistributedJobScheduling.Tests
             int max = 0;
 
             Dictionary<int, int> occurences = new Dictionary<int, int>();
-            foreach (Job job in list.Value)
+            foreach (Job job in SecureStorage.Instance.Value)
                 if (occurences.ContainsKey(job.Node))
                     occurences[job.Node]++;
                 else
