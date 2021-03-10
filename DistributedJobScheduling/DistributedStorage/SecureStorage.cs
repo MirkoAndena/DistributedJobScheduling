@@ -23,7 +23,7 @@ namespace DistributedJobScheduling.DistributedStorage
         private List<Job> _value;
         private IStore _store;
 
-        public Action ValueChanged;
+        public Action ValuesChanged;
 
         public List<Job> Values => _value;
 
@@ -32,7 +32,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             _store = store;
             _value = Read();
-            ValueChanged += Write;
+            ValuesChanged += Write;
         }
 
         private List<Job> Read()
@@ -53,7 +53,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public void Close()
         {
             _value = null;
-            ValueChanged -= Write;
+            ValuesChanged -= Write;
         }
     }
 }

@@ -7,6 +7,11 @@ namespace DistributedJobScheduling.DistributedStorage
     {
         private string _storage;
 
+        public SecureStorageStub()
+        {
+            _storage = string.Empty;
+        }
+
         public string Read()
         {
             return _storage;
