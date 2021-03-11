@@ -3,7 +3,7 @@ using DistributedJobScheduling.DistributedStorage;
 using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Communication.Basic;
 using System.Collections.Generic;
-using DistributedJobScheduling.JobAssignment.Job;
+using DistributedJobScheduling.JobAssignment.Jobs;
 
 namespace DistributedJobScheduling.Tests
 {
@@ -50,10 +50,16 @@ namespace DistributedJobScheduling.Tests
 
             Dictionary<int, int> occurences = new Dictionary<int, int>();
             foreach (Job job in list.Values)
-                if (occurences.ContainsKey(job.Node))
-                    occurences[job.Node]++;
-                else
-                    occurences.Add(job.Node, 1);
+            {
+                // Here should be always true
+                if (job.Node.HasValue)
+                {
+                    if (occurences.ContainsKey(job.Node.Value))
+                        occurences[job.Node.Value]++;
+                    else
+                        occurences.Add(job.Node.Value, 1);
+                }
+            }
 
             foreach (int o in occurences.Values)
                 if (o > max) max = o;

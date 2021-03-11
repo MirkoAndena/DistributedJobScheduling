@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace DistributedJobScheduling.JobAssignment.Job
+namespace DistributedJobScheduling.JobAssignment.Jobs
 {
     public enum JobStatus 
     {
@@ -15,20 +15,16 @@ namespace DistributedJobScheduling.JobAssignment.Job
 
     public abstract class Job
     {
-        protected JobStatus _status;
-        protected int? _id;
-        protected int? _node;
-
-        public JobStatus Status { get { return _status; } set { _status = value; } }
-        public int ID { get { return _id.Value; } set { _id = value; } }
-        public int Node { get { return _node.Value; } set { _node = value; } }
+        public JobStatus Status { get; set; }
+        public int? ID { get; set; }
+        public int? Node { get; set; }
 
         // ? The constructor will be called only by the client??
         protected Job()
         {
-            _status = JobStatus.PENDING;
-            _id = null;
-            _node = null;
+            Status = JobStatus.PENDING;
+            ID = null;
+            Node = null;
         }
 
         public abstract Task<IJobResult> Run();

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.DependencyInjection;
-using DistributedJobScheduling.JobAssignment.Job;
+using DistributedJobScheduling.JobAssignment.Jobs;
 
 namespace DistributedJobScheduling.DistributedStorage.SecureStorage
 {

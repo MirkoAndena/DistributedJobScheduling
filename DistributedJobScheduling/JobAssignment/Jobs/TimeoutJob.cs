@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace DistributedJobScheduling.JobAssignment.Job
+namespace DistributedJobScheduling.JobAssignment.Jobs
 {
     public class BooleanJobResult : IJobResult 
     { 

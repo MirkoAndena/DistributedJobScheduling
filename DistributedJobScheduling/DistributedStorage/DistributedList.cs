@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.DistributedStorage.SecureStorage;
-using DistributedJobScheduling.JobAssignment.Job;
+using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.DistributedStorage
@@ -66,10 +66,14 @@ namespace DistributedJobScheduling.DistributedStorage
             // For each node calculate how many jobs are assigned
             foreach (Job job in _secureStorage.Values)
             {
-                if (nodeJobCount.ContainsKey(job.Node))
-                    nodeJobCount[job.Node]++;
-                else
-                    nodeJobCount.Add(job.Node, 1);
+                // Here should be always true
+                if (job.Node.HasValue)
+                {
+                    if (nodeJobCount.ContainsKey(job.Node.Value))
+                        nodeJobCount[job.Node.Value]++;
+                    else
+                        nodeJobCount.Add(job.Node.Value, 1);
+                }
             }
 
             // Find the node with the less number of assignment
