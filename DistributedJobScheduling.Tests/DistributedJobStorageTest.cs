@@ -3,6 +3,7 @@ using DistributedJobScheduling.DistributedStorage;
 using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Communication.Basic;
 using System.Collections.Generic;
+using DistributedJobScheduling.JobAssignment.Job;
 
 namespace DistributedJobScheduling.Tests
 {

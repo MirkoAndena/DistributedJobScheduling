@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.JobAssignment.Job;
 
-namespace DistributedJobScheduling.DistributedStorage
+namespace DistributedJobScheduling.DistributedStorage.SecureStorage
 {
     public class Jobs
     { 
@@ -12,13 +12,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public Jobs() { }
     }
 
-    public interface IStore
-    {
-        string Read();
-        void Write(byte[] data);
-    }
-
-    public class SecureStorage
+    public class SecureStore
     {
         private List<Job> _value;
         private IStore _store;
@@ -27,8 +21,8 @@ namespace DistributedJobScheduling.DistributedStorage
 
         public List<Job> Values => _value;
 
-        public SecureStorage() : this(DependencyManager.Get<Storage>()) { }
-        public SecureStorage(IStore store)
+        public SecureStore() : this(DependencyManager.Get<Storage>()) { }
+        public SecureStore(IStore store)
         {
             _store = store;
             _value = Read();
@@ -37,7 +31,7 @@ namespace DistributedJobScheduling.DistributedStorage
 
         private List<Job> Read()
         {
-            string stored = _store.Read();
+            string stored = _store.Read(Stores.DistributedJobList);
             Jobs jobs = JsonSerialization.Deserialize<Jobs>(stored);
             if (jobs != null && jobs.value != null) return jobs.value;
             return new List<Job>();
@@ -47,7 +41,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             Jobs jobs = new Jobs() { value = _value };
             byte[] json = JsonSerialization.Serialize(jobs);
-            _store.Write(json);
+            _store.Write(Stores.DistributedJobList, json);
         }
 
         public void Close()

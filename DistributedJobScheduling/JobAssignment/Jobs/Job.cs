@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace DistributedJobScheduling.DistributedStorage
+namespace DistributedJobScheduling.JobAssignment.Job
 {
     public enum JobStatus 
     {

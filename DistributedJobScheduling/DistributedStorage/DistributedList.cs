@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.DistributedStorage.SecureStorage;
+using DistributedJobScheduling.JobAssignment.Job;
 using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.DistributedStorage
@@ -9,14 +11,14 @@ namespace DistributedJobScheduling.DistributedStorage
     {
         private int _jobIdCount = 0;
         private Action<Job> OnJobAssigned;
-        private SecureStorage _secureStorage;
+        private SecureStore _secureStorage;
 
         public List<Job> Values => _secureStorage.Values;
 
-        public DistributedList() { _secureStorage = new SecureStorage(); }
+        public DistributedList() { _secureStorage = new SecureStore(); }
         public DistributedList(IStore store)
         {
-            _secureStorage = new SecureStorage(store);
+            _secureStorage = new SecureStore(store);
         }
 
         public void DeletePendingAndRemovedJobs()
