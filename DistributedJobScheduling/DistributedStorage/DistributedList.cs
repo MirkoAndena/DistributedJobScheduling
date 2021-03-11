@@ -8,49 +8,48 @@ namespace DistributedJobScheduling.DistributedStorage
     public class DistributedList
     {
         private int _jobIdCount = 0;
-        private List<Job> _value;
         private Action<Job> OnJobAssigned;
-        private Action<Job> OnJobStatusChanged;
+        private SecureStorage _secureStorage;
 
-        public List<Job> Value => _value;
+        public List<Job> Values => _secureStorage.Values;
 
-        public DistributedList()
+        public DistributedList() { _secureStorage = new SecureStorage(); }
+        public DistributedList(IStore store)
         {
-            _value = new List<Job>();
+            _secureStorage = new SecureStorage(store);
         }
 
         public void DeletePendingAndRemovedJobs()
         {
-            _value.RemoveAll(job => 
+            _secureStorage.Values.RemoveAll(job => 
                 job.Status == JobStatus.PENDING || 
                 job.Status == JobStatus.REMOVED);
+            _secureStorage.ValuesChanged.Invoke();
         }
 
         public void Add(Job job)
-        {
-            job.OnStatusChanged += _OnJobStatusChanged;
-            _value.Add(job);
+        {        
+            _secureStorage.Values.Add(job);
+            _secureStorage.ValuesChanged.Invoke();
         }
 
         public void SetJobDeliveredToClient(Job job)
         {
-            if (_value.Contains(job))
+            if (_secureStorage.Values.Contains(job))
             {
-                job.OnStatusChanged -= _OnJobStatusChanged;
-                job.SetRemoved();
+                job.Status = JobStatus.REMOVED;
+                _secureStorage.ValuesChanged.Invoke();
             }
-        }
-
-        private void _OnJobStatusChanged(Job job)
-        {
-            OnJobStatusChanged?.Invoke(job);
         }
 
         public void AddAndAssign(Job job, Group group)
         {
             job.Node = FindNodeWithLessJobs(group);
             job.ID = _jobIdCount++;
-            _value.Add(job);
+
+            _secureStorage.Values.Add(job);
+            _secureStorage.ValuesChanged.Invoke();
+            
             OnJobAssigned?.Invoke(job);
         }
 
@@ -63,7 +62,7 @@ namespace DistributedJobScheduling.DistributedStorage
             group.Others.ForEach(node => nodeJobCount.Add(node.ID.Value, 0));
 
             // For each node calculate how many jobs are assigned
-            foreach (Job job in _value)
+            foreach (Job job in _secureStorage.Values)
             {
                 if (nodeJobCount.ContainsKey(job.Node))
                     nodeJobCount[job.Node]++;
@@ -88,14 +87,22 @@ namespace DistributedJobScheduling.DistributedStorage
             {
                 Job current = FindJobToExecute(group.Me);
                 if (current != null)
+                {
+                    current.Status = JobStatus.RUNNING;
+                    _secureStorage.ValuesChanged.Invoke();
+
                     await current.Run();
+                    
+                    current.Status = JobStatus.COMPLETED;
+                    _secureStorage.ValuesChanged.Invoke();
+                }
             }
         }
 
         private Job FindJobToExecute(Node me)
         {
             Job toExecute = null;
-            _value.ForEach(job => 
+            _secureStorage.Values.ForEach(job => 
             {
                 if (job.Status == JobStatus.PENDING && job.Node == me.ID)
                     toExecute = job;
