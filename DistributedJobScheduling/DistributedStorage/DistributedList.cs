@@ -17,8 +17,8 @@ namespace DistributedJobScheduling.DistributedStorage
     public class DistributedList : IMemoryCleaner
     {
         private ReusableIndex _reusableIndex;
-        private Action<Job> OnJobAssigned;
         private SecureStore<Jobs> _secureStorage;
+        public Action<Job, IJobResult> OnJobCompleted;
 
         public List<Job> Values => _secureStorage.Value.List;
 
@@ -60,8 +60,6 @@ namespace DistributedJobScheduling.DistributedStorage
 
             _secureStorage.Value.List.Add(job);
             _secureStorage.ValuesChanged.Invoke();
-            
-            OnJobAssigned?.Invoke(job);
         }
 
         private int FindNodeWithLessJobs(Group group)
@@ -106,10 +104,11 @@ namespace DistributedJobScheduling.DistributedStorage
                     current.Status = JobStatus.RUNNING;
                     _secureStorage.ValuesChanged.Invoke();
 
-                    await current.Run();
+                    IJobResult result = await current.Run();
                     
                     current.Status = JobStatus.COMPLETED;
                     _secureStorage.ValuesChanged.Invoke();
+                    OnJobCompleted?.Invoke(current, result);
                 }
             }
         }

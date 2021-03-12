@@ -49,6 +49,15 @@ namespace DistributedJobScheduling.DistributedStorage
             _secureStorage.ValuesChanged.Invoke();
         }
 
+        public void SetJobID(int localID, int remoteID)
+        {
+            if (_secureStorage.Value.Dictionary.ContainsKey(localID))
+            {
+                _secureStorage.Value.Dictionary[localID].Job.ID = remoteID;
+                _secureStorage.ValuesChanged.Invoke();
+            }
+        }
+
         public void CleanLogicRemoved() => DeleteUnconfirmedEntries();
         private void DeleteUnconfirmedEntries()
         {

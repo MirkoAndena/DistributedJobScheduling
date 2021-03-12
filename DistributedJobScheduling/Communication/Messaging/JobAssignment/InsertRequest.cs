@@ -9,10 +9,14 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     public class InsertionRequest : Message
     {
         private Job _job;
+        private int _requestID;
+        public Job Job => _job;
+        public int RequestID => _requestID;
 
-        public InsertionRequest(Job job) : base()
+        public InsertionRequest(Job job, int requestID) : base()
         {
             _job = job;
+            _requestID = requestID;
         }
     }
 
@@ -22,10 +26,14 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     public class InsertionResponse : Message
     {
         private int _jobID;
+        private int _requestID;
+        public int JobID => _jobID;
+        public int RequestID => _requestID;
 
-        public InsertionResponse(InsertionRequest request, int jobID) : base(request)
+        public InsertionResponse(InsertionRequest request, int jobID, int requestID) : base(request)
         {
             _jobID = jobID;
+            _requestID = requestID;
         }
     }
 }

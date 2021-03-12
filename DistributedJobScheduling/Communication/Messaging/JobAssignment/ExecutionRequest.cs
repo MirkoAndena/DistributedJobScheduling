@@ -23,6 +23,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     public class ExecutionResponse : Message
     {
         private int _requestID;
+        public int RequestID => _requestID;
 
         public ExecutionResponse(ExecutionRequest request, int requestID) : base(request)
         {
@@ -36,6 +37,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     public class ExecutionAck : Message
     {
         private int _requestID;
+        public int RequestID => _requestID;
 
         public ExecutionAck(ExecutionResponse response, int requestID) : base(response)
         {
