@@ -30,7 +30,7 @@ namespace DistributedJobScheduling.Communication.Basic
             _isResponseOf = message._messageID;
         }
 
-        public bool NodesInfoPresent => SenderID.HasValue && ReceiverID.HasValue;
+        private bool NodesInfoPresent => SenderID.HasValue && ReceiverID.HasValue;
 
         public bool IsTheExpectedMessage(Message previous)
         {
