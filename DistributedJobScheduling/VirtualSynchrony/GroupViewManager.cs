@@ -92,13 +92,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public async Task Send(Node node, Message message, int timeout = 30)
         {
             await CheckViewChanges();
-            throw new NotImplementedException();
-        }
-
-        public async Task<T> SendAndWait<T>(Node node, Message message, int timeout = 30) where T : Message
-        {
-            await CheckViewChanges();
-            throw new NotImplementedException();
+            await _communicationManager.Send(node, message, timeout);
         }
 
         public async Task SendMulticast(Message message)

@@ -10,5 +10,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
     /// </summary>
     public interface IGroupViewManager : ICommunicationManager
     {
+        Group View { get; }
     }
 }
