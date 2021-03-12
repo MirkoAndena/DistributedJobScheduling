@@ -14,7 +14,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public Jobs() { List = new List<Job>(); }
     }
 
-    public class DistributedList
+    public class DistributedList : IMemoryCleaner
     {
         private int _jobIdCount = 0;
         private Action<Job> OnJobAssigned;
@@ -28,7 +28,8 @@ namespace DistributedJobScheduling.DistributedStorage
             _secureStorage = new SecureStore<Jobs>(store);
         }
 
-        public void DeletePendingAndRemovedJobs()
+        public void CleanLogicRemoved() => DeletePendingAndRemovedJobs();
+        private void DeletePendingAndRemovedJobs()
         {
             _secureStorage.Value.List.RemoveAll(job => 
                 job.Status == JobStatus.PENDING || 

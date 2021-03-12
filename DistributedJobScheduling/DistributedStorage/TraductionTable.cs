@@ -4,14 +4,24 @@ using DistributedJobScheduling.JobAssignment.Jobs;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
-    public class Table
+    class TableItem
     {
-        public Dictionary<int, Job> Dictionary; 
+        public Job Job;
+        public bool Confirmed;
 
-        public Table() { Dictionary = new Dictionary<int, Job>(); }
+        public TableItem() { Confirmed = false; }
+        public TableItem(Job job) : this() { Job = job; }
     }
 
-    public class TraductionTable
+    class Table
+    {
+        // Key: requestID, Job, bool: confirmed by client
+        public Dictionary<int, TableItem> Dictionary; 
+
+        public Table() { Dictionary = new Dictionary<int, TableItem>(); }
+    }
+
+    public class TraductionTable : IMemoryCleaner
     {
         private int _jobIdCount = 0;
         private SecureStore<Table> _secureStorage;
@@ -25,11 +35,29 @@ namespace DistributedJobScheduling.DistributedStorage
         public int Add(Job job)
         {
             int id = _jobIdCount;
-            _secureStorage.Value.Dictionary.Add(id, job);
+            _secureStorage.Value.Dictionary.Add(id, new TableItem(job));
             _secureStorage.ValuesChanged.Invoke();
             _jobIdCount++;
             return id;
         }
-        public Job Get(int localID) => _secureStorage.Value.Dictionary[localID];
+
+        public Job Get(int localID) => _secureStorage.Value.Dictionary[localID].Job;
+
+        public void SetConfirmed(int localID)
+        {
+            _secureStorage.Value.Dictionary[localID].Confirmed = true;
+            _secureStorage.ValuesChanged.Invoke();
+        }
+
+        public void CleanLogicRemoved() => DeleteUnconfirmedEntries();
+        private void DeleteUnconfirmedEntries()
+        {
+            _secureStorage.Value.Dictionary.ForEach((id, tableitem) => 
+            {
+                if (!tableitem.Confirmed)
+                    _secureStorage.Value.Dictionary.Remove(id);
+            });
+            _secureStorage.ValuesChanged.Invoke();
+        }
     }
 }
