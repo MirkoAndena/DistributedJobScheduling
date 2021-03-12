@@ -92,13 +92,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public async Task Send(Node node, Message message, int timeout = 30)
         {
             await CheckViewChanges();
-            throw new NotImplementedException();
-        }
-
-        public async Task<T> SendAndWait<T>(Node node, Message message, int timeout = 30) where T : Message
-        {
-            await CheckViewChanges();
-            throw new NotImplementedException();
+            await _communicationManager.Send(node, message, timeout);
         }
 
         public async Task SendMulticast(Message message)
@@ -169,8 +163,18 @@ namespace DistributedJobScheduling.VirtualSynchrony
         ///</summary>
         private void ConsolidateTemporaryMessage((int,int) messageKey)
         {
-            var message = _confirmationQueue[messageKey];
             _confirmationMap.Remove(messageKey);
+
+            if(!_confirmationQueue.ContainsKey(messageKey))
+            {
+                //Pending View Change, the consolidation is related to the removed node ignore
+                if(_pendingViewChange != null && _pendingViewChange.Node.ID == messageKey.Item1)
+                    return;
+                else
+                    throw new Exception("Consolidated a message that was never received!");
+            }
+
+            var message = _confirmationQueue[messageKey];
             _confirmationQueue.Remove(messageKey);
             
             if(_sentTemporaryMessages.Contains(message))
@@ -226,7 +230,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 if(_pendingViewChange.ViewChange == ViewChangeMessage.ViewChangeOperation.Left)
                 {
                     //FIXME: Shouldn't we multicast unstable messages from the dead node? Probably handled by timeout (either all or none)
-                    //FIXME: Doesn't this potentially lead to the consolidation of messages we don't have? (everyone ACKed the message but the crashed node still didn't send it to us)
                     //Ignore acknowledges from the dead node
                     _confirmationMap.Keys.ForEach(messageKey => ProcessAcknowledge(messageKey, viewChange));
                 }
