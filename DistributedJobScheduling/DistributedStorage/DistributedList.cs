@@ -16,7 +16,7 @@ namespace DistributedJobScheduling.DistributedStorage
 
     public class DistributedList : IMemoryCleaner
     {
-        private int _jobIdCount = 0;
+        private ReusableIndex _reusableIndex;
         private Action<Job> OnJobAssigned;
         private SecureStore<Jobs> _secureStorage;
 
@@ -26,6 +26,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public DistributedList(IStore store)
         {
             _secureStorage = new SecureStore<Jobs>(store);
+            _reusableIndex = new ReusableIndex();
         }
 
         public void CleanLogicRemoved() => DeletePendingAndRemovedJobs();
@@ -55,7 +56,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public void AddAndAssign(Job job, Group group)
         {
             job.Node = FindNodeWithLessJobs(group);
-            job.ID = _jobIdCount++;
+            job.ID = _reusableIndex.NewIndex;
 
             _secureStorage.Value.List.Add(job);
             _secureStorage.ValuesChanged.Invoke();

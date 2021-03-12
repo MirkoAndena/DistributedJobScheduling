@@ -23,21 +23,21 @@ namespace DistributedJobScheduling.DistributedStorage
 
     public class TraductionTable : IMemoryCleaner
     {
-        private int _jobIdCount = 0;
+        private ReusableIndex _reusableIndex;
         private SecureStore<Table> _secureStorage;
 
         public TraductionTable() { _secureStorage = new SecureStore<Table>(); }
         public TraductionTable(IStore store)
         {
             _secureStorage = new SecureStore<Table>(store);
+            _reusableIndex = new ReusableIndex(index => _secureStorage.Value.Dictionary.ContainsKey(index));
         }
 
         public int Add(Job job)
         {
-            int id = _jobIdCount;
+            int id = _reusableIndex.NewIndex;
             _secureStorage.Value.Dictionary.Add(id, new TableItem(job));
             _secureStorage.ValuesChanged.Invoke();
-            _jobIdCount++;
             return id;
         }
 
