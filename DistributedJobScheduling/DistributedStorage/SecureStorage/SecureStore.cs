@@ -5,21 +5,15 @@ using DistributedJobScheduling.JobAssignment.Jobs;
 
 namespace DistributedJobScheduling.DistributedStorage.SecureStorage
 {
-    public class Jobs
-    { 
-        public List<Job> value;
-
-        public Jobs() { }
-    }
-
-    public class SecureStore
+    // T must has the default constructor (without parameters)
+    public class SecureStore<T>
     {
-        private List<Job> _value;
+        private T _value;
         private IStore _store;
 
         public Action ValuesChanged;
 
-        public List<Job> Values => _value;
+        public T Value => _value;
 
         public SecureStore() : this(DependencyManager.Get<Storage>()) { }
         public SecureStore(IStore store)
@@ -29,24 +23,21 @@ namespace DistributedJobScheduling.DistributedStorage.SecureStorage
             ValuesChanged += Write;
         }
 
-        private List<Job> Read()
+        private T Read()
         {
             string stored = _store.Read(Stores.DistributedJobList);
-            Jobs jobs = JsonSerialization.Deserialize<Jobs>(stored);
-            if (jobs != null && jobs.value != null) return jobs.value;
-            return new List<Job>();
+            if (stored != string.Empty) return JsonSerialization.Deserialize<T>(stored);
+            return Activator.CreateInstance<T>();
         }
 
         private void Write()
         {
-            Jobs jobs = new Jobs() { value = _value };
-            byte[] json = JsonSerialization.Serialize(jobs);
+            byte[] json = JsonSerialization.Serialize(_value);
             _store.Write(Stores.DistributedJobList, json);
         }
 
         public void Close()
         {
-            _value = null;
             ValuesChanged -= Write;
         }
     }

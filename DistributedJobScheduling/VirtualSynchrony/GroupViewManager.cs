@@ -8,6 +8,7 @@ using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.DependencyInjection;
 using System.Linq;
+using DistributedJobScheduling.JobAssignment;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -70,7 +71,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _sendComplenentionMap = new Dictionary<TemporaryMessage, TaskCompletionSource<bool>>();
 
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
-            Topics = new GenericTopicOutlet(this);
+            Topics = new GenericTopicOutlet(this, new JobPublisher());
             View = new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), false);
 
             _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryMessage), OnTemporaryMessageReceived);

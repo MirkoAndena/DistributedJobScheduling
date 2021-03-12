@@ -9,6 +9,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     public class ExecutionRequest : Message
     {
         private Job _job;
+        public Job Job => _job;
 
         public ExecutionRequest(Job job) : base()
         {
