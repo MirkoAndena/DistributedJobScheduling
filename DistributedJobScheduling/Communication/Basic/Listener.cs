@@ -14,11 +14,14 @@ namespace DistributedJobScheduling.Communication.Basic
         private TcpListener _listener;
         private CancellationTokenSource _cancellationTokenSource;
         public event Action<Node, Speaker> OnSpeakerCreated;
+        private int _myID;
 
-        public Listener() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>()) {}
-        public Listener(Node.INodeRegistry nodeRegistry)
+        public Listener() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
+                                 DependencyInjection.DependencyManager.Get<Configuration.IConfigurationService>()) {}
+        public Listener(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService)
         {
             _nodeRegistry = nodeRegistry;
+            _myID = configurationService.GetValue<int>("nodeID");
         }
 
         public void Start()
@@ -28,6 +31,9 @@ namespace DistributedJobScheduling.Communication.Basic
 
             IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
             IPAddress address = host.AddressList[0];
+            
+            Node me = _nodeRegistry.GetNode(_myID);
+            _nodeRegistry.UpdateNodeIP(me, address.ToString());
 
             _listener = new TcpListener(address, PORT);
             

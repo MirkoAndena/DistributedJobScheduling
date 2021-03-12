@@ -43,7 +43,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
         }
 
-        public async Task<T> Receive<T>() where T: Message
+        private async Task<T> Receive<T>() where T: Message
         {
             try
             {

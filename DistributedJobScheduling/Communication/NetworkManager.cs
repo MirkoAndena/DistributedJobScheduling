@@ -12,13 +12,18 @@ namespace DistributedJobScheduling.Communication
         private Dictionary<Node, Speaker> _speakers;
         private Listener _listener;
         private Shouter _shouter;
+        private Node _me;
 
         public ITopicOutlet Topics { get; private set; }
 
         public event Action<Node, Message> OnMessageReceived;
 
-        public NetworkManager()
+        public NetworkManager() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
+                                        DependencyInjection.DependencyManager.Get<Configuration.IConfigurationService>()) {}
+        public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService)
         {
+            _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeID"));
+
             _speakers = new Dictionary<Node, Speaker>();
 
             _shouter = new Shouter();
@@ -48,14 +53,9 @@ namespace DistributedJobScheduling.Communication
         public async Task Send(Node node, Message message, int timeout = 30)
         {
             Speaker speaker = await GetSpeakerTo(node, timeout);
+            message.SenderID = _me.ID;
+            message.ReceiverID = node.ID;
             await speaker.Send(message);
-        }
-
-        public async Task<T> SendAndWait<T>(Node node, Message message, int timeout = 30) where T: Message
-        {
-            Speaker speaker = await GetSpeakerTo(node, timeout);
-            await speaker.Send(message);
-            return await speaker.Receive<T>();
         }
 
         private async Task<Speaker> GetSpeakerTo(Node node, int timeout)
