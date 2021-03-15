@@ -2,6 +2,7 @@ using System;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
@@ -23,8 +24,12 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
             if (timeoutTask.IsCompleted)
             {
+                _logger.Warning(Tag.CommunicationBasic, $"Connection to {_remote} failed because of timeout");
                 this.Close();
-                Console.WriteLine($"An exception occured during connection to {_remote}");
+            }
+            else
+            {
+                _logger.Log(Tag.CommunicationBasic, $"Connected to {_remote}");
             }
         }
     }

@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
@@ -17,11 +18,14 @@ namespace DistributedJobScheduling.Communication.Basic
         public Action<Node, Message> OnMessageReceived;
         private CancellationTokenSource _closeTokenSource;
         private UdpClient _client;
+        private ILogger _logger;
 
-        public Shouter() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>()) {}
-        public Shouter(Node.INodeRegistry nodeRegistry)
+        public Shouter() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
+                                DependencyInjection.DependencyManager.Get<ILogger>()) {}
+        public Shouter(Node.INodeRegistry nodeRegistry, ILogger logger)
         {
             _nodeRegistry = nodeRegistry;
+            _logger = logger;
         }
 
         public void Start()
@@ -36,6 +40,7 @@ namespace DistributedJobScheduling.Communication.Basic
             _closeTokenSource = new CancellationTokenSource();
             
             _client.JoinMulticastGroup(IPAddress.Parse(MULTICAST_IP));
+            _logger.Log(Tag.CommunicationBasic, $"Shouter joined multicast group ({MULTICAST_IP})");
             Receive();
         }
 
@@ -48,6 +53,7 @@ namespace DistributedJobScheduling.Communication.Basic
                     UdpReceiveResult result = await _client.ReceiveAsync();
                     Message message = Message.Deserialize<Message>(result.Buffer);
                     Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(_client));
+                    _logger.Log(Tag.CommunicationBasic, $"Received {result.Buffer.Length} bytes from MULTICAST");
                     OnMessageReceived?.Invoke(remote, message);
                 }
             }
@@ -57,7 +63,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 _client.Close();
                 _client = null;
                 _closeTokenSource = null;
-                Console.WriteLine($"Stop listening multicast on port {PORT}");
+                _logger.Warning(Tag.CommunicationBasic, $"Shouter (port {MULTICAST_IP}) stopped");
             }
         }
 
@@ -65,6 +71,7 @@ namespace DistributedJobScheduling.Communication.Basic
         {
             byte[] content = message.Serialize();
             await _client.SendAsync(content, content.Length);
+            _logger.Log(Tag.CommunicationBasic, $"Sent {content.Length} bytes to MULTICAST");
         }
 
         public void Close()

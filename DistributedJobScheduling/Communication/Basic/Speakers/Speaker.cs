@@ -4,6 +4,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using Newtonsoft.Json;
+using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.DependencyInjection;
 
 namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
@@ -20,8 +22,12 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
         public event Action<Node, Message> OnMessageReceived;
 
-        public Speaker(TcpClient client, Node remote)
+        protected ILogger _logger;
+
+        public Speaker(TcpClient client, Node remote) : this(client, remote, DependencyManager.Get<ILogger>()) {}
+        public Speaker(TcpClient client, Node remote, ILogger logger)
         {
+            _logger = logger;
             _stream = _client.GetStream();
             _sendToken = new CancellationTokenSource();
             _receiveToken = new CancellationTokenSource();
@@ -40,6 +46,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 _receiveToken.Cancel();
                 _globalReceiveToken.Cancel();
                 _client.Close();
+                _logger.Log(Tag.CommunicationBasic, $"Closed connection to {_remote}");
             }
         }
 
@@ -48,13 +55,14 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             try
             {
                 byte[] bytes = new byte[1024];
-                await _stream.ReadAsync(bytes, 0, bytes.Length, _receiveToken.Token);
+                int bytesRed = await _stream.ReadAsync(bytes, 0, bytes.Length, _receiveToken.Token);
+                _logger.Log(Tag.CommunicationBasic, $"Received {bytesRed} bytes from {_remote}");
                 return Message.Deserialize<T>(bytes);
             }
-            catch
+            catch (Exception e)
             {
+                _logger.Warning(Tag.CommunicationBasic, $"Failed receive from {_remote}", e);
                 this.Close();
-                Console.WriteLine("Connection closed because of an exception during Receive");
                 throw;
             }
         }
@@ -70,11 +78,12 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 }
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 
+                    _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}");
                     this.Close();
                 }
                 catch
                 {
-                    throw;
+                    return;
                 }
             }
         }
@@ -85,12 +94,12 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             {
                 byte[] bytes = message.Serialize();
                 await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
+                _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
             }
-            catch
+            catch (Exception e)
             {
                 this.Close();
-                Console.WriteLine("Connection closed because of an exception during Send");
-                throw;
+                _logger.Warning(Tag.CommunicationBasic, $"Failed send to {_remote}", e);
             }
         }
     }

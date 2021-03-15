@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using DistributedJobScheduling.Communication.Basic.Speakers;
+using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
@@ -15,13 +17,16 @@ namespace DistributedJobScheduling.Communication.Basic
         private CancellationTokenSource _cancellationTokenSource;
         public event Action<Node, Speaker> OnSpeakerCreated;
         private int _myID;
+        protected ILogger _logger;
 
-        public Listener() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
-                                 DependencyInjection.DependencyManager.Get<Configuration.IConfigurationService>()) {}
-        public Listener(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService)
+        public Listener() : this(DependencyManager.Get<Node.INodeRegistry>(),
+                                 DependencyManager.Get<Configuration.IConfigurationService>(),
+                                 DependencyManager.Get<ILogger>()) {}
+        public Listener(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger)
         {
             _nodeRegistry = nodeRegistry;
             _myID = configurationService.GetValue<int>("nodeID");
+            _logger = logger;
         }
 
         public void Start()
@@ -40,16 +45,16 @@ namespace DistributedJobScheduling.Communication.Basic
             try
             {
                 _listener.Start();
-                Console.WriteLine($"Start listening on port {PORT}");
-
-                _cancellationTokenSource = new CancellationTokenSource();
-                AcceptConnection(_cancellationTokenSource.Token);
+                _logger.Log(Tag.CommunicationBasic, $"Start listening on port {PORT}");
             }
             catch (Exception e)
             {
+                _logger.Error(Tag.CommunicationBasic, "Listener unable to start", e);
                 Close();
-                Console.WriteLine("Listener shutted down because an exception occured:" + e.Message);
             }
+            
+            _cancellationTokenSource = new CancellationTokenSource();
+            AcceptConnection(_cancellationTokenSource.Token);
         }
 
         private async void AcceptConnection(CancellationToken token)
@@ -60,6 +65,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
                     Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(client));
+                    _logger.Log(Tag.CommunicationBasic, $"Accepted connection request to {remote}");
                     Speaker speaker = new Speaker(client, remote);
                     OnSpeakerCreated?.Invoke(remote, speaker);
                 }
@@ -67,10 +73,13 @@ namespace DistributedJobScheduling.Communication.Basic
             catch when (token.IsCancellationRequested) { }
             finally
             {
-                _listener.Stop();
-                _listener = null;
-                _cancellationTokenSource = null;
-                Console.WriteLine($"Stop listening on port {PORT}");
+                if (_listener != null)
+                {
+                    _listener.Stop();
+                    _listener = null;
+                    _cancellationTokenSource = null;
+                    _logger.Warning(Tag.CommunicationBasic, $"Listener (port {PORT}) stopped");
+                }
             }
         }
 
