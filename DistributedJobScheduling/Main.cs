@@ -1,11 +1,5 @@
 using System;
-using DistributedJobScheduling;
-using DistributedJobScheduling.DependencyInjection;
-using DistributedJobScheduling.Communication.Basic;
-using DistributedJobScheduling.VirtualSynchrony;
-using DistributedJobScheduling.DistributedStorage;
-using DistributedJobScheduling.DistributedStorage.SecureStorage;
-using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.LifeCycle;
 
 public class Program
 {
@@ -19,7 +13,7 @@ public class Program
         }
         Console.WriteLine($"Params: ID = {commandlineParams.Value.Item1}, Coordinator = {commandlineParams.Value.Item2}");
 
-        CreateInstances();
+        SystemLifeCycle.Run();
         //var nodeRegistry = DependencyManager.Get<Node.INodeRegistry>();
         //Node me = nodeRegistry.GetOrCreate(id: commandlineParams.Value.Item1);
         //Group group = new Group(me, commandlineParams.Value.Item2);
@@ -32,11 +26,5 @@ public class Program
         bool coordinator = args.Length > 1 && args[1].ToLower() == "coordinator";
         if (!isId) return null;
         return (id, coordinator);
-    }
-
-    private static void CreateInstances()
-    {
-        DependencyManager.Instance.RegisterSingletonServiceInstance<IStore, Storage>(new Storage());
-        DependencyManager.Instance.RegisterSingletonServiceInstance<ILogger, CsvLogger>(new CsvLogger("../"));
     }
 }

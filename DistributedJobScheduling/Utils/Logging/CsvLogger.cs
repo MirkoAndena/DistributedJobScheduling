@@ -1,10 +1,11 @@
 using System;
 using System.IO;
 using System.Text;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.Logging
 {
-    enum LogType { INFORMATION, WARNING, ERROR }
+    enum LogType { INFORMATION, WARNING, ERROR, FATAL }
 
     public class CsvLogger : ILogger
     {
@@ -43,6 +44,7 @@ namespace DistributedJobScheduling.Logging
             {
                 if (type == LogType.WARNING) Console.ForegroundColor = ConsoleColor.DarkYellow;
                 if (type == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
+                if (type == LogType.FATAL) Console.ForegroundColor = ConsoleColor.Magenta;
                 Console.WriteLine(entry);
                 Console.ResetColor();
             }
@@ -56,5 +58,10 @@ namespace DistributedJobScheduling.Logging
         public void Log(Tag tag, string content) => Log(LogType.INFORMATION, tag, content, null);
         public void Warning(Tag tag, string content) => Log(LogType.WARNING, tag, content, null);
         public void Warning(Tag tag, string content, Exception e) => Log(LogType.WARNING, tag, content, e);
+        public void Fatal(Tag tag, string content, Exception e)
+        {
+            Log(LogType.FATAL, tag, content, e);
+            SystemLifeCycle.Shutdown?.Invoke();
+        }
     }
 }

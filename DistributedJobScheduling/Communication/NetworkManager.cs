@@ -4,24 +4,29 @@ using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Basic.Speakers;
 using DistributedJobScheduling.Communication.Topics;
+using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication
 {
-    public class NetworkManager : ICommunicationManager
+    public class NetworkManager : ICommunicationManager, ILifeCycle
     {
         private Dictionary<Node, Speaker> _speakers;
         private Listener _listener;
         private Shouter _shouter;
         private Node _me;
+        private ILogger _logger;
 
         public ITopicOutlet Topics { get; private set; }
 
         public event Action<Node, Message> OnMessageReceived;
 
         public NetworkManager() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
-                                        DependencyInjection.DependencyManager.Get<Configuration.IConfigurationService>()) {}
-        public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService)
+                                       DependencyInjection.DependencyManager.Get<Configuration.IConfigurationService>(),
+                                       DependencyInjection.DependencyManager.Get<ILogger>()) {}
+        public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger)
         {
+            _logger = logger;
             _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeID"));
 
             _speakers = new Dictionary<Node, Speaker>();
@@ -41,8 +46,10 @@ namespace DistributedJobScheduling.Communication
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
         {
+            _logger.Log(Tag.Communication, $"New speaker created for communicate to {node}");
             _speakers.Add(node, speaker);
             speaker.OnMessageReceived += _OnMessageReceived;
+            speaker.StartReceive();
         }
 
         private void _OnMessageReceived(Node node, Message message)
@@ -62,7 +69,10 @@ namespace DistributedJobScheduling.Communication
         {
             // Retrieve an already connected speaker
             if (_speakers.ContainsKey(node))
+            {
+                _logger.Log(Tag.Communication, $"Speaker to {node} is already created");
                 return _speakers[node];
+            }
 
             // Create a new speaker and connect to remote
             BoldSpeaker speaker = new BoldSpeaker(node);
@@ -70,6 +80,9 @@ namespace DistributedJobScheduling.Communication
             
             if (!_speakers.ContainsKey(node))
                 _speakers.Add(node, speaker);
+
+            speaker.StartReceive();
+            _logger.Log(Tag.Communication, $"A new speaker to {node} is created and stored");
 
             return speaker;
         }
@@ -93,6 +106,23 @@ namespace DistributedJobScheduling.Communication
                 speaker.OnMessageReceived -= _OnMessageReceived;
                 _speakers.Remove(id);
             });
+
+            _logger.Warning(Tag.Communication, "Network manager closed, no further communication can be performed");
+        }
+
+        public void Init()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Start()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Stop()
+        {
+            throw new NotImplementedException();
         }
     }
 }

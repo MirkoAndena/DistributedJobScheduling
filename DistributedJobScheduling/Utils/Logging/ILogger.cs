@@ -9,5 +9,6 @@ namespace DistributedJobScheduling.Logging
         void Warning(Tag tag, string content, Exception e);
         void Error(Tag tag, Exception e);
         void Error(Tag tag, string content, Exception e);
+        void Fatal(Tag tag, string content, Exception e);
     }
 }
