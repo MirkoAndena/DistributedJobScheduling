@@ -38,8 +38,11 @@ namespace DistributedJobScheduling.DistributedStorage
             _secureStorage.ValuesChanged.Invoke();
         }
 
-        public void Add(Job job)
+        public void AddOrUpdate(Job job)
         {        
+            if (_secureStorage.Value.List.Contains(job))
+                _secureStorage.Value.List.Remove(job);
+
             _secureStorage.Value.List.Add(job);
             _secureStorage.ValuesChanged.Invoke();
         }

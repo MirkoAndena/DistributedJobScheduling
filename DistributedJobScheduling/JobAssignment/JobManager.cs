@@ -54,6 +54,7 @@ namespace DistributedJobScheduling.JobAssignment
                 if (message is ExecutionAck executionAck) OnExecutionAckArrived(node, executionAck);
                 if (message is InsertionRequest insertionRequest) OnInsertionRequestArrived(node, insertionRequest);
                 if (message is InsertionResponse insertionResponse) OnInsertionResponseArrived(node, insertionResponse);
+                if (message is DistributedStorageUpdate distributedStorageUpdate) OnDistributedStorageUpdateArrived(node, distributedStorageUpdate);
             }
         }        
 
@@ -61,6 +62,11 @@ namespace DistributedJobScheduling.JobAssignment
         {
             _lastMessageSent.Add(node, message);
             _groupManager.Send(node, message);
+        }
+        
+        private void SendMulticast(Message message)
+        {
+            _groupManager.SendMulticast(message);
         }
 
         private void OnExecutionRequestArrived(Node node, ExecutionRequest message)
@@ -93,13 +99,17 @@ namespace DistributedJobScheduling.JobAssignment
         private void OnInsertionRequestArrived(Node node, InsertionRequest message)
         {
             _distributedList.AddAndAssign(message.Job, _groupManager.View);
-            // todo send in multicast the new insertion (job)
+            SendMulticast(new DistributedStorageUpdate(message.Job));
         }
-
 
         private void OnInsertionResponseArrived(Node node, InsertionResponse message)
         {
             _traductionTable.SetJobID(message.RequestID, message.JobID);
+        }
+
+        private void OnDistributedStorageUpdateArrived(Node node, DistributedStorageUpdate distributedStorageUpdate)
+        {
+            _distributedList.AddOrUpdate(distributedStorageUpdate.Job);
         }
     }
 }
