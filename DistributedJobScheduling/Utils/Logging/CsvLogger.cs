@@ -38,7 +38,15 @@ namespace DistributedJobScheduling.Logging
         {
             string entry = Compile(type.ToString(), tag.ToString(), content, e?.Message);
             File.AppendAllText(_filepath, entry);
-            if (_consoleWrite) Console.WriteLine(entry);
+
+            if (_consoleWrite) 
+            {
+                if (type == LogType.WARNING) Console.ForegroundColor = ConsoleColor.DarkYellow;
+                if (type == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(entry);
+                Console.ResetColor();
+            }
+
             string exceptionPath = $"{_directory}/{DateTime.Now.ToString("ddMMyyHHmmssfff")}.txt";
             File.WriteAllText(exceptionPath, e.StackTrace);
         }
