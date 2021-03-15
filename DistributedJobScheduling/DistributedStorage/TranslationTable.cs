@@ -21,13 +21,13 @@ namespace DistributedJobScheduling.DistributedStorage
         public Table() { Dictionary = new Dictionary<int, TableItem>(); }
     }
 
-    public class TraductionTable : IMemoryCleaner
+    public class TranslationTable : IMemoryCleaner
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Table> _secureStorage;
 
-        public TraductionTable() { _secureStorage = new SecureStore<Table>(); }
-        public TraductionTable(IStore store)
+        public TranslationTable() { _secureStorage = new SecureStore<Table>(); }
+        public TranslationTable(IStore store)
         {
             _secureStorage = new SecureStore<Table>(store);
             _reusableIndex = new ReusableIndex(index => _secureStorage.Value.Dictionary.ContainsKey(index));

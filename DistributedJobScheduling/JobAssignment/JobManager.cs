@@ -11,14 +11,14 @@ namespace DistributedJobScheduling.JobAssignment
     public class JobManager
     {
         private GroupViewManager _groupManager;
-        private TraductionTable _traductionTable;
+        private TranslationTable _traductionTable;
         private DistributedList _distributedList;
         
         private Dictionary<Node, int> _unconfirmedRequestIds;
         private Dictionary<Node, Message> _lastMessageSent;
 
-        public JobManager(TraductionTable traductionTable, DistributedList distributedList) : this(DependencyManager.Get<GroupViewManager>(), traductionTable, distributedList) {}
-        public JobManager(GroupViewManager groupManager, TraductionTable traductionTable, DistributedList distributedList)
+        public JobManager(TranslationTable traductionTable, DistributedList distributedList) : this(DependencyManager.Get<GroupViewManager>(), traductionTable, distributedList) {}
+        public JobManager(GroupViewManager groupManager, TranslationTable traductionTable, DistributedList distributedList)
         {
             _traductionTable = traductionTable;
             _distributedList = distributedList;
