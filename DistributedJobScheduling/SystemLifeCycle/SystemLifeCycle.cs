@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.LifeCycle

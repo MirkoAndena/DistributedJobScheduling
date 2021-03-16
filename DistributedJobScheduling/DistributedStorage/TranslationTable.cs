@@ -1,6 +1,9 @@
+using System.Reflection.Metadata;
 using System.Collections.Generic;
 using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
@@ -21,15 +24,18 @@ namespace DistributedJobScheduling.DistributedStorage
         public Table() { Dictionary = new Dictionary<int, TableItem>(); }
     }
 
-    public class TranslationTable : IMemoryCleaner
+    public class TranslationTable : ILifeCycle
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Table> _secureStorage;
+        private ILogger _logger;
 
-        public TranslationTable() { _secureStorage = new SecureStore<Table>(); }
-        public TranslationTable(IStore store)
+        public TranslationTable() : this(DependencyInjection.DependencyManager.Get<IStore>(),
+                                        DependencyInjection.DependencyManager.Get<ILogger>()) { }
+        public TranslationTable(IStore store, ILogger logger)
         {
-            _secureStorage = new SecureStore<Table>(store);
+            _logger = logger;
+            _secureStorage = new SecureStore<Table>(store, logger);
             _reusableIndex = new ReusableIndex(index => _secureStorage.Value.Dictionary.ContainsKey(index));
         }
 
@@ -38,6 +44,7 @@ namespace DistributedJobScheduling.DistributedStorage
             int id = _reusableIndex.NewIndex;
             _secureStorage.Value.Dictionary.Add(id, new TableItem(job));
             _secureStorage.ValuesChanged.Invoke();
+            _logger.Log(Tag.TranslationTable, $"Added job {job} with local id {id} (not confirmed)");
             return id;
         }
 
@@ -47,6 +54,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             _secureStorage.Value.Dictionary[localID].Confirmed = true;
             _secureStorage.ValuesChanged.Invoke();
+            _logger.Log(Tag.TranslationTable, $"Entry with id {localID} is confirmed");
         }
 
         public void SetJobID(int localID, int remoteID)
@@ -55,10 +63,10 @@ namespace DistributedJobScheduling.DistributedStorage
             {
                 _secureStorage.Value.Dictionary[localID].Job.ID = remoteID;
                 _secureStorage.ValuesChanged.Invoke();
+                _logger.Log(Tag.TranslationTable, $"Setted job id ({remoteID}) from coordinator to entry with id {localID}");
             }
         }
 
-        public void CleanLogicRemoved() => DeleteUnconfirmedEntries();
         private void DeleteUnconfirmedEntries()
         {
             _secureStorage.Value.Dictionary.ForEach((id, tableitem) => 
@@ -67,6 +75,19 @@ namespace DistributedJobScheduling.DistributedStorage
                     _secureStorage.Value.Dictionary.Remove(id);
             });
             _secureStorage.ValuesChanged.Invoke();
+            _logger.Log(Tag.TranslationTable, "Unconfirmed entries deleted");
+        }
+
+        public void Init() => DeleteUnconfirmedEntries();
+
+        public void Start()
+        {
+            
+        }
+
+        public void Stop()
+        {
+
         }
     }
 }

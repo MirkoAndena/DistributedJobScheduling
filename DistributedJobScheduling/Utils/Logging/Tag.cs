@@ -3,6 +3,9 @@ namespace DistributedJobScheduling.Logging
     public enum Tag
     {
         CommunicationBasic,
-        Communication
+        Communication,
+        SecureStorage,
+        DistributedStorage,
+        TranslationTable
     }
 }

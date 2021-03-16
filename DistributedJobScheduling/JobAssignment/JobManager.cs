@@ -98,7 +98,7 @@ namespace DistributedJobScheduling.JobAssignment
 
         private void OnInsertionRequestArrived(Node node, InsertionRequest message)
         {
-            _distributedList.AddAndAssign(message.Job, _groupManager.View);
+            _distributedList.AddAndAssign(message.Job);
             SendMulticast(new DistributedStorageUpdate(message.Job));
         }
 

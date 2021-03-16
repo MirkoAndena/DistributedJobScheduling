@@ -1,25 +1,39 @@
 using System.IO;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.DistributedStorage.SecureStorage
 {
-    public class Storage : IStore
+    public class Storage : IStore, ILifeCycle
     {
+        public void Init()
+        {
+            IStore.FilePaths.ForEach(path => 
+            {
+                if (!File.Exists(path.Value))
+                    File.Create(path.Value);
+            });
+        }
+
         public string Read(Stores store)
         {
-            string _filepath = IStore.FilePaths[store];
-            if (!File.Exists(_filepath))
-            {
-                File.Create(_filepath);
-                return string.Empty;
-            }
+            string path = IStore.FilePaths[store];
+            return File.ReadAllText(path);
+        }
 
-            return File.ReadAllText(_filepath);
+        public void Start()
+        {
+
+        }
+
+        public void Stop()
+        {
+            
         }
 
         public void Write(Stores store, byte[] data)
         {
-            string _filepath = IStore.FilePaths[store];
-            File.WriteAllBytes(_filepath, data);
+            string path = IStore.FilePaths[store];
+            File.WriteAllBytes(path, data);
         }
     }
 }

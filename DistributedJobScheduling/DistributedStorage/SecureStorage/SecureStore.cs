@@ -2,31 +2,40 @@ using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.DependencyInjection;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.DistributedStorage.SecureStorage
 {
     // T must has the default constructor (without parameters)
-    public class SecureStore<T>
+    public class SecureStore<T> : ILifeCycle
     {
         private T _value;
         private IStore _store;
+        private ILogger _logger;
 
         public Action ValuesChanged;
 
         public T Value => _value;
 
-        public SecureStore() : this(DependencyManager.Get<Storage>()) { }
-        public SecureStore(IStore store)
+        public SecureStore() : this(DependencyManager.Get<Storage>(),
+                                    DependencyManager.Get<ILogger>()) { }
+        public SecureStore(IStore store, ILogger logger)
         {
+            _logger = logger;
             _store = store;
-            _value = Read();
             ValuesChanged += Write;
         }
 
         private T Read()
         {
             string stored = _store.Read(Stores.DistributedJobList);
-            if (stored != string.Empty) return JsonSerialization.Deserialize<T>(stored);
+            if (stored != string.Empty)
+            {
+                _logger.Log(Tag.SecureStorage, $"Read {typeof(T)} from secure storage");
+                return JsonSerialization.Deserialize<T>(stored);
+            } 
+            _logger.Log(Tag.SecureStorage, $"No data read from secure storage");
             return Activator.CreateInstance<T>();
         }
 
@@ -34,10 +43,22 @@ namespace DistributedJobScheduling.DistributedStorage.SecureStorage
         {
             byte[] json = JsonSerialization.Serialize(_value);
             _store.Write(Stores.DistributedJobList, json);
+            _logger.Log(Tag.SecureStorage, $"Writed {typeof(T)} to secure storage");
         }
 
-        public void Close()
+        public void Init()
         {
+            _value = Read();
+        }
+
+        public void Start()
+        {
+            
+        }
+
+        public void Stop()
+        {
+            _logger.Warning(Tag.SecureStorage, "Secure storage closed");
             ValuesChanged -= Write;
         }
     }
