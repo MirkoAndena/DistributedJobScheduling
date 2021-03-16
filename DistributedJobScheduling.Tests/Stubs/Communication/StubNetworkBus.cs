@@ -7,6 +7,7 @@ using DistributedJobScheduling.Communication.Basic;
 
 namespace DistributedJobScheduling.Tests.Communication
 {
+    //FIXME: Channels are not FIFO in this implementation...
     public class StubNetworkBus
     {
         private Dictionary<string, StubNetworkManager> _networkMap;
@@ -83,7 +84,7 @@ namespace DistributedJobScheduling.Tests.Communication
                 {
                     receiver = _networkMap[x];
                 }
-                
+
                 receiver.FakeReceive(_registryMap[x].GetOrCreate(from), message);
             });
         }
