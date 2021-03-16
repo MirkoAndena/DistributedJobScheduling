@@ -12,6 +12,7 @@ using System.Linq;
 using DistributedJobScheduling.JobAssignment;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -83,7 +84,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
             _joinRequestLock = new SemaphoreSlim(1,1);
             Topics = new GenericTopicOutlet(this, new JobPublisher());
-            View = new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), false);
+            View = new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), coordinator: configurationService.GetValue<bool>("coordinator", false));
         }
 
         public event Action<Node, Message> OnMessageReceived;
@@ -273,7 +274,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _flushed = true;
                 }
 
-                if(_flushedNodes.SetEquals(_newGroupView))
+                if(_flushedNodes.SetEquals(_pendingViewChange.ViewChange == ViewChangeMessage.ViewChangeOperation.Left ? _newGroupView : View.Others))
                 {
                     //Enstablish new View
                     View.Update(_newGroupView);
@@ -286,15 +287,16 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _viewChangeInProgress = null;
                     _newGroupView = null;
 
-                    //Unlock group communication
-                    viewChangeTask.SetResult(true);
-
                     //Check if it needs to sync to the new node
                     if(_currentJoinRequest != null)
                     {
                         _communicationManager.Send(_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), _messageTimeStamper));
                         _currentJoinRequest = null;
                     }
+
+                    //Unlock group communication
+                    viewChangeTask.SetResult(true);
+
                 }
             }
         }
@@ -335,7 +337,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 View.Update(newView);
                 View.UpdateCoordinator(coordinator);
-                _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine} Synched view: {View.Others}");
+                _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine} Synched view: {View.Others.ToString<Node>()}");
 
                 _joinRequestCompletion.SetResult(true);
             }
@@ -354,8 +356,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryAckMessage), OnTemporaryAckReceived);
 
             //View Changes
-            _virtualSynchronyTopic.RegisterForMessage(typeof(ViewChangeMessage), OnTemporaryAckReceived);
-            _virtualSynchronyTopic.RegisterForMessage(typeof(FlushMessage), OnTemporaryAckReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(ViewChangeMessage), OnViewChangeReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(FlushMessage), OnFlushMessageReceived);
 
             //Group Joining
             _virtualSynchronyTopic.RegisterForMessage(typeof(ViewJoinRequest), OnJoinRequestReceived);
@@ -367,7 +369,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             if(View.Coordinator == null)
             {
                 _logger.Log(Tag.VirtualSynchrony, "No coordinator detected, trying to join existing group...");
-                while(_joinRequestCompletion != null)
+                do
                 {
                     _joinRequestCompletion = new TaskCompletionSource<bool>();
                     await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me, _messageTimeStamper));
@@ -386,7 +388,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         _logger.Log(Tag.VirtualSynchrony, "Finished startup sequence!");
                         _joinRequestCompletion = null;
                     }
-                }
+                } while(_joinRequestCompletion != null);
             }
             else
                 _logger.Log(Tag.VirtualSynchrony, "Coordinator detected, finished startup sequence.");

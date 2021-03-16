@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using DistributedJobScheduling.DistributedStorage.SecureStorage;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
@@ -12,7 +13,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public SecureStorageStub()
         {
             _storage = new Dictionary<string, string>();
-            IStore.FilePaths.ForEach((store, path) => _storage.Add(path, string.Empty));
+            IStore.FilePaths.Values.ForEach(path => _storage.Add(path, string.Empty));
         }
 
         public string Read(Stores store)

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.DistributedStorage.SecureStorage;
+using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
@@ -107,10 +108,10 @@ namespace DistributedJobScheduling.DistributedStorage
 
             // Find the node with the less number of assignment
             (int, int) min = (_group.Me.ID.Value, nodeJobCount[_group.Me.ID.Value]);
-            nodeJobCount.ForEach((node, occurrences) => 
+            nodeJobCount.ForEach(nodeOccurencesPair => 
             {
-                if (occurrences < min.Item2)
-                    min = (node, occurrences);
+                if (nodeOccurencesPair.Value < min.Item2)
+                    min = (nodeOccurencesPair.Key, nodeOccurencesPair.Value);
             });
 
             _logger.Log(Tag.DistributedStorage, $"Node with less occurrences: {min.Item1} with {min.Item2} jobs to do");

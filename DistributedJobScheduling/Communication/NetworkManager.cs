@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Basic.Speakers;
 using DistributedJobScheduling.Communication.Topics;
+using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 
@@ -100,11 +101,11 @@ namespace DistributedJobScheduling.Communication
             _shouter.Close();
             _listener.Close();
 
-            _speakers.ForEach((id, speaker) => 
+            _speakers.ForEach(speakerIdPair => 
             {
-                speaker.Close();
-                speaker.OnMessageReceived -= _OnMessageReceived;
-                _speakers.Remove(id);
+                speakerIdPair.Value.Close();
+                speakerIdPair.Value.OnMessageReceived -= _OnMessageReceived;
+                _speakers.Remove(speakerIdPair.Key);
             });
 
             _logger.Warning(Tag.Communication, "Network manager closed, no further communication can be performed");

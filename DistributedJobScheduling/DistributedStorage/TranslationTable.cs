@@ -4,6 +4,7 @@ using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
@@ -69,10 +70,10 @@ namespace DistributedJobScheduling.DistributedStorage
 
         private void DeleteUnconfirmedEntries()
         {
-            _secureStorage.Value.Dictionary.ForEach((id, tableitem) => 
+            _secureStorage.Value.Dictionary.ForEach(idItemPair => 
             {
-                if (!tableitem.Confirmed)
-                    _secureStorage.Value.Dictionary.Remove(id);
+                if (!idItemPair.Value.Confirmed)
+                    _secureStorage.Value.Dictionary.Remove(idItemPair.Key);
             });
             _secureStorage.ValuesChanged.Invoke();
             _logger.Log(Tag.TranslationTable, "Unconfirmed entries deleted");

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.Communication
 {

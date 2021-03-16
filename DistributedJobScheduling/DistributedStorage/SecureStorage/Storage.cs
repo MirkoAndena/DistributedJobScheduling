@@ -1,4 +1,5 @@
 using System.IO;
+using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.DistributedStorage.SecureStorage

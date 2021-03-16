@@ -26,7 +26,8 @@ namespace DistributedJobScheduling.Communication.Topics
             if(TopicMessageTypes.Contains(messageType))
             {
                 OnMessagePublished?.Invoke(node, message);
-                _messageRegistrations[message.GetType()]?.Invoke(node, message);
+                if(_messageRegistrations.ContainsKey(messageType))
+                    _messageRegistrations[messageType]?.Invoke(node, message);
             }
         }
 
