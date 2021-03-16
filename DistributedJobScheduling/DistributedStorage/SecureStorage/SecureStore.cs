@@ -1,14 +1,11 @@
 using System;
-using System.Collections.Generic;
 using DistributedJobScheduling.DependencyInjection;
-using DistributedJobScheduling.JobAssignment.Jobs;
-using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.DistributedStorage.SecureStorage
 {
     // T must has the default constructor (without parameters)
-    public class SecureStore<T> : ILifeCycle
+    public class SecureStore<T>
     {
         private T _value;
         private IStore _store;
@@ -49,11 +46,6 @@ namespace DistributedJobScheduling.DistributedStorage.SecureStorage
         public void Init()
         {
             _value = Read();
-        }
-
-        public void Start()
-        {
-            
         }
 
         public void Stop()

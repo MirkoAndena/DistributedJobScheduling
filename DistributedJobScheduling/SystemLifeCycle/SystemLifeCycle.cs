@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.DistributedStorage;
 using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.Logging;
 
@@ -35,14 +36,21 @@ namespace DistributedJobScheduling.LifeCycle
             _subSystems.Add(instance);
         }
 
+        // todo dependency inj senza interfaccia
+        private void InitSubSystem<T>(T instance) where T : ILifeCycle
+        {
+            DependencyManager.Instance.RegisterService<T, T>(DependencyManager.ServiceType.Statefull);
+            _subSystems.Add(instance);
+        }
+
         public void Init()
         {
             DependencyManager.Instance.RegisterSingletonServiceInstance<ILogger, CsvLogger>(new CsvLogger("../"));
-            DependencyManager.Instance.RegisterSingletonServiceInstance<IStore, Storage>(new Storage());
-            // TODO Objects creation (also with DependencyInjection)
-
-            // Following is an example
+            
             InitSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
+            InitSubSystem<IStore, Storage>(new Storage());
+            InitSubSystem<DistributedList>(new DistributedList());
+            InitSubSystem<TranslationTable>(new TranslationTable());
         }
 
         public void Start() => _subSystems.ForEach(subsystem => subsystem.Start());

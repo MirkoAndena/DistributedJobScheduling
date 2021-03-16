@@ -162,10 +162,18 @@ namespace DistributedJobScheduling.DistributedStorage
             return toExecute;
         }
 
-        public void Init() => DeletePendingAndRemovedJobs();
+        public void Init()
+        {
+            _secureStorage.Init();
+            DeletePendingAndRemovedJobs();
+        }
 
         public void Start() => RunAssignedJob();
 
-        public void Stop() => _cancellationTokenSource.Cancel();
+        public void Stop()
+        {
+            _cancellationTokenSource.Cancel();
+            _secureStorage.Stop();
+        } 
     }
 }
