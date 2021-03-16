@@ -63,7 +63,8 @@ namespace DistributedJobScheduling.Tests
         [Fact]
         public async Task SimpleJoin()
         {
-            StubNetworkBus networkBus = new StubNetworkBus(123);
+            StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
+            networkBus.LatencyDeviation = 10;
 
             var node1 = StartUpNode(0, true, networkBus);
             var node2 = StartUpNode(2, false, networkBus);
@@ -71,23 +72,38 @@ namespace DistributedJobScheduling.Tests
             
             node1.Start();
             Assert.True(node1.groupManager.View != null && node1.groupManager.View.Coordinator == node1.node);
-            await Task.Delay(50);
+            await Task.Delay(1);
             node2.Start();
-            await Task.Delay(1000);
-            Assert.True(node1.groupManager.View.Others.Count == 1);
-            Assert.True(node1.groupManager.View.Coordinator == node1.node);
-            Assert.True(node2.groupManager.View != null);
-            Assert.True(node2.groupManager.View.Others.Count == 1);
-            Assert.True(node2.groupManager.View.Coordinator == node2.nodeRegistry.GetOrCreate(node1.node));
+            await Task.Delay(1);
             node3.Start();
-            await Task.Delay(1000);
-            Assert.True(node1.groupManager.View.Others.Count == 2);
-            Assert.True(node1.groupManager.View.Coordinator == node1.node);
-            Assert.True(node2.groupManager.View.Others.Count == 2);
-            Assert.True(node2.groupManager.View.Coordinator == node2.nodeRegistry.GetOrCreate(node1.node));
-            Assert.True(node3.groupManager.View != null);
-            Assert.True(node3.groupManager.View.Others.Count == 2);
-            Assert.True(node3.groupManager.View.Coordinator == node3.nodeRegistry.GetOrCreate(node1.node));
+
+            await Task.Run(async () =>
+            {
+                TaskCompletionSource<bool> waitForNode3ViewChange = new TaskCompletionSource<bool>();
+                TaskCompletionSource<bool> waitForNode2ViewChange = new TaskCompletionSource<bool>();
+                
+                node3.groupManager.View.ViewChanged += () => {
+                    node3.nodeLogger.Log(Logging.Tag.VirtualSynchrony, $"View change {node3.groupManager.View.Others.Count}");
+                    if(node3.groupManager.View.Others.Count == 2 && node3.groupManager.View.Coordinator == node3.nodeRegistry.GetOrCreate(node1.node))
+                        waitForNode3ViewChange.SetResult(true);
+                };
+
+                node2.groupManager.View.ViewChanged += () => {
+                    node2.nodeLogger.Log(Logging.Tag.VirtualSynchrony, $"View change {node2.groupManager.View.Others.Count}");
+                    if(node2.groupManager.View.Others.Count == 2 && node2.groupManager.View.Coordinator == node2.nodeRegistry.GetOrCreate(node1.node))
+                        waitForNode2ViewChange.SetResult(true);
+                };
+
+                await Task.WhenAny(Task.WhenAll(waitForNode3ViewChange.Task, waitForNode2ViewChange.Task), 
+                                   Task.Delay(15000));
+                Assert.True(node1.groupManager.View.Others.Count == 2);
+                Assert.True(node1.groupManager.View.Coordinator == node1.node);
+                Assert.True(node2.groupManager.View.Others.Count == 2);
+                Assert.True(node2.groupManager.View.Coordinator == node2.nodeRegistry.GetOrCreate(node1.node));
+                Assert.True(node3.groupManager.View != null);
+                Assert.True(node3.groupManager.View.Others.Count == 2);
+                Assert.True(node3.groupManager.View.Coordinator == node3.nodeRegistry.GetOrCreate(node1.node));
+            });
         }
 
         private class FakeNode
@@ -97,6 +113,7 @@ namespace DistributedJobScheduling.Tests
             public IGroupViewManager groupManager;
             public ITimeStamper timeStamper;
             public Node.INodeRegistry nodeRegistry;
+            public StubLogger nodeLogger;
 
             public void Start()
             {
@@ -121,14 +138,15 @@ namespace DistributedJobScheduling.Tests
                                                                   }),
                                                                   stubLogger);
 
-            networkBus.RegisterToNetwork(node, commMgr);
+            networkBus.RegisterToNetwork(node, nodeRegistry, commMgr);
 
             return new FakeNode (){
                 node = node, 
                 commMgr = commMgr, 
                 groupManager = groupManager, 
                 timeStamper = nodeTimeStamper,
-                nodeRegistry = nodeRegistry
+                nodeRegistry = nodeRegistry,
+                nodeLogger = stubLogger
             };
         }
     }

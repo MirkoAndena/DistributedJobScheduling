@@ -10,20 +10,23 @@ namespace DistributedJobScheduling.Tests.Communication
     public class StubNetworkBus
     {
         private Dictionary<string, StubNetworkManager> _networkMap;
+        private Dictionary<string, Node.INodeRegistry> _registryMap;
         public float LatencyDeviation {get; set;} = 1.0f;
         private Random _random;
 
         public StubNetworkBus(int randomSeed)
         {
             _networkMap = new Dictionary<string, StubNetworkManager>();
+            _registryMap = new Dictionary<string, Node.INodeRegistry>();
             _random = new Random(randomSeed);
         }
 
-        public void RegisterToNetwork(Node node, StubNetworkManager communicator)
+        public void RegisterToNetwork(Node node, Node.INodeRegistry registry, StubNetworkManager communicator)
         {
             if(!_networkMap.ContainsKey(node.IP))
             {
                 _networkMap.Add(node.IP, communicator);
+                _registryMap.Add(node.IP, registry);
                 communicator.RegisteredToNetwork(this);
             }
         }
@@ -31,7 +34,10 @@ namespace DistributedJobScheduling.Tests.Communication
         public void UnregisterFromNetwork(Node node)
         {
             if(_networkMap.ContainsKey(node.IP))
+            {
                 _networkMap.Remove(node.IP);
+                _registryMap.Remove(node.IP);
+            }
         }
 
         public async Task SendTo(Node from, Node to, Message message, int timeout)
@@ -39,7 +45,7 @@ namespace DistributedJobScheduling.Tests.Communication
             await Task.Delay(_random.Next((int)(5*LatencyDeviation),(int)(17*LatencyDeviation)));
 
             if(_networkMap.ContainsKey(to.IP))
-                _networkMap[to.IP].FakeReceive(from, message);
+                _networkMap[to.IP].FakeReceive(_registryMap[to.IP].GetOrCreate(from), message);
             else
                 await Task.Delay(TimeSpan.FromSeconds(timeout));
         }
@@ -53,7 +59,7 @@ namespace DistributedJobScheduling.Tests.Communication
             //Emulate latency and out of order receive
             Parallel.ForEach(nodesToSendTo, async x => {
                 await Task.Delay(_random.Next((int)(5*LatencyDeviation),(int)(17*LatencyDeviation)));
-                _networkMap[x].FakeReceive(from, message);
+                _networkMap[x].FakeReceive(_registryMap[x].GetOrCreate(from), message);
             });
         }
     }
