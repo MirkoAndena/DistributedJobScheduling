@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
 using DistributedJobScheduling.Communication;
+using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
@@ -64,46 +65,57 @@ namespace DistributedJobScheduling.Tests
         public async Task SimpleJoin()
         {
             StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
-            networkBus.LatencyDeviation = 10;
+            networkBus.LatencyDeviation = 1;
+            FakeNode[] nodes = new FakeNode[10];
 
-            var node1 = StartUpNode(0, true, networkBus);
-            var node2 = StartUpNode(2, false, networkBus);
-            var node3 = StartUpNode(3, false, networkBus);
+            for(int i = 0; i < nodes.Length; i++)
+                nodes[i] = StartUpNode(i, i == 0, networkBus);
             
-            node1.Start();
-            Assert.True(node1.groupManager.View != null && node1.groupManager.View.Coordinator == node1.node);
-            await Task.Delay(1);
-            node2.Start();
-            await Task.Delay(1);
-            node3.Start();
+            for(int i = 0; i < nodes.Length; i++)
+            {
+                nodes[i].Start();
+                await Task.Delay(1);
+            }
 
             await Task.Run(async () =>
             {
-                TaskCompletionSource<bool> waitForNode3ViewChange = new TaskCompletionSource<bool>();
-                TaskCompletionSource<bool> waitForNode2ViewChange = new TaskCompletionSource<bool>();
-                
-                node3.groupManager.View.ViewChanged += () => {
-                    node3.nodeLogger.Log(Logging.Tag.VirtualSynchrony, $"View change {node3.groupManager.View.Others.Count}");
-                    if(node3.groupManager.View.Others.Count == 2 && node3.groupManager.View.Coordinator == node3.nodeRegistry.GetOrCreate(node1.node))
-                        waitForNode3ViewChange.SetResult(true);
-                };
-
-                node2.groupManager.View.ViewChanged += () => {
-                    node2.nodeLogger.Log(Logging.Tag.VirtualSynchrony, $"View change {node2.groupManager.View.Others.Count}");
-                    if(node2.groupManager.View.Others.Count == 2 && node2.groupManager.View.Coordinator == node2.nodeRegistry.GetOrCreate(node1.node))
-                        waitForNode2ViewChange.SetResult(true);
-                };
-
-                await Task.WhenAny(Task.WhenAll(waitForNode3ViewChange.Task, waitForNode2ViewChange.Task), 
-                                   Task.Delay(15000));
-                Assert.True(node1.groupManager.View.Others.Count == 2);
-                Assert.True(node1.groupManager.View.Coordinator == node1.node);
-                Assert.True(node2.groupManager.View.Others.Count == 2);
-                Assert.True(node2.groupManager.View.Coordinator == node2.nodeRegistry.GetOrCreate(node1.node));
-                Assert.True(node3.groupManager.View != null);
-                Assert.True(node3.groupManager.View.Others.Count == 2);
-                Assert.True(node3.groupManager.View.Coordinator == node3.nodeRegistry.GetOrCreate(node1.node));
+                await Task.WhenAny(Task.WhenAll(SetupAwaiters(nodes[0], nodes[1..])), 
+                                   Task.Delay(10000 ));//* (nodes.Length - 1)));
+                AssertView(nodes);
             });
+        }
+
+        private Task[] SetupAwaiters(FakeNode coordinator, params FakeNode[] nodes)
+        {
+            List<Task> waitForNodes = new List<Task>();
+
+            nodes.ForEach(node => {
+                TaskCompletionSource<bool> waitForNodeViewChange = new TaskCompletionSource<bool>();
+                
+                node.groupManager.View.ViewChanged += () => {
+                    if(node.groupManager.View.Others.Count == nodes.Length && node.groupManager.View.Coordinator == node.nodeRegistry.GetOrCreate(coordinator.node))
+                        waitForNodeViewChange.SetResult(true);
+                };
+
+                waitForNodes.Add(waitForNodeViewChange.Task);
+            });
+
+            return waitForNodes.ToArray();
+        }
+
+        private void AssertView(params FakeNode[] nodes)
+        {
+            Node oneCoordinator = nodes[0].groupManager.View.Coordinator;
+            foreach(FakeNode node in nodes)
+            {
+                Assert.True(node.groupManager.View != null);
+                Assert.True(node.groupManager.View.Others.Count == nodes.Length - 1);
+                Assert.True(node.groupManager.View.Coordinator == node.nodeRegistry.GetOrCreate(oneCoordinator));
+
+                /*foreach(FakeNode otherNode in nodes)
+                    if(otherNode != node)
+                        Assert.True(node.groupManager.View.Others.Contains(node.nodeRegistry.GetOrCreate(otherNode.node)));*/
+            }
         }
 
         private class FakeNode
@@ -137,7 +149,7 @@ namespace DistributedJobScheduling.Tests
                                                                     ["coordinator"] = coordinator
                                                                   }),
                                                                   stubLogger);
-
+            groupManager.View.ViewChanged += () => { stubLogger.Log(Logging.Tag.VirtualSynchrony, $"View Changed: {groupManager.View.Others.ToString<Node>()}"); };
             networkBus.RegisterToNetwork(node, nodeRegistry, commMgr);
 
             return new FakeNode (){

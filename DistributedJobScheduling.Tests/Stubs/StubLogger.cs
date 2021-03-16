@@ -33,7 +33,7 @@ namespace DistributedJobScheduling.Tests
 
         private void WriteLog(Tag tag, string content, Exception e = null)
         {
-            _output.WriteLine($"{{{_boundNode.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}");
+            _output.WriteLine($"|{DateTime.Now}|{{{_boundNode.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}");
             if(e != null)
                 _output.WriteLine(e.StackTrace);
         }

@@ -27,27 +27,39 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         public void Add(Node node)
         {
-            Others.Add(node);
+            lock(this)
+            {
+                Others.Add(node);
+            }
             ViewChanged?.Invoke();
         }
 
         public void UpdateCoordinator(Node node)
         {
-            Coordinator = node;
+            lock(this)
+            {
+                Coordinator = node;
+            }
             ViewChanged?.Invoke();
         }
 
         public void Update(HashSet<Node> newView)
         {
-            Others = newView;
+            lock(this)
+            {
+                Others = newView;
+            }
             ViewChanged?.Invoke();
         }
 
         public void Remove(Node node)
         {
-            if (Coordinator == node)
-                Coordinator = null;
-            Others.Remove(node);
+            lock(this)
+            {
+                if (Coordinator == node)
+                    Coordinator = null;
+                Others.Remove(node);
+            }
             ViewChanged?.Invoke();
         }
     }
