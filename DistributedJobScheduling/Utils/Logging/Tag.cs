@@ -6,6 +6,7 @@ namespace DistributedJobScheduling.Logging
         Communication,
         SecureStorage,
         DistributedStorage,
-        TranslationTable
+        TranslationTable,
+        JobManager
     }
 }
