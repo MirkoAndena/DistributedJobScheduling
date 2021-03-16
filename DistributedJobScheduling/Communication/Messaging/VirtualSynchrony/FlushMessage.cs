@@ -12,5 +12,11 @@ namespace DistributedJobScheduling.Communication.Messaging
             RelatedChangeNode = node;
             RelatedChangeOperation = viewChange;
         }
+
+        public override void BindToRegistry(Node.INodeRegistry registry)
+        {
+            base.BindToRegistry(registry);
+            RelatedChangeNode = registry.GetOrCreate(RelatedChangeNode);
+        }
     }
 }

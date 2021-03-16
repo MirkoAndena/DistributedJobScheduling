@@ -24,5 +24,11 @@ namespace DistributedJobScheduling.Communication.Messaging
         {
             return Node.ID == other.Node.ID && ViewChange == other.ViewChange;
         }
+
+        public override void BindToRegistry(Node.INodeRegistry registry)
+        {
+            base.BindToRegistry(registry);
+            Node = registry.GetOrCreate(Node);
+        }
     }
 }

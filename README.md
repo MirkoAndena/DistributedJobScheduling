@@ -7,3 +7,4 @@
 - Jobs are abstracted as wait operations of different length which can lockup the network thread and other components randomly
 - Executor nodes are already know to each executor (group.json)
 - No form of authentication for executors
+- Nodes do not crash in the middle of the join procedure

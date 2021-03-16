@@ -1,3 +1,4 @@
+using System.Threading;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -9,13 +10,15 @@ using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.DependencyInjection;
 using System.Linq;
 using DistributedJobScheduling.JobAssignment;
+using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
 
     //TODO: Timeouts?
     //FIXME: Resource Locks? Messages are asynchronous, some blocks should have mutual exclusion
-    public class GroupViewManager : IGroupViewManager
+    public class GroupViewManager : IGroupViewManager, ILifeCycle
     {
         private class MulticastNotDeliveredException : Exception {}
 
@@ -25,6 +28,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private ICommunicationManager _communicationManager;
         private ITimeStamper _messageTimeStamper;
+        private ILogger _logger;
         private Node.INodeRegistry _nodeRegistry;
         private ITopicPublisher _virtualSynchronyTopic;
 
@@ -44,6 +48,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         #region View Change Variables
 
+        private TaskCompletionSource<bool> _joinRequestCompletion;
+
+        private ViewJoinRequest _currentJoinRequest;
+        private SemaphoreSlim _joinRequestLock;
         private ViewChangeMessage _pendingViewChange;
         private TaskCompletionSource<bool> _viewChangeInProgress;
         private HashSet<Node> _newGroupView;
@@ -55,29 +63,27 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public GroupViewManager() : this(DependencyManager.Get<Node.INodeRegistry>(),
                                          DependencyManager.Get<ICommunicationManager>(), 
                                          DependencyManager.Get<ITimeStamper>(),
-                                         DependencyManager.Get<IConfigurationService>()
+                                         DependencyManager.Get<IConfigurationService>(),
+                                         DependencyManager.Get<ILogger>()
                                          ) {}
         internal GroupViewManager(Node.INodeRegistry nodeRegistry,
                                   ICommunicationManager communicationManager, 
                                   ITimeStamper timeStamper,
-                                  IConfigurationService configurationService)
+                                  IConfigurationService configurationService,
+                                  ILogger logger)
         {
             _nodeRegistry = nodeRegistry;
             _communicationManager = communicationManager;
             _messageTimeStamper = timeStamper;
+            _logger = logger;
             _confirmationMap = new Dictionary<(int, int), HashSet<Node>>();
             _confirmationQueue = new Dictionary<(int, int), TemporaryMessage>();
             _sentTemporaryMessages = new HashSet<TemporaryMessage>();
             _sendComplenentionMap = new Dictionary<TemporaryMessage, TaskCompletionSource<bool>>();
-
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
+            _joinRequestLock = new SemaphoreSlim(1,1);
             Topics = new GenericTopicOutlet(this, new JobPublisher());
             View = new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), false);
-
-            _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryMessage), OnTemporaryMessageReceived);
-            _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryAckMessage), OnTemporaryAckReceived);
-            _virtualSynchronyTopic.RegisterForMessage(typeof(ViewChangeMessage), OnTemporaryAckReceived);
-            _virtualSynchronyTopic.RegisterForMessage(typeof(FlushMessage), OnTemporaryAckReceived);
         }
 
         public event Action<Node, Message> OnMessageReceived;
@@ -220,7 +226,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         /// <param name="viewChangeMessage">Message containing the view change</param>
         private void HandleViewChange(Node initiator, ViewChangeMessage viewChangeMessage)
         {
-            Node viewChange = _nodeRegistry.GetOrCreate(viewChangeMessage.Node);
+            viewChangeMessage.BindToRegistry(_nodeRegistry);
             //Assume no view change while changing view
             if(_viewChangeInProgress == null)
             {
@@ -231,7 +237,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     //FIXME: Shouldn't we multicast unstable messages from the dead node? Probably handled by timeout (either all or none)
                     //Ignore acknowledges from the dead node
-                    _confirmationMap.Keys.ForEach(messageKey => ProcessAcknowledge(messageKey, viewChange));
+                    _confirmationMap.Keys.ForEach(messageKey => ProcessAcknowledge(messageKey, viewChangeMessage.Node));
                 }
 
                 //Setup Message Flushing and check if we can already flush
@@ -240,13 +246,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 _newGroupView = new HashSet<Node>(View.Others);
                 
                 if(viewChangeMessage.ViewChange == ViewChangeMessage.ViewChangeOperation.Joined)
-                    _newGroupView.Add(viewChange);
+                    _newGroupView.Add(viewChangeMessage.Node);
                 else
-                    _newGroupView.Remove(viewChange);
+                    _newGroupView.Remove(viewChangeMessage.Node);
 
                 HandleFlushCondition(); 
             }
-            else if((initiator == View.Me || initiator != viewChange) && !_pendingViewChange.IsSame(viewChangeMessage))
+            else if((initiator == View.Me || initiator != viewChangeMessage.Node) && !_pendingViewChange.IsSame(viewChangeMessage))
             {
                 //If we got a new viewchange that isn't the same as the one already received
                 //FATAL: Double View Change
@@ -282,8 +288,116 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                     //Unlock group communication
                     viewChangeTask.SetResult(true);
+
+                    //Check if it needs to sync to the new node
+                    if(_currentJoinRequest != null)
+                    {
+                        _communicationManager.Send(_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), _messageTimeStamper));
+                        _currentJoinRequest = null;
+                    }
                 }
             }
+        }
+
+        private async void OnJoinRequestReceived(Node node, Message message)
+        {
+            ViewJoinRequest joinRequest = message as ViewJoinRequest;
+            joinRequest.BindToRegistry(_nodeRegistry);
+
+            await CheckViewChanges();
+
+            await _joinRequestLock.WaitAsync();
+            if(!View.Others.Contains(joinRequest.JoiningNode))
+            {
+                if(View.Me == View.Coordinator)
+                {
+                    //Only the coordinator processes these
+                    _currentJoinRequest = joinRequest;
+                    HandleViewChange(View.Me, new ViewChangeMessage(joinRequest.JoiningNode, ViewChangeMessage.ViewChangeOperation.Joined, _messageTimeStamper));
+                }
+            }
+            _joinRequestLock.Release();
+        }
+
+        private void OnViewSyncReceived(Node coordinator, Message message)
+        {
+            if(_joinRequestCompletion != null && !_joinRequestCompletion.Task.IsCanceled)
+            {
+                ViewSyncResponse viewSyncResponse = message as ViewSyncResponse;
+                viewSyncResponse.BindToRegistry(_nodeRegistry);
+
+                HashSet<Node> newView = viewSyncResponse.ViewNodes.ToHashSet();
+                
+                if(!newView.Contains(View.Me))
+                    _logger.Fatal(Tag.VirtualSynchrony, "Received a new view where I'm not included!", new Exception("Received a new view where I'm not included!"));
+                newView.Remove(View.Me);
+                newView.Add(coordinator);
+
+                View.Update(newView);
+                View.UpdateCoordinator(coordinator);
+                _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine} Synched view: {View.Others}");
+
+                _joinRequestCompletion.SetResult(true);
+            }
+        }
+
+        public void Init()
+        {
+        }
+
+        public async void Start()
+        {
+            _logger.Log(Tag.VirtualSynchrony, "Starting GroupViewManager...");
+
+            //Message Exchange
+            _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryMessage), OnTemporaryMessageReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(TemporaryAckMessage), OnTemporaryAckReceived);
+
+            //View Changes
+            _virtualSynchronyTopic.RegisterForMessage(typeof(ViewChangeMessage), OnTemporaryAckReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(FlushMessage), OnTemporaryAckReceived);
+
+            //Group Joining
+            _virtualSynchronyTopic.RegisterForMessage(typeof(ViewJoinRequest), OnJoinRequestReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(ViewSyncResponse), OnViewSyncReceived);
+
+            _logger.Log(Tag.VirtualSynchrony, "Registered for VS messages");
+
+            //Start group join if we are not in a Group
+            if(View.Coordinator == null)
+            {
+                _logger.Log(Tag.VirtualSynchrony, "No coordinator detected, trying to join existing group...");
+                while(_joinRequestCompletion != null)
+                {
+                    _joinRequestCompletion = new TaskCompletionSource<bool>();
+                    await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me, _messageTimeStamper));
+                    await Task.WhenAny(
+                        _joinRequestCompletion.Task,
+                        Task.Delay(5000 + (new Random().Next(5000))) //5 seconds timeout + (0,5) random seconds
+                    );
+
+                    if(!_joinRequestCompletion.Task.IsCompleted)
+                    {
+                        _joinRequestCompletion.SetCanceled();
+                        _logger.Warning(Tag.VirtualSynchrony, "View join request timedout, trying again...");
+                    }
+                    else
+                    {
+                        _logger.Log(Tag.VirtualSynchrony, "Finished startup sequence!");
+                        _joinRequestCompletion = null;
+                    }
+                }
+            }
+            else
+                _logger.Log(Tag.VirtualSynchrony, "Coordinator detected, finished startup sequence.");
+        }
+
+        public void Stop()
+        {
+            _logger.Log(Tag.VirtualSynchrony, "Stopping node, sending view change message");
+            //TODO: A node advertising he is leaving, might want to double check if we assumed it is possible.
+            _joinRequestCompletion = null;
+            HandleViewChange(View.Me, new ViewChangeMessage(View.Me, ViewChangeMessage.ViewChangeOperation.Left, _messageTimeStamper));
         }
     }
 }

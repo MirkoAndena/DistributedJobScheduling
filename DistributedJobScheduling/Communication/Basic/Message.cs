@@ -1,6 +1,7 @@
 using System.Text;
 using DistributedJobScheduling.Communication.Messaging;
 using Newtonsoft.Json;
+using static DistributedJobScheduling.Communication.Basic.Node;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
@@ -52,5 +53,10 @@ namespace DistributedJobScheduling.Communication.Basic
             message._messageID = _messageID;
             message._isResponseOf = _isResponseOf;
         }
+
+        /// <summary>
+        /// Binds the message node references to nodes from a specific node registry
+        /// </summary>
+        public virtual void BindToRegistry(INodeRegistry registry) {}
     }
 }

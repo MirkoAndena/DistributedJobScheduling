@@ -4,6 +4,7 @@ namespace DistributedJobScheduling.Logging
     {
         CommunicationBasic,
         Communication,
+        VirtualSynchrony,
         SecureStorage,
         DistributedStorage,
         TranslationTable,
