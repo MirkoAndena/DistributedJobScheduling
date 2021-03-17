@@ -9,7 +9,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.JobAssignment
 {
-    public class JobManager
+    public class JobMessageHandler
     {
         private GroupViewManager _groupManager;
         private TranslationTable _traductionTable;
@@ -19,11 +19,11 @@ namespace DistributedJobScheduling.JobAssignment
         private Dictionary<Node, int> _unconfirmedRequestIds;
         private Dictionary<Node, Message> _lastMessageSent;
 
-        public JobManager(TranslationTable traductionTable, DistributedList distributedList) : 
+        public JobMessageHandler(TranslationTable traductionTable, DistributedList distributedList) : 
         this(DependencyManager.Get<GroupViewManager>(), 
             traductionTable, distributedList,
             DependencyManager.Get<ILogger>()) {}
-        public JobManager(GroupViewManager groupManager,
+        public JobMessageHandler(GroupViewManager groupManager,
                           TranslationTable traductionTable, 
                           DistributedList distributedList,
                           ILogger logger)

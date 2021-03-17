@@ -8,6 +8,7 @@ namespace DistributedJobScheduling.Logging
         SecureStorage,
         DistributedStorage,
         TranslationTable,
-        JobManager
+        JobManager,
+        LeaderElection
     }
 }
