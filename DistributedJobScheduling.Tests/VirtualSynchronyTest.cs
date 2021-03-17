@@ -66,7 +66,7 @@ namespace DistributedJobScheduling.Tests
         {
             StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
             networkBus.LatencyDeviation = 1;
-            FakeNode[] nodes = new FakeNode[10];
+            FakeNode[] nodes = new FakeNode[4];
 
             for(int i = 0; i < nodes.Length; i++)
                 nodes[i] = StartUpNode(i, i == 0, networkBus);
@@ -80,7 +80,7 @@ namespace DistributedJobScheduling.Tests
             await Task.Run(async () =>
             {
                 await Task.WhenAny(Task.WhenAll(SetupAwaiters(nodes[0], nodes[1..])), 
-                                   Task.Delay(10000 ));//* (nodes.Length - 1)));
+                                   Task.Delay(10000)); //* (nodes.Length - 1)));
                 AssertView(nodes);
             });
         }
