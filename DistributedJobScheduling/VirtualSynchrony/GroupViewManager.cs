@@ -54,7 +54,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private TaskCompletionSource<bool> _joinRequestCompletion;
 
         private ViewJoinRequest _currentJoinRequest;
-        private ViewChangeMessage _pendingViewChange;
+        private ViewChangeMessage.ViewChange _pendingViewChange;
         private TaskCompletionSource<bool> _viewChangeInProgress;
         private HashSet<Node> _newGroupView;
         private HashSet<Node> _flushedNodes;
@@ -92,8 +92,11 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private async Task CheckViewChanges()
         {
             if(_viewChangeInProgress != null)
+            {
+                _logger.Warning(Tag.VirtualSynchrony, "View change in progress, need to await before sending messages");
                 if(!await _viewChangeInProgress.Task)
                     throw new MulticastNotDeliveredException(); //FATAL, TODO: Fatal exceptions?
+            }
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)
@@ -134,6 +137,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private void OnTemporaryMessageReceived(Node node, Message message)
         {
             TemporaryMessage tempMessage = message as TemporaryMessage;
+            tempMessage.BindToRegistry(_nodeRegistry);
 
             //Only care about messages from nodes in my current group view
             lock(View)
@@ -156,6 +160,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private void OnTemporaryAckReceived(Node node, Message message)
         {
             TemporaryAckMessage tempAckMessage = message as TemporaryAckMessage;
+            tempAckMessage.BindToRegistry(_nodeRegistry);
+
             lock(View)
             {
                 //Only care about messages from nodes in my current group view
@@ -233,6 +239,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private void OnFlushMessageReceived(Node node, Message message)
         {
             var flushMessage = message as FlushMessage;
+            flushMessage.BindToRegistry(_nodeRegistry);
 
             lock(View)
             {
@@ -241,7 +248,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _logger.Log(Tag.VirtualSynchrony, $"Received flush message from {node.ID} for change {flushMessage.RelatedChangeNode}{flushMessage.RelatedChangeOperation}");
                     //Flush messages can arrive before anyone notified this node about the change
                     if(_viewChangeInProgress == null)
-                        HandleViewChange(node, new ViewChangeMessage(flushMessage.RelatedChangeNode, flushMessage.RelatedChangeOperation)); //Self-Report Viewchange
+                        HandleViewChange(node, new ViewChangeMessage.ViewChange{
+                            Node = flushMessage.RelatedChangeNode, 
+                            Operation = flushMessage.RelatedChangeOperation
+                        }); //Self-Report Viewchange
 
                     if(_pendingViewChange.IsSame(flushMessage.RelatedChangeNode, flushMessage.RelatedChangeOperation))
                     {
@@ -259,11 +269,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private void OnViewChangeReceived(Node node, Message message)
         {
             var viewChangeMessage = message as ViewChangeMessage;
+            viewChangeMessage.BindToRegistry(_nodeRegistry);
 
             lock(View)
             {
                 if(View.Others.Contains(node))
-                    HandleViewChange(node, viewChangeMessage);
+                    HandleViewChange(node, viewChangeMessage.Change);
             }
         }
 
@@ -271,20 +282,20 @@ namespace DistributedJobScheduling.VirtualSynchrony
         /// Handles a View change notified by someone
         /// </summary>
         /// <param name="viewChangeMessage">Message containing the view change</param>
-        private void HandleViewChange(Node initiator, ViewChangeMessage viewChangeMessage)
+        private void HandleViewChange(Node initiator, ViewChangeMessage.ViewChange viewChangeMessage)
         {
             viewChangeMessage.BindToRegistry(_nodeRegistry);
 
             lock(View)
             {
-                _logger.Log(Tag.VirtualSynchrony, $"Handling view change {viewChangeMessage.Node} {viewChangeMessage.ViewChange} detected by {initiator.ID}");
+                _logger.Log(Tag.VirtualSynchrony, $"Handling view change {viewChangeMessage.Node} {viewChangeMessage.Operation} detected by {initiator.ID}");
                 //Assume no view change while changing view
                 if(_viewChangeInProgress == null)
                 {
                     _viewChangeInProgress = new TaskCompletionSource<bool>();
                     _pendingViewChange = viewChangeMessage;
 
-                    if(_pendingViewChange.ViewChange == ViewChangeMessage.ViewChangeOperation.Left)
+                    if(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left)
                     {
                         //FIXME: Shouldn't we multicast unstable messages from the dead node? Probably handled by timeout (either all or none)
                         //Ignore acknowledges from the dead node
@@ -299,7 +310,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _flushedNodes = new HashSet<Node>();
                     _newGroupView = new HashSet<Node>(View.Others);
                     
-                    if(viewChangeMessage.ViewChange == ViewChangeMessage.ViewChangeOperation.Joined)
+                    if(viewChangeMessage.Operation == ViewChangeMessage.ViewChangeOperation.Joined)
                         _newGroupView.Add(viewChangeMessage.Node);
                     else
                         _newGroupView.Remove(viewChangeMessage.Node);
@@ -328,12 +339,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     {
                         if(!_flushed)
                         {
-                            _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange.ViewChange} of {_pendingViewChange.Node}!");
-                            _communicationManager.SendMulticast(new FlushMessage(_pendingViewChange.Node, _pendingViewChange.ViewChange)).Wait();
+                            _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange.Operation} of {_pendingViewChange.Node}!");
+                            _communicationManager.SendMulticast(new FlushMessage(_pendingViewChange.Node, _pendingViewChange.Operation, _messageTimeStamper)).Wait();
                             _flushed = true;
                         }
 
-                        if(_flushedNodes.SetEquals(_pendingViewChange.ViewChange == ViewChangeMessage.ViewChangeOperation.Left ? _newGroupView : View.Others))
+                        if(_flushedNodes.SetEquals(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left ? _newGroupView : View.Others))
                         {
                             _logger.Log(Tag.VirtualSynchrony, $"All nodes have flushed their messages, consolidating view change");
                             //Enstablish new View
@@ -381,7 +392,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         _logger.Log(Tag.VirtualSynchrony, $"Starting joining procedure");
                         //Only the coordinator processes these
                         _currentJoinRequest = joinRequest;
-                        HandleViewChange(View.Me, new ViewChangeMessage(joinRequest.JoiningNode, ViewChangeMessage.ViewChangeOperation.Joined, _messageTimeStamper));
+                        HandleViewChange(View.Me, new ViewChangeMessage.ViewChange{
+                            Node = joinRequest.JoiningNode, 
+                            Operation = ViewChangeMessage.ViewChangeOperation.Joined
+                        });
                     }
                 }
             }
@@ -466,9 +480,14 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public void Stop()
         {
             _logger.Log(Tag.VirtualSynchrony, "Stopping node, sending view change message");
+
             //TODO: A node advertising he is leaving, might want to double check if we assumed it is possible.
+            
             _joinRequestCompletion = null;
-            HandleViewChange(View.Me, new ViewChangeMessage(View.Me, ViewChangeMessage.ViewChangeOperation.Left, _messageTimeStamper));
+            HandleViewChange(View.Me, new ViewChangeMessage.ViewChange{
+                            Node = View.Me, 
+                            Operation = ViewChangeMessage.ViewChangeOperation.Left
+                        });
         }
     }
 }

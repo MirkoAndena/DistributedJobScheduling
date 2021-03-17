@@ -102,9 +102,9 @@ namespace DistributedJobScheduling.Tests
         public async Task SimpleJoin()
         {
             StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
-            networkBus.LatencyDeviation = 0.1f;
-            FakeNode[] nodes = new FakeNode[10];
-            int joinTimeout = 100; //ms
+            networkBus.LatencyDeviation = 0;
+            FakeNode[] nodes = new FakeNode[25];
+            int joinTimeout = 1000; //ms
 
             for(int i = 0; i < nodes.Length; i++)
                 nodes[i] = StartUpNode(i, i == 0, networkBus, joinTimeout);
@@ -112,13 +112,13 @@ namespace DistributedJobScheduling.Tests
             for(int i = 0; i < nodes.Length; i++)
             {
                 nodes[i].Start();
-                await Task.Delay(1);
+                await Task.Delay(100);
             }
 
             await Task.Run(async () =>
             {
                 await Task.WhenAny(Task.WhenAll(SetupGroupJoinAwaiters(nodes[0], nodes[1..])), 
-                                   Task.Delay(joinTimeout * (nodes.Length - 1)));
+                                   Task.Delay(nodes.Length * joinTimeout * 2)); //Worst Case delay
                 AssertGroupJoinView(nodes);
             });
         }

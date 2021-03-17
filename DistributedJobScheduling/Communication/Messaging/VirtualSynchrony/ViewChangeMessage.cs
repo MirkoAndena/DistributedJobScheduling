@@ -4,32 +4,45 @@ namespace DistributedJobScheduling.Communication.Messaging
 {
     public class ViewChangeMessage : Message
     {
+        public class ViewChange
+        {
+            /// <value>Node that changed, WARNING: Don't use this instance to communicate use the NodeRegistry</value>
+            public Node Node { get; set; }
+            public ViewChangeOperation Operation { get; set; }
+            
+            public bool IsSame(ViewChange other) => IsSame(other.Node, other.Operation);
+            public bool IsSame(Node node, ViewChangeOperation operation)
+            {
+                return Node.ID == node.ID && Operation == operation;
+            }
+
+            public void BindToRegistry(Node.INodeRegistry registry)
+            {
+                Node = registry.GetOrCreate(Node);
+            }
+        }
+
         public enum ViewChangeOperation
         {
             Joined,
             Left
         }
 
-        /// <value>Node that changed, WARNING: Don't use this instance to communicate use the NodeRegistry</value>
-        public Node Node { get; private set; }
-        public ViewChangeOperation ViewChange { get; private set; }
+        public ViewChange Change { get; private set; }
 
-        public ViewChangeMessage(Node node, ViewChangeOperation viewChange, ITimeStamper timestampMechanism = null) : base(timestampMechanism) 
+        public ViewChangeMessage(Node node, ViewChangeOperation operation, ITimeStamper timestampMechanism = null) : base(timestampMechanism) 
         {
-            Node = node;
-            ViewChange = viewChange;
-        }
-
-        public bool IsSame(ViewChangeMessage other) => IsSame(other.Node, other.ViewChange);
-        public bool IsSame(Node node, ViewChangeOperation viewChange)
-        {
-            return Node.ID == node.ID && ViewChange == viewChange;
+            Change = new ViewChange
+            {
+                Node = node,
+                Operation = operation
+            };
         }
 
         public override void BindToRegistry(Node.INodeRegistry registry)
         {
             base.BindToRegistry(registry);
-            Node = registry.GetOrCreate(Node);
+            Change.BindToRegistry(registry);
         }
     }
 }
