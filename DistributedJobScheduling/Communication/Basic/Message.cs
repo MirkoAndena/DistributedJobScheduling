@@ -19,8 +19,12 @@ namespace DistributedJobScheduling.Communication.Basic
 
         public Message(ITimeStamper timestampMechanism = null)
         {
-            timestampMechanism ??= new ScalarTimeStamper();
-            _messageID = timestampMechanism.CreateTimeStamp();
+            timestampMechanism ??= DependencyInjection.DependencyManager.Get<ITimeStamper>();
+
+            lock(timestampMechanism)
+            {
+                _messageID = timestampMechanism.CreateTimeStamp();
+            }
         }
 
         /// <summary>

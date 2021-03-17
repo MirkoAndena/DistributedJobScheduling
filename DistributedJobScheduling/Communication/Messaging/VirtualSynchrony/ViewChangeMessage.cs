@@ -20,9 +20,10 @@ namespace DistributedJobScheduling.Communication.Messaging
             ViewChange = viewChange;
         }
 
-        public bool IsSame(ViewChangeMessage other)
+        public bool IsSame(ViewChangeMessage other) => IsSame(other.Node, other.ViewChange);
+        public bool IsSame(Node node, ViewChangeOperation viewChange)
         {
-            return Node.ID == other.Node.ID && ViewChange == other.ViewChange;
+            return Node.ID == node.ID && ViewChange == viewChange;
         }
 
         public override void BindToRegistry(Node.INodeRegistry registry)
