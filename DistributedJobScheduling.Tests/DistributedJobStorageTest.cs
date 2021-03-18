@@ -1,18 +1,34 @@
+using System.Threading.Tasks;
+using System;
 using Xunit;
 using DistributedJobScheduling.DistributedStorage;
 using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Communication.Basic;
 using System.Collections.Generic;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using Xunit.Abstractions;
+using DistributedJobScheduling.Tests.Communication;
+using DistributedJobScheduling.Communication.Messaging;
+using DistributedJobScheduling.Tests.Communication.Messaging;
+using DistributedJobScheduling.Configuration;
 
 namespace DistributedJobScheduling.Tests
 {
     public class DistributedStorageTest
     {
+        private DistributedList _list;
+
+        public DistributedStorageTest(ITestOutputHelper output)
+        {
+            Group group = CreateStubGroup();
+            StubLogger stubLogger = new StubLogger(group.Me, output);
+            _list = new DistributedList(new SecureStorageStub(), stubLogger, new FakeGroupViewManager(group));
+            _list.Init();
+        }
+
         private Group CreateStubGroup()
         {
             Node.INodeRegistry registry = new Node.NodeRegistryService();
-            // Group with 4 nodes
             Group group = new Group(registry.GetOrCreate("127.0.0.1", 0));
             group.UpdateCoordinator(registry.GetOrCreate("127.0.0.2", 1));
             group.Add(registry.GetOrCreate("127.0.0.3", 2));
@@ -20,28 +36,30 @@ namespace DistributedJobScheduling.Tests
             return group;
         }
 
-        private void CreateJobAndAssign(DistributedList storage, Group group)
-        {
-            TimeoutJob job = new TimeoutJob(0);
-            //storage.AddAndAssign(job, group);
-        }
-
         [Fact]
         public void JobAssignment()
         {
-            DistributedList storage = new DistributedList(new SecureStorageStub(), new StubLogger(), null);
-            Group group = CreateStubGroup();
+            _list.AddAndAssign(new TimeoutJob(0));
+            _list.AddAndAssign(new TimeoutJob(0));
+            _list.AddAndAssign(new TimeoutJob(0));
+            Assert.True(MaxJobPerNode(_list) == 1);
 
-            CreateJobAndAssign(storage, group);
-            CreateJobAndAssign(storage, group);
-            CreateJobAndAssign(storage, group);
-            Assert.True(MaxJobPerNode(storage) == 1);
-
-            CreateJobAndAssign(storage, group);
-            Assert.True(MaxJobPerNode(storage) == 1);
+            _list.AddAndAssign(new TimeoutJob(0));
+            Assert.True(MaxJobPerNode(_list) == 1);
             
-            CreateJobAndAssign(storage, group);
-            Assert.True(MaxJobPerNode(storage) == 2);
+            _list.AddAndAssign(new TimeoutJob(0));
+            Assert.True(MaxJobPerNode(_list) == 2);
+        }
+
+        [Fact]
+        public void JobRun()
+        {
+            _list.OnJobCompleted += (job, result) => 
+            {
+                Assert.True(((BooleanJobResult)result).Value);
+            };
+            _list.Start();
+            Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(t => _list.Stop());
         }
 
         private int MaxJobPerNode(DistributedList list)
