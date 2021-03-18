@@ -16,10 +16,9 @@ namespace DistributedJobScheduling.LeaderElection
         private BullyElectionCandidate _candidate;
         private GroupViewManager _groupManager;
 
-        public BullyElectionMessageHandler(KeepAliveMessageHandler keepAlive) : this (DependencyInjection.DependencyManager.Get<ILogger>(),
-                                                    DependencyInjection.DependencyManager.Get<GroupViewManager>(),
-                                                    keepAlive) {}
-        public BullyElectionMessageHandler(ILogger logger, GroupViewManager groupViewManager, KeepAliveMessageHandler keepAlive)
+        public BullyElectionMessageHandler() : this (DependencyInjection.DependencyManager.Get<ILogger>(),
+                                                    DependencyInjection.DependencyManager.Get<GroupViewManager>()) {}
+        public BullyElectionMessageHandler(ILogger logger, GroupViewManager groupViewManager)
         {
             _logger = logger;
             _groupManager = groupViewManager;
@@ -32,7 +31,7 @@ namespace DistributedJobScheduling.LeaderElection
             _candidate.SendElect += SendElectMessages;
             _candidate.SendCoords += SendCoordMessages;
 
-            keepAlive.CoordinatorDied += OnCoordinatorDeathReported;
+            _groupManager.View.ViewChanged += OnCoordinatorDeathReported;
         }
 
         private void OnCoordinatorDeathReported()

@@ -14,7 +14,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
     {
         // Seconds for keep alive check
         const int timeout = 5;
-        public Action<Node> NodeDied;
+        public Action<List<Node>> NodesDied;
         public Action CoordinatorDied;
         private Dictionary<Node, bool> _ticks;
         private ILogger _logger;
@@ -52,6 +52,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void TimeoutFinished()
         {
+            List<Node> deaths = new List<Node>();
             _ticks.ForEach(element => 
             {
                 if (!element.Value)
@@ -60,14 +61,17 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                     {
                         _logger.Log(Tag.KeepAlive, $"Coordinator missed a keepalive message, it's died");
                         CoordinatorDied?.Invoke();
-                    }    
-                    else
-                    {
-                        _logger.Log(Tag.KeepAlive, $"Node {element.Key} missed a keepalive message, it's died");
-                        NodeDied?.Invoke(element.Key);
                     }
+                    deaths.Add(element.Key);
                 }
             });
+
+            if (deaths.Count > 0)
+            {
+                _logger.Log(Tag.KeepAlive, $"Nodes {deaths} died");
+                NodesDied?.Invoke(deaths);
+            }
+
             Init();
             Start();
         }
