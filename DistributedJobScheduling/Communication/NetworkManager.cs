@@ -6,6 +6,8 @@ using DistributedJobScheduling.Communication.Basic.Speakers;
 using DistributedJobScheduling.Communication.Messaging.Ordering;
 using DistributedJobScheduling.Communication.Topics;
 using DistributedJobScheduling.Extensions;
+using DistributedJobScheduling.LeaderElection;
+using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 
@@ -35,16 +37,10 @@ namespace DistributedJobScheduling.Communication
             _sendOrdering = new FIFOMessageOrdering();
             _speakers = new Dictionary<Node, Speaker>();
 
-            _shouter = new Shouter();
-            _shouter.OnMessageReceived += _OnMessageReceived;
-            _shouter.Start();
-
-            _listener = new Listener();
-            _listener.OnSpeakerCreated += OnSpeakerCreated;
-            _listener.Start();
-
             Topics = new GenericTopicOutlet(this,
-                new VirtualSynchronyTopicPublisher()
+                new VirtualSynchronyTopicPublisher(),
+                new BullyElectionPublisher(),
+                new KeepAlivePublisher()
             );
         }
 
@@ -116,17 +112,23 @@ namespace DistributedJobScheduling.Communication
 
         public void Init()
         {
-            throw new NotImplementedException();
+            _speakers.Clear();
+
+            _shouter = new Shouter();
+            _shouter.OnMessageReceived += _OnMessageReceived;
+            _shouter.Start();
+
+            _listener = new Listener();
+            _listener.OnSpeakerCreated += OnSpeakerCreated;
+            _listener.Start();
         }
 
         public void Start()
         {
-            throw new NotImplementedException();
+            _shouter.Start();
+            _listener.Start();
         }
 
-        public void Stop()
-        {
-            throw new NotImplementedException();
-        }
+        public void Stop() => Close();
     }
 }
