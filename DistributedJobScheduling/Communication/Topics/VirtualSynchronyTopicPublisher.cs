@@ -14,7 +14,9 @@ namespace DistributedJobScheduling.Communication.Topics
             typeof(ViewChangeMessage),
             typeof(FlushMessage),
             typeof(ViewJoinRequest),
-            typeof(ViewSyncResponse)
+            typeof(ViewSyncResponse),
+            typeof(NotInViewMessage),
+            typeof(TeardownMessage)
         };
         public override HashSet<Type> TopicMessageTypes => _topics;
     }

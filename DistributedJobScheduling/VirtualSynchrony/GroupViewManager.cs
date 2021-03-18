@@ -195,8 +195,40 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     }
                 }
                 else
+                    _communicationManager.Send(node, new NotInViewMessage(View.Others.Count + 1, _messageTimeStamper)).Wait();
+            }
+        }
+
+        private void OnNotInViewReceived(Node node, Message message)
+        {
+            NotInViewMessage notInViewMessage = message as NotInViewMessage;
+
+            int myViewSize = 0;
+            lock(View)
+            {
+                myViewSize = (View.Others.Count + 1);
+            }
+
+            if(notInViewMessage.MyViewSize > myViewSize)
+            {
+                //We need to fault!
+                TeardownMessage teardownMessage = new TeardownMessage(_messageTimeStamper);
+                _communicationManager.SendMulticast(teardownMessage).Wait();
+                OnTeardownReceived(View.Me, teardownMessage);
+            }
+
+            if(notInViewMessage.MyViewSize < myViewSize) //The other view needs to fault
+                _communicationManager.Send(node, new NotInViewMessage(myViewSize, _messageTimeStamper)).Wait();
+        }
+
+        private void OnTeardownReceived(Node node, Message message)
+        {
+            lock(View)
+            {
+                if(View.Others.Contains(node))
                 {
-                    _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
+                    string errorMessage = "Received teardown message, faulting to start from a clean state!";
+                    _logger.Fatal(Tag.VirtualSynchrony, errorMessage, new Exception(errorMessage));
                 }
             }
         }
@@ -393,7 +425,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         {
                             _logger.Log(Tag.VirtualSynchrony, $"All nodes have flushed their messages, consolidating view change");
                             //Enstablish new View
-                            View.Update(_newGroupView, View.Coordinator);
+                            Node coordinator = View.ImCoordinator || _newGroupView.Contains(View.Coordinator) ? View.Coordinator : null;
+                            View.Update(_newGroupView, coordinator);
                             var viewChangeTask = _viewChangeInProgress;
 
                             //Reset view state change
@@ -489,6 +522,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
             //Group Joining
             _virtualSynchronyTopic.RegisterForMessage(typeof(ViewJoinRequest), OnJoinRequestReceived);
             _virtualSynchronyTopic.RegisterForMessage(typeof(ViewSyncResponse), OnViewSyncReceived);
+
+            //View Partitioning
+            _virtualSynchronyTopic.RegisterForMessage(typeof(NotInViewMessage), OnNotInViewReceived);
+            _virtualSynchronyTopic.RegisterForMessage(typeof(TeardownMessage), OnTeardownReceived);
 
             _logger.Log(Tag.VirtualSynchrony, "Registered for VS messages");
 
