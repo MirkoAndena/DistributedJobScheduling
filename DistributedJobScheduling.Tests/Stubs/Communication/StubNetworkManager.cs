@@ -34,9 +34,7 @@ namespace DistributedJobScheduling.Tests.Communication
             if(_networkBus == null)
                 throw new Exception("Connection failure!");
 
-            await _sendOrdering.EnsureOrdering(message);
-            await _networkBus.SendTo(_me, node, message, timeout);
-            _sendOrdering.Observe(message);
+            await _sendOrdering.OrderedExecute(message, () => _networkBus.SendTo(_me, node, message, timeout));
         }
 
         public async Task SendMulticast(Message message)
@@ -44,9 +42,7 @@ namespace DistributedJobScheduling.Tests.Communication
             if(_networkBus == null)
                 throw new Exception("Connection failure!");
 
-            await _sendOrdering.EnsureOrdering(message);
-            await _networkBus.SendMulticast(_me, message);
-            _sendOrdering.Observe(message);
+            await _sendOrdering.OrderedExecute(message, () => _networkBus.SendMulticast(_me, message));
         }
 
         //Test methods

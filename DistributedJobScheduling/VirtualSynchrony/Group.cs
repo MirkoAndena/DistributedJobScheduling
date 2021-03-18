@@ -43,11 +43,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
             ViewChanged?.Invoke();
         }
 
-        public void Update(HashSet<Node> newView)
+        public void Update(HashSet<Node> newView, Node newCoordinator)
         {
             lock(this)
             {
                 Others = newView;
+                Coordinator = newCoordinator;
             }
             ViewChanged?.Invoke();
         }

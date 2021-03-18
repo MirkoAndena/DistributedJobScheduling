@@ -348,7 +348,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         {
                             _logger.Log(Tag.VirtualSynchrony, $"All nodes have flushed their messages, consolidating view change");
                             //Enstablish new View
-                            View.Update(_newGroupView);
+                            View.Update(_newGroupView, View.Coordinator);
                             var viewChangeTask = _viewChangeInProgress;
 
                             //Reset view state change
@@ -417,9 +417,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     newView.Remove(View.Me);
                     newView.Add(coordinator);
 
-                    View.Update(newView);
-                    View.UpdateCoordinator(coordinator);
-                    _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine} Synched view: {View.Others.ToString<Node>()}");
+                    View.Update(newView, coordinator);
+                    _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine}");
 
                     _joinRequestCompletion.SetResult(true);
                 }

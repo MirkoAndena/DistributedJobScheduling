@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Basic.Speakers;
+using DistributedJobScheduling.Communication.Messaging.Ordering;
 using DistributedJobScheduling.Communication.Topics;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
@@ -17,6 +18,7 @@ namespace DistributedJobScheduling.Communication
         private Shouter _shouter;
         private Node _me;
         private ILogger _logger;
+        private IMessageOrdering _sendOrdering;
 
         public ITopicOutlet Topics { get; private set; }
 
@@ -30,6 +32,7 @@ namespace DistributedJobScheduling.Communication
             _logger = logger;
             _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeID"));
 
+            _sendOrdering = new FIFOMessageOrdering();
             _speakers = new Dictionary<Node, Speaker>();
 
             _shouter = new Shouter();
@@ -63,7 +66,7 @@ namespace DistributedJobScheduling.Communication
             Speaker speaker = await GetSpeakerTo(node, timeout);
             message.SenderID = _me.ID;
             message.ReceiverID = node.ID;
-            await speaker.Send(message);
+            await _sendOrdering.OrderedExecute(message, () => speaker.Send(message));
         }
 
         private async Task<Speaker> GetSpeakerTo(Node node, int timeout)
@@ -90,7 +93,7 @@ namespace DistributedJobScheduling.Communication
 
         public async Task SendMulticast(Message message)
         {
-            await _shouter.SendMulticast(message);
+            await _sendOrdering.OrderedExecute(message, () => _shouter.SendMulticast(message));
         }
 
         public void Close() 

@@ -36,7 +36,7 @@ namespace DistributedJobScheduling.Tests
             networkBus.LatencyDeviation = 0.1f;
             FakeNode[] nodes = new FakeNode[10];
             int joinTimeout = 100; //ms
-            int messageCount = 10;
+            int messageCount = 100;
 
             for(int i = 0; i < nodes.Length; i++)
                 nodes[i] = StartUpNode(i, i == 0, networkBus, joinTimeout);
@@ -103,7 +103,7 @@ namespace DistributedJobScheduling.Tests
         {
             StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
             networkBus.LatencyDeviation = 0;
-            FakeNode[] nodes = new FakeNode[25];
+            FakeNode[] nodes = new FakeNode[10];
             int joinTimeout = 1000; //ms
 
             for(int i = 0; i < nodes.Length; i++)

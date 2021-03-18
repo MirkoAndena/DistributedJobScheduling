@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -36,6 +37,24 @@ namespace DistributedJobScheduling.Communication.Messaging.Ordering
                 if(_waitingQueue.ContainsKey(message.TimeStamp + 1))
                     _waitingQueue[message.TimeStamp + 1].SetResult(true);
                 _waitingQueue.Remove(message.TimeStamp);
+            }
+        }
+
+        public async Task OrderedExecute(Message message, Func<Task> _actionToExecute)
+        {
+            await EnsureOrdering(message);
+
+            try 
+            {
+                await _actionToExecute?.Invoke();
+            }
+            catch 
+            {
+                throw;
+            }
+            finally
+            {
+                Observe(message);
             }
         }
     }
