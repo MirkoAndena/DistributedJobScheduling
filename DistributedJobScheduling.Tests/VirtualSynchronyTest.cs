@@ -6,7 +6,6 @@ using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
-using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.Tests.Communication;
 using DistributedJobScheduling.Tests.Communication.Messaging;
 using DistributedJobScheduling.VirtualSynchrony;

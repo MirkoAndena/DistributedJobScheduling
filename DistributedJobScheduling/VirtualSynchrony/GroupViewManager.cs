@@ -24,6 +24,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
     {
         public int JoinRequestTimeout { get; set; } = 5000;
         private class MulticastNotDeliveredException : Exception {}
+        private class NotDeliveredException : Exception {}
 
         public Group View { get; private set; }
 
@@ -102,7 +103,43 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public async Task Send(Node node, Message message, int timeout = 30)
         {
             await CheckViewChanges();
-            await _communicationManager.Send(node, message, timeout);
+
+            _logger.Log(Tag.VirtualSynchrony, $"Start send {message.GetType().Name}");
+
+            //Checks that the node is in the view
+            lock(View)
+            {
+                if(!View.Others.Contains(node))
+                {
+                    NotDeliveredException sendException = new NotDeliveredException();
+                    _logger.Error(Tag.VirtualSynchrony, $"Tried to send message to node {node.ID} which isn't in view!", sendException);
+                    throw sendException;
+                }
+            }
+
+            TemporaryMessage tempMessage = new TemporaryMessage(false, message);
+            var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp);
+            TaskCompletionSource<bool> sendTask;
+
+            lock(_confirmationQueue)
+            {
+                _confirmationQueue.Add(messageKey, tempMessage);
+                _sentTemporaryMessages.Add(tempMessage);
+                _sendComplenentionMap.Add(tempMessage, (sendTask = new TaskCompletionSource<bool>(false)));
+                _confirmationMap.Add(messageKey, new HashSet<Node>(new []{ node }));
+            }
+
+            await _communicationManager.Send(node, tempMessage, timeout);
+            _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network");
+
+            lock(_confirmationQueue)
+            {
+                ProcessAcknowledge(messageKey, View.Me);
+            }
+
+            //True if node acknowledged the message
+            if(!await sendTask.Task)
+                throw new NotDeliveredException();
         }
 
         public async Task SendMulticast(Message message)
@@ -110,7 +147,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             await CheckViewChanges();
 
             _logger.Log(Tag.VirtualSynchrony, $"Start send multicast {message.GetType().Name}");
-            TemporaryMessage tempMessage = new TemporaryMessage(message);
+            TemporaryMessage tempMessage = new TemporaryMessage(true, message);
             var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp);
             TaskCompletionSource<bool> sendTask;
 
@@ -149,10 +186,17 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     {
                         _confirmationQueue.Add(messageKey, tempMessage);
 
-                        _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
+                        if(tempMessage.IsMulticast)
+                            _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
+                        else
+                            _communicationManager.Send(node, new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
 
                         ProcessAcknowledge(messageKey, node);
                     }
+                }
+                else
+                {
+                    _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
                 }
             }
         }
@@ -184,8 +228,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"Processing acknoledge by {node.ID} of message ({messageKey.Item1},{messageKey.Item2})");
 
+                    bool isUnicast = _confirmationQueue.ContainsKey(messageKey) && !_confirmationQueue[messageKey].IsMulticast;
                     if(!_confirmationMap.ContainsKey(messageKey))
-                        _confirmationMap.Add(messageKey, new HashSet<Node>(View.Others));
+                        _confirmationMap.Add(messageKey, new HashSet<Node>( isUnicast ? new HashSet<Node>(new [] { node }) : View.Others));
                     
                     var confirmationSet = _confirmationMap[messageKey];
                     confirmationSet.Remove(node);
