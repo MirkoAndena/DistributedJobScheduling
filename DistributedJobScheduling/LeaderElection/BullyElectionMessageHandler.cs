@@ -46,7 +46,7 @@ namespace DistributedJobScheduling.LeaderElection
         {
             nodes.ForEach(node => 
             {
-                _groupManager.Send(node, new ElectMessage(_groupManager.View.Me.ID.Value));
+                _groupManager.Send(node, new ElectMessage(_groupManager.View.Me.ID.Value)).Wait();
             });
         }
 
@@ -54,7 +54,7 @@ namespace DistributedJobScheduling.LeaderElection
         {
             nodes.ForEach(node => 
             {
-                _groupManager.Send(node, new CoordMessage(_groupManager.View.Me));
+                _groupManager.Send(node, new CoordMessage(_groupManager.View.Me)).Wait();
             });
         }
 

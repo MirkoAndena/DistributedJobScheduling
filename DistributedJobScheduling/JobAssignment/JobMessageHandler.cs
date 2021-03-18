@@ -74,12 +74,12 @@ namespace DistributedJobScheduling.JobAssignment
         private void Send(Node node, Message message)
         {
             _lastMessageSent.Add(node, message);
-            _groupManager.Send(node, message);
+            _groupManager.Send(node, message).Wait();
         }
         
         private void SendMulticast(Message message)
         {
-            _groupManager.SendMulticast(message);
+            _groupManager.SendMulticast(message).Wait();
         }
 
         private void OnExecutionRequestArrived(Node node, ExecutionRequest message)
