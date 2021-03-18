@@ -8,7 +8,6 @@ using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAlive;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
-
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
     public class KeepAliveMessageHandler : ILifeCycle

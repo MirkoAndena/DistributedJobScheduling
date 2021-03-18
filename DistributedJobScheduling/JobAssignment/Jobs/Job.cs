@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
         public abstract Task<IJobResult> Run();
 
-        public string ToString() 
+        public override string ToString() 
         {
             if (ID.HasValue) return ID.Value.ToString();
             return "[unknown]";
