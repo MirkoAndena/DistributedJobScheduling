@@ -4,6 +4,7 @@ using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging.LeaderElection;
+using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
 
@@ -14,11 +15,11 @@ namespace DistributedJobScheduling.LeaderElection
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
         private GroupViewManager _groupManager;
-        public Action<Node> ReportCoordinatorDeath;
 
-        public BullyElectionMessageHandler() : this (DependencyInjection.DependencyManager.Get<ILogger>(),
-                                                    DependencyInjection.DependencyManager.Get<GroupViewManager>()) {}
-        public BullyElectionMessageHandler(ILogger logger, GroupViewManager groupViewManager)
+        public BullyElectionMessageHandler(KeepAliveMessageHandler keepAlive) : this (DependencyInjection.DependencyManager.Get<ILogger>(),
+                                                    DependencyInjection.DependencyManager.Get<GroupViewManager>(),
+                                                    keepAlive) {}
+        public BullyElectionMessageHandler(ILogger logger, GroupViewManager groupViewManager, KeepAliveMessageHandler keepAlive)
         {
             _logger = logger;
             _groupManager = groupViewManager;
@@ -30,11 +31,13 @@ namespace DistributedJobScheduling.LeaderElection
 
             _candidate.SendElect += SendElectMessages;
             _candidate.SendCoords += SendCoordMessages;
-            ReportCoordinatorDeath += OnCoordinatorDeathReported;
+
+            keepAlive.CoordinatorDied += OnCoordinatorDeathReported;
         }
 
-        private void OnCoordinatorDeathReported(Node coordinator)
+        private void OnCoordinatorDeathReported()
         {
+            Node coordinator = _groupManager.View.Coordinator;
             _logger.Log(Tag.LeaderElection, $"Coordinator {coordinator.ID.Value} is dead, starting election");
             _candidate.Run(coordinator);
         }

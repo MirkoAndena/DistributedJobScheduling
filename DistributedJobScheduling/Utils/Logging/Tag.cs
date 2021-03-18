@@ -9,6 +9,7 @@ namespace DistributedJobScheduling.Logging
         DistributedStorage,
         TranslationTable,
         JobManager,
-        LeaderElection
+        LeaderElection,
+        KeepAlive
     }
 }
