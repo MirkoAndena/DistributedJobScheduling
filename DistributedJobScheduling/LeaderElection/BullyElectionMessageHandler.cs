@@ -22,7 +22,7 @@ namespace DistributedJobScheduling.LeaderElection
         {
             _logger = logger;
             _groupManager = groupViewManager;
-            _candidate = new BullyElectionCandidate(groupViewManager);
+            _candidate = new BullyElectionCandidate(groupViewManager, logger);
 
             var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
             jobPublisher.RegisterForMessage(typeof(ElectMessage), OnElectMessageArrived);

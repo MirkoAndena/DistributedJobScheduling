@@ -18,10 +18,12 @@ namespace DistributedJobScheduling.LeaderElection
         public Action<List<Node>> SendElect, SendCoords;
         private ILogger _logger;
 
-        public BullyElectionCandidate() : this (DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
-        public BullyElectionCandidate(IGroupViewManager group)
+        public BullyElectionCandidate() : this (DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
+                                                DependencyInjection.DependencyManager.Get<ILogger>()) { }
+        public BullyElectionCandidate(IGroupViewManager group, ILogger logger)
         {
             _group = group;
+            _logger = logger;
         }
 
         public void Run(Node died = null)

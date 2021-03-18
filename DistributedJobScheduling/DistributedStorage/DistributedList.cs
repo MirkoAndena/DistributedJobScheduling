@@ -37,6 +37,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             _secureStorage = new SecureStore<Jobs>(store, logger);
             _reusableIndex = new ReusableIndex();
+            _logger = logger;
             _group = groupView.View;
             _cancellationTokenSource = new CancellationTokenSource();
         }

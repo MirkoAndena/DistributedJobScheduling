@@ -151,7 +151,7 @@ namespace DistributedJobScheduling.Tests
 
                 foreach(FakeNode otherNode in nodes)
                     if(otherNode != node)
-                        Assert.True(node.groupManager.View.Others.Contains(node.nodeRegistry.GetOrCreate(otherNode.node)));
+                        Assert.Contains(node.nodeRegistry.GetOrCreate(otherNode.node), node.groupManager.View.Others);
             }
         }
 

@@ -14,7 +14,10 @@ namespace DistributedJobScheduling.LifeCycle
         public static Action Shutdown;
         private List<ILifeCycle> _subSystems;
 
-        private SystemLifeCycle() { }
+        private SystemLifeCycle() 
+        { 
+            _subSystems = new List<ILifeCycle>();
+        }
 
         public static void Run()
         {

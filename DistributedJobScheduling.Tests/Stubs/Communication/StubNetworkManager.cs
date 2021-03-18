@@ -13,8 +13,6 @@ namespace DistributedJobScheduling.Tests.Communication
         public event Action<Node, Message> OnMessageReceived;
         private StubNetworkBus _networkBus;
         private IMessageOrdering _sendOrdering;
-        private int? _lastSent = null;
-        private Dictionary<int, TaskCompletionSource<bool>> _waitingSendQueue;
         private Node _me;
 
         public ITopicOutlet Topics { get; private set; }
