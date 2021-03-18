@@ -52,8 +52,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         #region View Change Variables
 
-        private TaskCompletionSource<bool> _joinRequestCompletion;
-
+        private CancellationTokenSource _joinRequestCancellation;
         private ViewJoinRequest _currentJoinRequest;
         private ViewChangeMessage.ViewChange _pendingViewChange;
         private TaskCompletionSource<bool> _viewChangeInProgress;
@@ -483,23 +482,21 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             lock(View)
             {
-                if(_joinRequestCompletion != null && !_joinRequestCompletion.Task.IsCanceled)
-                {
-                    ViewSyncResponse viewSyncResponse = message as ViewSyncResponse;
-                    viewSyncResponse.BindToRegistry(_nodeRegistry);
+                ViewSyncResponse viewSyncResponse = message as ViewSyncResponse;
+                viewSyncResponse.BindToRegistry(_nodeRegistry);
 
-                    HashSet<Node> newView = viewSyncResponse.ViewNodes.ToHashSet();
-                    
-                    if(!newView.Contains(View.Me))
-                        _logger.Fatal(Tag.VirtualSynchrony, "Received a new view where I'm not included!", new Exception("Received a new view where I'm not included!"));
-                    newView.Remove(View.Me);
-                    newView.Add(coordinator);
+                HashSet<Node> newView = viewSyncResponse.ViewNodes.ToHashSet();
+                
+                if(!newView.Contains(View.Me))
+                    _logger.Fatal(Tag.VirtualSynchrony, "Received a new view where I'm not included!", new Exception("Received a new view where I'm not included!"));
+                newView.Remove(View.Me);
+                newView.Add(coordinator);
 
-                    View.Update(newView, coordinator);
-                    _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine}");
+                View.Update(newView, coordinator);
+                _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine}");
 
-                    _joinRequestCompletion.SetResult(true);
-                }
+                if(!_joinRequestCancellation.Token.IsCancellationRequested)
+                    _joinRequestCancellation.Cancel();
             }
         }
 
@@ -528,31 +525,29 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _virtualSynchronyTopic.RegisterForMessage(typeof(TeardownMessage), OnTeardownReceived);
 
             _logger.Log(Tag.VirtualSynchrony, "Registered for VS messages");
-
+            _joinRequestCancellation = new CancellationTokenSource();
             //Start group join if we are not in a Group
             if(View.Coordinator == null)
             {
                 _logger.Log(Tag.VirtualSynchrony, "No coordinator detected, trying to join existing group...");
                 do
                 {
-                    _joinRequestCompletion = new TaskCompletionSource<bool>();
-                    await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me, _messageTimeStamper));
-                    await Task.WhenAny(
-                        _joinRequestCompletion.Task,
-                        Task.Delay(JoinRequestTimeout + (new Random().Next(JoinRequestTimeout))) //T + (0,T) random milliseconds
-                    );
-
-                    if(!_joinRequestCompletion.Task.IsCompleted)
+                    if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     {
-                        _joinRequestCompletion.SetCanceled();
-                        _logger.Warning(Tag.VirtualSynchrony, "View join request timedout, trying again...");
+                        _logger.Warning(Tag.VirtualSynchrony, "View join request timedout, trying to join...");
+                        await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me, _messageTimeStamper));
+                        
+                        try
+                        {
+                            await Task.Delay(JoinRequestTimeout + (new Random().Next(JoinRequestTimeout)), _joinRequestCancellation.Token); //T + (0,T) random milliseconds
+                        }
+                        catch 
+                        { 
+                            _logger.Log(Tag.VirtualSynchrony, "Cancelling join timeout...");
+                        }
                     }
-                    else
-                    {
-                        _logger.Log(Tag.VirtualSynchrony, "Finished startup sequence!");
-                        _joinRequestCompletion = null;
-                    }
-                } while(_joinRequestCompletion != null);
+                } while(!_joinRequestCancellation.Token.IsCancellationRequested);
+                _logger.Log(Tag.VirtualSynchrony, $"Finished procedure sequence!");
             }
             else
                 _logger.Log(Tag.VirtualSynchrony, "Coordinator detected, finished startup sequence.");
@@ -562,9 +557,11 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             _logger.Log(Tag.VirtualSynchrony, "Stopping node, sending view change message");
 
+            if(!_joinRequestCancellation.Token.IsCancellationRequested)
+                _joinRequestCancellation.Cancel();
+
             //TODO: A node advertising he is leaving, might want to double check if we assumed it is possible.
             
-            _joinRequestCompletion = null;
             HandleViewChange(View.Me, new ViewChangeMessage.ViewChange{
                             Node = View.Me, 
                             Operation = ViewChangeMessage.ViewChangeOperation.Left

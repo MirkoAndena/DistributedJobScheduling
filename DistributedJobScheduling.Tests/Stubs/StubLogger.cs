@@ -22,6 +22,8 @@ namespace DistributedJobScheduling.Tests
         public void Fatal(Tag tag, string content, Exception e)
         {
             WriteLog(tag, $"FATAL: {content}", e);
+
+            //FIXME: Handle fatal?
             throw e;
         }
 
@@ -33,7 +35,7 @@ namespace DistributedJobScheduling.Tests
 
         private void WriteLog(Tag tag, string content, Exception e = null)
         {
-            _output.WriteLine($"|{DateTime.Now}|{{{_boundNode.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}");
+            _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|{{{_boundNode.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}");
             if(e != null)
                 _output.WriteLine(e.StackTrace);
         }

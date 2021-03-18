@@ -34,7 +34,7 @@ namespace DistributedJobScheduling.Communication
             _logger = logger;
             _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeID"));
 
-            _sendOrdering = new FIFOMessageOrdering();
+            _sendOrdering = new FIFOMessageOrdering(logger);
             _speakers = new Dictionary<Node, Speaker>();
 
             Topics = new GenericTopicOutlet(this,

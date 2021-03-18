@@ -17,7 +17,6 @@ namespace DistributedJobScheduling.Tests.Communication
         private Dictionary<string, StubNetworkManager> _networkMap;
         private Dictionary<(string,string), StubLink> _networkLinks;
         private Dictionary<string, Node.INodeRegistry> _registryMap;
-        public float LatencyDeviation {get; set;} = 1.0f;
         private Random _random;
 
         private class StubLink
@@ -55,19 +54,12 @@ namespace DistributedJobScheduling.Tests.Communication
 
                 await Task.WhenAny(
                             Task.Run(async () => {await foreach(Message message in _forwardQueue.WithCancellation(_cancellationTokenSource.Token))
-                                await EmulateLinkSend(_a, _b, message);
+                                _networkBus.FinalizeSendTo(_a, _b, message);
                             }),
                             Task.Run(async () => {await foreach(Message message in _backwardsQueue.WithCancellation(_cancellationTokenSource.Token))
-                                await EmulateLinkSend(_b, _a, message);
+                                _networkBus.FinalizeSendTo(_b, _a, message);
                             }));
                 throw new Exception("Link collapsed!");
-            }
-
-            private async Task EmulateLinkSend(Node start, Node end, Message message)
-            {
-                //Emulate random delay on link
-                await Task.Delay(_networkBus._random.Next((int)(5*_networkBus.LatencyDeviation),(int)(17*_networkBus.LatencyDeviation)));
-                _networkBus.FinalizeSendTo(start, end, message);
             }
         }
 

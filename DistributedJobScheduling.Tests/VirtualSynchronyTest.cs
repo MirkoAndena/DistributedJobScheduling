@@ -27,12 +27,71 @@ namespace DistributedJobScheduling.Tests
         {
             public EmptyMessage(ITimeStamper timeStamper) : base(timeStamper) {}
         }
+
+        public class IdMessage : Message 
+        {
+            public int Id { get; private set; }
+            public IdMessage(int id, ITimeStamper timeStamper) : base(timeStamper) { Id = id; }
+        }
         
+        private class FakeNode
+        {
+            public Node node;
+            public ICommunicationManager commMgr;
+            public IGroupViewManager groupManager;
+            public ITimeStamper timeStamper;
+            public Node.INodeRegistry nodeRegistry;
+            public StubLogger nodeLogger;
+
+            public void Start()
+            {
+                if(groupManager is GroupViewManager groupViewManager)
+                    groupViewManager.Start();
+            }
+        }
+
+        private FakeNode StartUpNode(int id, bool coordinator, StubNetworkBus networkBus, int joinTimeout = 5000)
+        {
+            Node.INodeRegistry nodeRegistry = new Node.NodeRegistryService();
+            Node node = nodeRegistry.GetOrCreate($"127.0.0.{id}", id);
+            StubLogger stubLogger = new StubLogger(node, _output);
+            StubNetworkManager commMgr = new StubNetworkManager(node, stubLogger);
+            ITimeStamper nodeTimeStamper = new StubScalarTimeStamper(node);
+            IGroupViewManager groupManager = new GroupViewManager(nodeRegistry,
+                                                                  commMgr, 
+                                                                  nodeTimeStamper, 
+                                                                  new FakeConfigurator(new Dictionary<string, object> {
+                                                                    ["nodeId"] = id,
+                                                                    ["coordinator"] = coordinator
+                                                                  }),
+                                                                  stubLogger);
+            ((GroupViewManager)groupManager).JoinRequestTimeout = joinTimeout;
+            groupManager.View.ViewChanged += () => { stubLogger.Log(Logging.Tag.VirtualSynchrony, $"View Changed: {groupManager.View.Others.ToString<Node>()}"); };
+            networkBus.RegisterToNetwork(node, nodeRegistry, commMgr);
+
+            return new FakeNode (){
+                node = node, 
+                commMgr = commMgr, 
+                groupManager = groupManager, 
+                timeStamper = nodeTimeStamper,
+                nodeRegistry = nodeRegistry,
+                nodeLogger = stubLogger
+            };
+        }
+        
+        private async Task StartSequence(FakeNode[] nodes, int msBetweenNodes)
+        {
+            for(int i = 0; i < nodes.Length; i++)
+            {
+                nodes[i].Start();
+                await Task.Delay(msBetweenNodes);
+            }
+        }
+
         [Fact]
         public async Task MulticastWorks()
         {
             StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
-            networkBus.LatencyDeviation = 0.1f;
             FakeNode[] nodes = new FakeNode[10];
             int joinTimeout = 100; //ms
             int messageCount = 100;
@@ -101,23 +160,27 @@ namespace DistributedJobScheduling.Tests
         public async Task SimpleJoin()
         {
             StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
-            networkBus.LatencyDeviation = 0;
-            FakeNode[] nodes = new FakeNode[10];
-            int joinTimeout = 1000; //ms
+            FakeNode[] nodes = new FakeNode[15];
+            int joinTimeout = 100; //ms
+            int startupTime = 50;
 
             for(int i = 0; i < nodes.Length; i++)
                 nodes[i] = StartUpNode(i, i == 0, networkBus, joinTimeout);
-            
-            for(int i = 0; i < nodes.Length; i++)
-            {
-                nodes[i].Start();
-                await Task.Delay(100);
-            }
 
             await Task.Run(async () =>
             {
-                await Task.WhenAny(Task.WhenAll(SetupGroupJoinAwaiters(nodes[0], nodes[1..])), 
-                                   Task.Delay(nodes.Length * joinTimeout * 2)); //Worst Case delay
+                Task[] joinAwaiters = SetupGroupJoinAwaiters(nodes[0], nodes[1..]);
+                Task completed;
+                await Task.WhenAll(
+                    StartSequence(nodes, startupTime),
+                    Task.WhenAny(completed = Task.WhenAll(joinAwaiters))//, 
+                                   //Task.Delay(Math.Max(nodes.Length * joinTimeout * 10, startupTime*nodes.Length + joinTimeout * 10))) //Worst Case delay
+                );
+
+                if(completed.IsCompleted)
+                    _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|\tCompleted before timeout!");
+                else
+                    _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|\t============ TIMEOUT ===============");
                 AssertGroupJoinView(nodes);
             });
         }
@@ -155,49 +218,74 @@ namespace DistributedJobScheduling.Tests
             }
         }
 
-        private class FakeNode
-        {
-            public Node node;
-            public ICommunicationManager commMgr;
-            public IGroupViewManager groupManager;
-            public ITimeStamper timeStamper;
-            public Node.INodeRegistry nodeRegistry;
-            public StubLogger nodeLogger;
 
-            public void Start()
+        [Fact]
+        public async Task SimpleInViewSend()
+        {
+            StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
+            FakeNode[] nodes = new FakeNode[15];
+            int joinTimeout = 100; //ms
+            int startupTime = 50;
+            int maxTestTime = 1000;
+
+            for(int i = 0; i < nodes.Length; i++)
+                nodes[i] = StartUpNode(i, i == 0, networkBus, joinTimeout);
+
+            await Task.Run(async () =>
             {
-                if(groupManager is GroupViewManager groupViewManager)
-                    groupViewManager.Start();
-            }
+                Task[] joinAwaiters = SetupGroupJoinAwaiters(nodes[0], nodes[1..]);
+                Task completed;
+                await Task.WhenAll(
+                    StartSequence(nodes, startupTime),
+                    Task.WhenAny(completed = Task.WhenAll(joinAwaiters))
+                );
+                AssertGroupJoinView(nodes);
+            });
+
+            Dictionary<int, List<IdMessage>> consolidatedMessages = new Dictionary<int, List<IdMessage>>();
+            nodes.ForEach(node => {
+                consolidatedMessages.Add(node.node.ID.Value, new List<IdMessage>());
+                node.groupManager.OnMessageReceived += (sender, message) => {
+                    if(message is IdMessage consolidatedMessage)
+                    {
+                        _output.WriteLine($"{node.node.ID} consolidated {consolidatedMessage.Id}");
+                        consolidatedMessages[node.node.ID.Value].Add(consolidatedMessage);
+                    }
+                };
+            });
+
+            await Task.Run(async () =>
+            {
+                await Task.WhenAny(Task.WhenAll(SetupGroupSendAwaiters(nodes[0], nodes[1..])), 
+                                   Task.Delay(maxTestTime)); //Worst Case delay
+                AssertGroupSend(consolidatedMessages, nodes);
+            });
         }
 
-        private FakeNode StartUpNode(int id, bool coordinator, StubNetworkBus networkBus, int joinTimeout = 5000)
+        private Task[] SetupGroupSendAwaiters(FakeNode coordinator, params FakeNode[] nodes)
         {
-            Node.INodeRegistry nodeRegistry = new Node.NodeRegistryService();
-            Node node = nodeRegistry.GetOrCreate($"127.0.0.{id}", id);
-            StubLogger stubLogger = new StubLogger(node, _output);
-            StubNetworkManager commMgr = new StubNetworkManager(node);
-            ITimeStamper nodeTimeStamper = new StubScalarTimeStamper(node);
-            IGroupViewManager groupManager = new GroupViewManager(nodeRegistry,
-                                                                  commMgr, 
-                                                                  nodeTimeStamper, 
-                                                                  new FakeConfigurator(new Dictionary<string, object> {
-                                                                    ["nodeId"] = id,
-                                                                    ["coordinator"] = coordinator
-                                                                  }),
-                                                                  stubLogger);
-            ((GroupViewManager)groupManager).JoinRequestTimeout = joinTimeout;
-            groupManager.View.ViewChanged += () => { stubLogger.Log(Logging.Tag.VirtualSynchrony, $"View Changed: {groupManager.View.Others.ToString<Node>()}"); };
-            networkBus.RegisterToNetwork(node, nodeRegistry, commMgr);
+            List<Task> waitForNodes = new List<Task>();
 
-            return new FakeNode (){
-                node = node, 
-                commMgr = commMgr, 
-                groupManager = groupManager, 
-                timeStamper = nodeTimeStamper,
-                nodeRegistry = nodeRegistry,
-                nodeLogger = stubLogger
-            };
+            int i = 0;
+            nodes.ForEach(node => {
+                waitForNodes.Add(node.groupManager.SendMulticast(new IdMessage(i, node.timeStamper)));
+            });
+
+            return waitForNodes.ToArray();
+        }
+
+        private void AssertGroupSend(Dictionary<int, List<IdMessage>> _consolidatedMessage, params FakeNode[] nodes)
+        {
+            AssertGroupJoinView(nodes);
+            
+            List<IdMessage> referenceMessage = null;
+            foreach(var messages in _consolidatedMessage.Values)
+            {
+                if(referenceMessage == null)
+                    referenceMessage = messages;
+                else
+                    Assert.True(referenceMessage.SequenceEqual(messages)); //In this case since we are on the same machine we expect also the message references to be the same
+            }
         }
     }
 }

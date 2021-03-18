@@ -17,11 +17,11 @@ namespace DistributedJobScheduling.Tests.Communication
 
         public ITopicOutlet Topics { get; private set; }
 
-        public StubNetworkManager(Node node)
+        public StubNetworkManager(Node node, StubLogger logger)
         {
             _me = node;
 
-            _sendOrdering = new FIFOMessageOrdering();
+            _sendOrdering = new FIFOMessageOrdering(logger);
             Topics = new GenericTopicOutlet(this,
                 new VirtualSynchronyTopicPublisher()
             );
