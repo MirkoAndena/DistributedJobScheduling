@@ -9,7 +9,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
     {
         private HashSet<Type> _topics = new HashSet<Type>
         {
-            typeof(KeepAliveMessage)
+            typeof(KeepAliveRequest),
+            typeof(KeepAliveResponse)
         };
         public override HashSet<Type> TopicMessageTypes => _topics;
     }

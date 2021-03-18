@@ -10,72 +10,40 @@ using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
-    public class KeepAliveMessageHandler : ILifeCycle
+    public class KeepAliveManager : ILifeCycle
     {
-        // Seconds for keep alive check
-        const int timeout = 5;
-        public Action<List<Node>> NodesDied;
         public Action CoordinatorDied;
-        private Dictionary<Node, bool> _ticks;
-        private ILogger _logger;
-        private CancellationTokenSource _cancellationTokenSource;
+        public Action<List<Node>> NodesDied;
 
-        private GroupViewManager _group;
+        private ILifeCycle _keepAlive;
 
-        public KeepAliveMessageHandler(GroupViewManager group, ILogger logger)
+        public KeepAliveManager(GroupViewManager group, ILogger logger)
         {
-            _group = group;
-            _logger = logger;
-            _ticks = new Dictionary<Node, bool>();
-
-            var jobPublisher = _group.Topics.GetPublisher<BullyElectionPublisher>();
-            jobPublisher.RegisterForMessage(typeof(KeepAliveMessage), OnKeepAliveReceived);
-        }
-
-        public void Start()
-        {
-            Task.Delay(TimeSpan.FromSeconds(timeout), _cancellationTokenSource.Token)
-                .ContinueWith(t => TimeoutFinished());
-        }
-
-        public void Init()
-        {
-            _cancellationTokenSource = new CancellationTokenSource();
-            _ticks.Clear();
-            if (_group.View.Coordinator != _group.View.Me)
-                _ticks.Add(_group.View.Coordinator, false);
-            foreach (Node node in _group.View.Others)
-                _ticks.Add(node, false);
-        }
-        
-        private void OnKeepAliveReceived(Node node, Message message) => _ticks.Add(node, true);
-
-        private void TimeoutFinished()
-        {
-            List<Node> deaths = new List<Node>();
-            _ticks.ForEach(element => 
+            if (group.View.ImCoordinator)
             {
-                if (!element.Value)
-                {
-                    if (element.Key == _group.View.Coordinator)
-                    {
-                        _logger.Log(Tag.KeepAlive, $"Coordinator missed a keepalive message, it's died");
-                        CoordinatorDied?.Invoke();
-                    }
-                    deaths.Add(element.Key);
-                }
-            });
-
-            if (deaths.Count > 0)
+                _keepAlive = new CoordinatorKeepAlive(group, logger);
+                ((CoordinatorKeepAlive)_keepAlive).NodesDied += nodes => NodesDied?.Invoke(nodes);
+            }
+            else
             {
-                _logger.Log(Tag.KeepAlive, $"Nodes {deaths} died");
-                NodesDied?.Invoke(deaths);
+                _keepAlive = new WorkersKeepAlive(group, logger);
+                ((WorkersKeepAlive)_keepAlive).CoordinatorDied += () => CoordinatorDied?.Invoke();
             }
 
+            group.View.ViewChanged += Restart;
+        }
+
+        private void Restart()
+        {
+            Stop();
             Init();
             Start();
         }
 
-        public void Stop() => _cancellationTokenSource.Cancel();
+        public void Init() => _keepAlive.Init();
+
+        public void Start() => _keepAlive.Start();
+
+        public void Stop() => _keepAlive.Stop();
     }
 }

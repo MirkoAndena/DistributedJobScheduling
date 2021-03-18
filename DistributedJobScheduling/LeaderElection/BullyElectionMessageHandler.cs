@@ -31,7 +31,11 @@ namespace DistributedJobScheduling.LeaderElection
             _candidate.SendElect += SendElectMessages;
             _candidate.SendCoords += SendCoordMessages;
 
-            _groupManager.View.ViewChanged += OnCoordinatorDeathReported;
+            _groupManager.View.ViewChanged += () => 
+            {
+                if (_groupManager.View.Coordinator == null)
+                    OnCoordinatorDeathReported();
+            };
         }
 
         private void OnCoordinatorDeathReported()

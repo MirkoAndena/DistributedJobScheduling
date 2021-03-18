@@ -15,6 +15,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public Node Coordinator  { get; private set; }
         public HashSet<Node> Others  { get; private set; }
 
+        public bool ImCoordinator => Me == Coordinator;
+
         public Group(Node me, bool coordinator = false) 
         {
             Me = me;

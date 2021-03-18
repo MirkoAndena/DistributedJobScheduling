@@ -6,8 +6,13 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAl
     /// <summary>
     /// Message from node to others for Keep Alive 
     /// </summary>
-    public class KeepAliveMessage : Message
+    public class KeepAliveRequest : Message
     {
         
+    }
+
+    public class KeepAliveResponse : Message
+    {
+        public KeepAliveResponse(KeepAliveRequest request) : base(request) { }
     }
 }
