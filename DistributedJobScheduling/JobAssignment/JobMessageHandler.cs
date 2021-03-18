@@ -11,7 +11,7 @@ namespace DistributedJobScheduling.JobAssignment
 {
     public class JobMessageHandler
     {
-        private GroupViewManager _groupManager;
+        private IGroupViewManager _groupManager;
         private TranslationTable _traductionTable;
         private DistributedList _distributedList;
         private ILogger _logger;
@@ -20,10 +20,10 @@ namespace DistributedJobScheduling.JobAssignment
         private Dictionary<Node, Message> _lastMessageSent;
 
         public JobMessageHandler(TranslationTable traductionTable, DistributedList distributedList) : 
-        this(DependencyManager.Get<GroupViewManager>(), 
+        this(DependencyManager.Get<IGroupViewManager>(), 
             traductionTable, distributedList,
             DependencyManager.Get<ILogger>()) {}
-        public JobMessageHandler(GroupViewManager groupManager,
+        public JobMessageHandler(IGroupViewManager groupManager,
                           TranslationTable traductionTable, 
                           DistributedList distributedList,
                           ILogger logger)

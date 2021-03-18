@@ -17,7 +17,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private ILifeCycle _keepAlive;
 
-        public KeepAliveManager(GroupViewManager group, ILogger logger)
+        public KeepAliveManager(IGroupViewManager group, ILogger logger)
         {
             if (group.View.ImCoordinator)
             {

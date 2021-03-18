@@ -18,9 +18,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         public Action CoordinatorDied;
         private ILogger _logger;
         private CancellationTokenSource _cancellationTokenSource;
-        private GroupViewManager _group;
+        private IGroupViewManager _group;
 
-        public WorkersKeepAlive(GroupViewManager group, ILogger logger)
+        public WorkersKeepAlive(IGroupViewManager group, ILogger logger)
         {
             _group = group;
             _logger = logger;

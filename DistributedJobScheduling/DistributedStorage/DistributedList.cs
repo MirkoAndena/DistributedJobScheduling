@@ -32,8 +32,8 @@ namespace DistributedJobScheduling.DistributedStorage
 
         public DistributedList() : this (DependencyInjection.DependencyManager.Get<IStore>(),
                                         DependencyInjection.DependencyManager.Get<ILogger>(),
-                                        DependencyInjection.DependencyManager.Get<GroupViewManager>()) { }
-        public DistributedList(IStore store, ILogger logger, GroupViewManager groupView)
+                                        DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
+        public DistributedList(IStore store, ILogger logger, IGroupViewManager groupView)
         {
             _secureStorage = new SecureStore<Jobs>(store, logger);
             _reusableIndex = new ReusableIndex();

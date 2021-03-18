@@ -14,11 +14,11 @@ namespace DistributedJobScheduling.LeaderElection
     {
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
-        private GroupViewManager _groupManager;
+        private IGroupViewManager _groupManager;
 
         public BullyElectionMessageHandler() : this (DependencyInjection.DependencyManager.Get<ILogger>(),
-                                                    DependencyInjection.DependencyManager.Get<GroupViewManager>()) {}
-        public BullyElectionMessageHandler(ILogger logger, GroupViewManager groupViewManager)
+                                                    DependencyInjection.DependencyManager.Get<IGroupViewManager>()) {}
+        public BullyElectionMessageHandler(ILogger logger, IGroupViewManager groupViewManager)
         {
             _logger = logger;
             _groupManager = groupViewManager;

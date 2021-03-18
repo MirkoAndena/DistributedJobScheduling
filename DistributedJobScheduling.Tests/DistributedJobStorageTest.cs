@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.Tests
         [Fact]
         public void JobAssignment()
         {
-            /*DistributedList storage = new DistributedList(new SecureStorageStub());
+            DistributedList storage = new DistributedList(new SecureStorageStub(), new StubLogger(), null);
             Group group = CreateStubGroup();
 
             CreateJobAndAssign(storage, group);
@@ -41,7 +41,7 @@ namespace DistributedJobScheduling.Tests
             Assert.True(MaxJobPerNode(storage) == 1);
             
             CreateJobAndAssign(storage, group);
-            Assert.True(MaxJobPerNode(storage) == 2);*/
+            Assert.True(MaxJobPerNode(storage) == 2);
         }
 
         private int MaxJobPerNode(DistributedList list)
