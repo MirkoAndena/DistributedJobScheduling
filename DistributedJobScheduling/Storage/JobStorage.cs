@@ -19,27 +19,32 @@ namespace DistributedJobScheduling.Storage
         public Jobs() { List = new List<Job>(); }
     }
 
-    public class JobStorage : ILifeCycle
+    public class JobStorage
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Jobs> _secureStorage;
-        private CancellationTokenSource _cancellationTokenSource;
         private ILogger _logger;
         private Group _group;
-        public Action<Job, IJobResult> OnJobCompleted;
-
-        public List<Job> Values => _secureStorage.Value.List;
+        public Action<Job> UpdateJob;
 
         public JobStorage(IStore<Jobs> store) : this (store, 
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
+        
         public JobStorage(IStore<Jobs> store, ILogger logger, IGroupViewManager groupView)
         {
             _secureStorage = new SecureStore<Jobs>(store, logger);
             _reusableIndex = new ReusableIndex();
             _logger = logger;
             _group = groupView.View;
-            _cancellationTokenSource = new CancellationTokenSource();
+            UpdateJob += _UpdateJob;
+        }
+
+        private void _UpdateJob(Job job)
+        {
+            // Is allowed an update only on jobs with a reference in the storage
+            if (_secureStorage.Value.List.Contains(job))
+                _secureStorage.ValuesChanged.Invoke();
         }
 
         private void DeletePendingAndRemovedJobs()
@@ -48,18 +53,7 @@ namespace DistributedJobScheduling.Storage
                 job.Status == JobStatus.PENDING || 
                 job.Status == JobStatus.REMOVED);
             _secureStorage.ValuesChanged.Invoke();
-            _logger.Log(Tag.DistributedStorage, "Memory cleaned (logical deletions)");
-        }
-
-        public void AddOrUpdate(Job job)
-        {        
-            if (_secureStorage.Value.List.Contains(job))
-                _secureStorage.Value.List.Remove(job);
-
-            _secureStorage.Value.List.Add(job);
-            _secureStorage.ValuesChanged.Invoke();
-            
-            _logger.Log(Tag.DistributedStorage, $"Job {job} added/updated");
+            _logger.Log(Tag.JobStorage, "Memory cleaned (logical deletions)");
         }
 
         public void SetJobDeliveredToClient(Job job)
@@ -68,11 +62,11 @@ namespace DistributedJobScheduling.Storage
             {
                 job.Status = JobStatus.REMOVED;
                 _secureStorage.ValuesChanged.Invoke();
-                _logger.Log(Tag.DistributedStorage, $"Job {job} logically removed");
+                _logger.Log(Tag.JobStorage, $"Job {job} logically removed");
             }
         }
 
-        public void AddAndAssign(Job job)
+        public void InsertAndAssign(Job job)
         {
             job.Node = FindNodeWithLessJobs();
             job.ID = _reusableIndex.NewIndex;
@@ -80,11 +74,34 @@ namespace DistributedJobScheduling.Storage
             _secureStorage.Value.List.Add(job);
             _secureStorage.ValuesChanged.Invoke();
 
-            if (job.Node.HasValue)
-                _logger.Log(Tag.DistributedStorage, $"Job {job} assigned to {job.Node.Value}");
+            _logger.Log(Tag.JobStorage, $"Job {job} assigned to {job.Node.Value}");
         }
 
-        private int FindNodeWithLessJobs()
+        public void InsertOrUpdateExternalJob(Job job)
+        {
+            if (!job.ID.HasValue)
+            {
+                _logger.Warning(Tag.JobStorage, $"External job {job} has no ID, update refused");
+                return;
+            }
+
+            // If the job is already in the list it is also updated
+            if (_secureStorage.Value.List.Contains(job))
+            {
+                _logger.Warning(Tag.JobStorage, $"External job {job} is already in the storage, update refused");
+                return;
+            }
+
+            // Remove job with same ID
+            foreach (Job stored in _secureStorage.Value.List)
+                if (stored.ID.HasValue && stored.ID.Value == job.ID.Value)
+                    _secureStorage.Value.List.Remove(stored);
+                
+            _secureStorage.Value.List.Add(job);
+            _secureStorage.ValuesChanged.Invoke();
+        }
+
+        public Dictionary<int, int> FindNodesOccurrences()
         {
             // Init each node with no occurrences
             Dictionary<int, int> nodeJobCount = new Dictionary<int, int>();
@@ -105,7 +122,13 @@ namespace DistributedJobScheduling.Storage
                 }
             }
 
-            _logger.Log(Tag.DistributedStorage, $"Total job assigned per node: {nodeJobCount.ToString()}");
+            _logger.Log(Tag.JobStorage, $"Total job assigned per node: {nodeJobCount.ToString()}");
+            return nodeJobCount;
+        }
+
+        private int FindNodeWithLessJobs()
+        {
+            Dictionary<int, int> nodeJobCount = FindNodesOccurrences();
 
             // Find the node with the less number of assignment
             (int, int) min = (_group.Me.ID.Value, nodeJobCount[_group.Me.ID.Value]);
@@ -115,67 +138,19 @@ namespace DistributedJobScheduling.Storage
                     min = (nodeOccurencesPair.Key, nodeOccurencesPair.Value);
             });
 
-            _logger.Log(Tag.DistributedStorage, $"Node with less occurrences: {min.Item1} with {min.Item2} jobs to do");
+            _logger.Log(Tag.JobStorage, $"Node with less occurrences: {min.Item1} with {min.Item2} jobs to do");
             return min.Item1;
         }
 
-        public async Task RunAssignedJob()
-        {
-            while (!_cancellationTokenSource.Token.IsCancellationRequested)
-            {
-                Job current = FindJobToExecute(_group.Me);
-                if (current != null)
-                {
-                    current.Status = JobStatus.RUNNING;
-                    _secureStorage.ValuesChanged.Invoke();
-                    _logger.Log(Tag.DistributedStorage, $"Job {current} RUNNING");
-
-                    IJobResult result = await RunJob(current);
-                    if (result == null) return;
-                    
-                    current.Status = JobStatus.COMPLETED;
-                    _secureStorage.ValuesChanged.Invoke();
-                    _logger.Log(Tag.DistributedStorage, $"Job {current} COMPLETED");
-                    OnJobCompleted?.Invoke(current, result);
-                }
-            }
-        }
-
-        private async Task<IJobResult> RunJob(Job job)
-        {
-            try
-            {
-                return await job.Run();
-            }
-            catch when (_cancellationTokenSource.Token.IsCancellationRequested)
-            {
-                return null;
-            }
-        }
-
-        private Job FindJobToExecute(Node me)
+        public Job FindJobToExecute()
         {
             Job toExecute = null;
             _secureStorage.Value.List.ForEach(job => 
             {
-                if (job.Status == JobStatus.PENDING && job.Node == me.ID)
+                if (job.Status == JobStatus.PENDING && job.Node == _group.Me.ID)
                     toExecute = job;
             });
             return toExecute;
         }
-
-        public void Init()
-        {
-            _secureStorage.Init();
-            DeletePendingAndRemovedJobs();
-        }
-
-        public async void Start() => await RunAssignedJob();
-
-        public void Stop()
-        {
-            _cancellationTokenSource.Cancel();
-            _secureStorage.Stop();
-        } 
     }
 }

@@ -129,7 +129,7 @@ namespace DistributedJobScheduling.JobAssignment
         private void OnInsertionRequestArrived(Node node, InsertionRequest message)
         {
             _logger.Log(Tag.JobManager, $"Insertion request arrived from {node}");
-            _jobStorage.AddAndAssign(message.Job);
+            _jobStorage.InsertAndAssign(message.Job);
             _logger.Log(Tag.JobManager, $"Job added to storage and assigned");
             SendMulticast(new DistributedStorageUpdate(message.Job, _timeStamper));
             _logger.Log(Tag.JobManager, $"Multicast sent for storage sync");
@@ -149,7 +149,7 @@ namespace DistributedJobScheduling.JobAssignment
             _logger.Log(Tag.JobManager, $"Storage sync message arrived");
             if (message.Job.ID.HasValue && message.Job.Node.HasValue)
             {
-                _jobStorage.AddOrUpdate(message.Job);
+                _jobStorage.InsertOrUpdateExternalJob(message.Job);
                 _logger.Log(Tag.JobManager, $"Added/Updated job {message.Job.ID.Value}");
             }
             else
