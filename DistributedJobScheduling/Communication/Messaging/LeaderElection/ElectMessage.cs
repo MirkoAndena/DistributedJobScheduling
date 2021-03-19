@@ -9,7 +9,7 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
     {
         public int ID { get; private set; }
 
-        public ElectMessage(int id) : base()
+        public ElectMessage(int id, ITimeStamper timeStamper) : base(timeStamper)
         {
             ID = id;
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
@@ -12,6 +13,7 @@ namespace DistributedJobScheduling.DistributedStorage
     {
         IGroupViewManager _group;
         ILogger _logger;
+        ITimeStamper _timeStamper;
         
         public KeepAliveTest()
         {
@@ -28,7 +30,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             Node diedNode = null;
             bool someoneDies = false;
-            CoordinatorKeepAlive keepAlive = new CoordinatorKeepAlive(_group, _logger);
+            CoordinatorKeepAlive keepAlive = new CoordinatorKeepAlive(_group, _logger, _timeStamper);
             keepAlive.NodesDied += nodes =>
             {
                 Assert.Equal(nodes.Count, 1);
@@ -50,7 +52,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             Node coordinator = null;
             bool coordinatorDies = false;
-            WorkersKeepAlive keepAlive = new WorkersKeepAlive(_group, _logger);
+            WorkersKeepAlive keepAlive = new WorkersKeepAlive(_group, _logger, _timeStamper);
             keepAlive.CoordinatorDied += () =>
             {
                 coordinatorDies = true;

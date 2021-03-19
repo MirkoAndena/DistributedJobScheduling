@@ -11,7 +11,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         private Job _job;
         public Job Job => _job;
 
-        public ExecutionRequest(Job job) : base()
+        public ExecutionRequest(Job job, ITimeStamper timeStamper) : base(timeStamper)
         {
             _job = job;
         }
@@ -25,7 +25,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         private int _requestID;
         public int RequestID => _requestID;
 
-        public ExecutionResponse(ExecutionRequest request, int requestID) : base(request)
+        public ExecutionResponse(ExecutionRequest request, int requestID, ITimeStamper timeStamper) : base(request, timeStamper)
         {
             _requestID = requestID;
         }
@@ -39,7 +39,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         private int _requestID;
         public int RequestID => _requestID;
 
-        public ExecutionAck(ExecutionResponse response, int requestID) : base(response)
+        public ExecutionAck(ExecutionResponse response, int requestID, ITimeStamper timeStamper) : base(response, timeStamper)
         {
             _requestID = requestID;
         }

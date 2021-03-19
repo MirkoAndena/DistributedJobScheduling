@@ -217,6 +217,9 @@ namespace DistributedJobScheduling.Tests
                 else
                     Assert.True(referenceMessage.SequenceEqual(messages)); //In this case since we are on the same machine we expect also the message references to be the same
             }
+
+            Assert.NotNull(referenceMessage);
+            Assert.True(referenceMessage.Count > 0);
         }
     }
 }

@@ -8,6 +8,8 @@ using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAlive;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Communication.Messaging;
+
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
     public class KeepAliveManager : ILifeCycle
@@ -17,16 +19,16 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private ILifeCycle _keepAlive;
 
-        public KeepAliveManager(IGroupViewManager group, ILogger logger)
+        public KeepAliveManager(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
         {
             if (group.View.ImCoordinator)
             {
-                _keepAlive = new CoordinatorKeepAlive(group, logger);
+                _keepAlive = new CoordinatorKeepAlive(group, logger, timeStamper);
                 ((CoordinatorKeepAlive)_keepAlive).NodesDied += nodes => NodesDied?.Invoke(nodes);
             }
             else
             {
-                _keepAlive = new WorkersKeepAlive(group, logger);
+                _keepAlive = new WorkersKeepAlive(group, logger, timeStamper);
                 ((WorkersKeepAlive)_keepAlive).CoordinatorDied += () => CoordinatorDied?.Invoke();
             }
 

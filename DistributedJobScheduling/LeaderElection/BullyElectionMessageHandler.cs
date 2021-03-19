@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Communication.Messaging.LeaderElection;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.Logging;
@@ -15,12 +16,15 @@ namespace DistributedJobScheduling.LeaderElection
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
         private IGroupViewManager _groupManager;
+        private ITimeStamper _timeStamper;
 
         public BullyElectionMessageHandler() : this (DependencyInjection.DependencyManager.Get<ILogger>(),
+                                                    DependencyInjection.DependencyManager.Get<ITimeStamper>(),
                                                     DependencyInjection.DependencyManager.Get<IGroupViewManager>()) {}
-        public BullyElectionMessageHandler(ILogger logger, IGroupViewManager groupViewManager)
+        public BullyElectionMessageHandler(ILogger logger, ITimeStamper timeStamper, IGroupViewManager groupViewManager)
         {
             _logger = logger;
+            _timeStamper = timeStamper;
             _groupManager = groupViewManager;
             _candidate = new BullyElectionCandidate(groupViewManager, logger);
 
@@ -49,7 +53,7 @@ namespace DistributedJobScheduling.LeaderElection
         {
             nodes.ForEach(node => 
             {
-                _groupManager.Send(node, new ElectMessage(_groupManager.View.Me.ID.Value)).Wait();
+                _groupManager.Send(node, new ElectMessage(_groupManager.View.Me.ID.Value, _timeStamper)).Wait();
             });
         }
 
@@ -57,7 +61,7 @@ namespace DistributedJobScheduling.LeaderElection
         {
             nodes.ForEach(node => 
             {
-                _groupManager.Send(node, new CoordMessage(_groupManager.View.Me)).Wait();
+                _groupManager.Send(node, new CoordMessage(_groupManager.View.Me, _timeStamper)).Wait();
             });
         }
 

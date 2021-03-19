@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAlive;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
@@ -21,14 +22,16 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         public Action<List<Node>> NodesDied;
         private Dictionary<Node, bool> _ticks;
         private ILogger _logger;
+        private ITimeStamper _timeStamper;
         private CancellationTokenSource _cancellationTokenSource;
 
         private IGroupViewManager _group;
 
-        public CoordinatorKeepAlive(IGroupViewManager group, ILogger logger)
+        public CoordinatorKeepAlive(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
         {
             _group = group;
             _logger = logger;
+            _timeStamper = timeStamper;
             _ticks = new Dictionary<Node, bool>();
 
             var jobPublisher = _group.Topics.GetPublisher<BullyElectionPublisher>();
@@ -54,7 +57,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void SendKeepAliveToNodes()
         {
-            _group.View.Others.ForEach(node => _group.Send(node, new KeepAliveRequest()).Wait());
+            _group.View.Others.ForEach(node => _group.Send(node, new KeepAliveRequest(_timeStamper)).Wait());
             Task.Delay(TimeSpan.FromSeconds(SendTimeout)).ContinueWith(t => SendKeepAliveToNodes());
         }
 

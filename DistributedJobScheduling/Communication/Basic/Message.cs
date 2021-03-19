@@ -17,20 +17,21 @@ namespace DistributedJobScheduling.Communication.Basic
         public int? SenderID;
         public int? ReceiverID;
 
-        public Message(ITimeStamper timestampMechanism = null)
+        public Message(ITimeStamper timestampMechanism)
         {
-            timestampMechanism ??= DependencyInjection.DependencyManager.Get<ITimeStamper>();
-
-            lock(timestampMechanism)
-            {
-                _messageID = timestampMechanism.CreateTimeStamp();
+            if(timestampMechanism != null)
+            {  
+                lock(timestampMechanism)
+                {
+                    _messageID = timestampMechanism.CreateTimeStamp();
+                }
             }
         }
 
         /// <summary>
         /// Create a message that is the response of another message
         /// </summary>
-        public Message(Message message, ITimeStamper timestampMechanism = null) : this(timestampMechanism)
+        public Message(Message message, ITimeStamper timestampMechanism) : this(timestampMechanism)
         {
             _isResponseOf = message._messageID;
         }

@@ -8,11 +8,11 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAl
     /// </summary>
     public class KeepAliveRequest : Message
     {
-        
+        public KeepAliveRequest(ITimeStamper timeStamper) : base(timeStamper) {}
     }
 
     public class KeepAliveResponse : Message
     {
-        public KeepAliveResponse(KeepAliveRequest request) : base(request) { }
+        public KeepAliveResponse(KeepAliveRequest request, ITimeStamper timeStamper) : base(request, timeStamper) { }
     }
 }

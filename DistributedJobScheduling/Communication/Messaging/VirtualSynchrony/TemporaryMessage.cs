@@ -7,7 +7,8 @@ namespace DistributedJobScheduling.Communication.Messaging
         public bool IsMulticast { get; private set; }
         public Message UnstablePayload { get; private set; }
 
-        public TemporaryMessage(bool isMulticast, Message unstableMessage)
+        //We don't need the timestamper
+        public TemporaryMessage(bool isMulticast, Message unstableMessage) : base(null)
         {
             IsMulticast = isMulticast;
             UnstablePayload = unstableMessage;
