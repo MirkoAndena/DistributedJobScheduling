@@ -4,11 +4,12 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
-    public class Shouter
+    public class Shouter : IStartable
     {
         const int PORT = 30309;
         const string MULTICAST_IP = "226.122.24.12";
@@ -31,7 +32,7 @@ namespace DistributedJobScheduling.Communication.Basic
         public void Start()
         {
             if (_client != null || _closeTokenSource != null)
-                Close();
+                Stop();
 
             IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
             IPAddress address = host.AddressList[0];
@@ -74,7 +75,7 @@ namespace DistributedJobScheduling.Communication.Basic
             _logger.Log(Tag.CommunicationBasic, $"Sent {content.Length} bytes to MULTICAST");
         }
 
-        public void Close()
+        public void Stop()
         {
             _closeTokenSource?.Cancel();
         }

@@ -28,32 +28,51 @@ namespace DistributedJobScheduling.LifeCycle
             };
 
             _instance.Init();
+            _instance.InitSubSystems();
             _instance.Start();
-        } 
+        }       
 
-        private void InitSubSystem<IT, T>(T instance) where T : IT, ILifeCycle
+        public void Init()
+        {
+            // Create objects instances
+            DependencyManager.Instance.RegisterSingletonServiceInstance<ILogger, CsvLogger>(new CsvLogger("../"));
+            
+            // Create subsystems
+            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
+        }
+        
+        private void RegisterSubSystem<IT, T>(T instance) where T : IT, ILifeCycle
         {
             DependencyManager.Instance.RegisterSingletonServiceInstance<IT, T>(instance);
             _subSystems.Add(instance);
         }
 
-        // todo dependency inj senza interfaccia
-        private void InitSubSystem<T>(T instance) where T : ILifeCycle
+        public void InitSubSystems()
         {
-            DependencyManager.Instance.RegisterService<T, T>(DependencyManager.ServiceType.Statefull);
-            _subSystems.Add(instance);
-        }
+            _subSystems.ForEach(subsystem => 
+            {
+                if (subsystem is IInitializable initializable)
+                    initializable.Init();
+            });
+        } 
 
-        public void Init()
+        public void Start()
         {
-            DependencyManager.Instance.RegisterSingletonServiceInstance<ILogger, CsvLogger>(new CsvLogger("../"));
-            
-            InitSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
-        }
+            _subSystems.ForEach(subsystem => 
+            {
+                if (subsystem is IStartable startable)
+                    startable.Start();
+            });
+        } 
 
-        public void Start() => _subSystems.ForEach(subsystem => subsystem.Start());
-
-        public void Stop() => _subSystems.ForEach(subsystem => subsystem.Stop());
+        public void Stop()
+        {
+            _subSystems.ForEach(subsystem => 
+            {
+                if (subsystem is IStartable startable)
+                    startable.Stop();
+            });
+        } 
 
         private void Destroy()
         {

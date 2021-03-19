@@ -6,14 +6,12 @@ using DistributedJobScheduling.Communication.Basic.Speakers;
 using DistributedJobScheduling.Communication.Messaging.Ordering;
 using DistributedJobScheduling.Communication.Topics;
 using DistributedJobScheduling.Extensions;
-using DistributedJobScheduling.LeaderElection;
-using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication
 {
-    public class NetworkManager : ICommunicationManager, ILifeCycle
+    public class NetworkManager : ICommunicationManager, IStartable
     {
         private Dictionary<Node, Speaker> _speakers;
         private Listener _listener;
@@ -40,6 +38,11 @@ namespace DistributedJobScheduling.Communication
             Topics = new GenericTopicOutlet(this,
                 new VirtualSynchronyTopicPublisher()
             );
+
+            _shouter = new Shouter();
+            _shouter.OnMessageReceived += _OnMessageReceived;
+            _listener = new Listener();
+            _listener.OnSpeakerCreated += OnSpeakerCreated;
         }
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
@@ -47,7 +50,7 @@ namespace DistributedJobScheduling.Communication
             _logger.Log(Tag.Communication, $"New speaker created for communicate to {node}");
             _speakers.Add(node, speaker);
             speaker.OnMessageReceived += _OnMessageReceived;
-            speaker.StartReceive();
+            speaker.Start();
         }
 
         private void _OnMessageReceived(Node node, Message message)
@@ -79,7 +82,7 @@ namespace DistributedJobScheduling.Communication
             if (!_speakers.ContainsKey(node))
                 _speakers.Add(node, speaker);
 
-            speaker.StartReceive();
+            speaker.Start();
             _logger.Log(Tag.Communication, $"A new speaker to {node} is created and stored");
 
             return speaker;
@@ -90,17 +93,24 @@ namespace DistributedJobScheduling.Communication
             await _sendOrdering.OrderedExecute(message, () => _shouter.SendMulticast(message));
         }
 
-        public void Close() 
+        public void Start()
+        {
+            _speakers.Clear();
+            _shouter.Start();
+            _listener.Start();
+        }
+        
+        public void Stop() 
         {
             _shouter.OnMessageReceived -= _OnMessageReceived;
             _listener.OnSpeakerCreated -= OnSpeakerCreated;
 
-            _shouter.Close();
-            _listener.Close();
+            _shouter.Stop();
+            _listener.Stop();
 
             _speakers.ForEach(speakerIdPair => 
             {
-                speakerIdPair.Value.Close();
+                speakerIdPair.Value.Stop();
                 speakerIdPair.Value.OnMessageReceived -= _OnMessageReceived;
                 _speakers.Remove(speakerIdPair.Key);
             });
@@ -108,25 +118,5 @@ namespace DistributedJobScheduling.Communication
             _logger.Warning(Tag.Communication, "Network manager closed, no further communication can be performed");
         }
 
-        public void Init()
-        {
-            _speakers.Clear();
-
-            _shouter = new Shouter();
-            _shouter.OnMessageReceived += _OnMessageReceived;
-            _shouter.Start();
-
-            _listener = new Listener();
-            _listener.OnSpeakerCreated += OnSpeakerCreated;
-            _listener.Start();
-        }
-
-        public void Start()
-        {
-            _shouter.Start();
-            _listener.Start();
-        }
-
-        public void Stop() => Close();
     }
 }
