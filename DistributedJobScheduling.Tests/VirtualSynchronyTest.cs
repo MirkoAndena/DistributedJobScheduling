@@ -161,7 +161,6 @@ namespace DistributedJobScheduling.Tests
             StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
             FakeNode[] nodes = new FakeNode[15];
             int joinTimeout = 100; //ms
-            int startupTime = 50;
             int maxTestTime = 1000;
 
             for(int i = 0; i < nodes.Length; i++)
@@ -169,12 +168,8 @@ namespace DistributedJobScheduling.Tests
 
             await Task.Run(async () =>
             {
-                Task[] joinAwaiters = SetupGroupJoinAwaiters(nodes[0], nodes[1..]);
-                Task completed;
-                await Task.WhenAll(
-                    NodeToolkit.StartSequence(nodes, startupTime),
-                    Task.WhenAny(completed = Task.WhenAll(joinAwaiters))
-                );
+                NodeToolkit.CreateView(nodes, nodes[0]);
+                await NodeToolkit.StartSequence(nodes, 0);
                 AssertGroupJoinView(nodes);
             });
 
