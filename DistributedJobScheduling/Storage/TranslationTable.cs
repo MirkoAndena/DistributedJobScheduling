@@ -1,14 +1,14 @@
 using System.Reflection.Metadata;
 using System.Collections.Generic;
-using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Extensions;
+using DistributedJobScheduling.Storage.SecureStorage;
 
-namespace DistributedJobScheduling.DistributedStorage
+namespace DistributedJobScheduling.Storage
 {
-    class TableItem
+    public class TableItem
     {
         public Job Job;
         public bool Confirmed;
@@ -17,7 +17,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public TableItem(Job job) : this() { Job = job; }
     }
 
-    class Table
+    public class Table
     {
         // Key: requestID, Job, bool: confirmed by client
         public Dictionary<int, TableItem> Dictionary; 
@@ -31,9 +31,8 @@ namespace DistributedJobScheduling.DistributedStorage
         private SecureStore<Table> _secureStorage;
         private ILogger _logger;
 
-        public TranslationTable() : this(DependencyInjection.DependencyManager.Get<IStore>(),
-                                        DependencyInjection.DependencyManager.Get<ILogger>()) { }
-        public TranslationTable(IStore store, ILogger logger)
+        public TranslationTable(IStore<Table> store) : this(store, DependencyInjection.DependencyManager.Get<ILogger>()) { }
+        public TranslationTable(IStore<Table> store, ILogger logger)
         {
             _logger = logger;
             _secureStorage = new SecureStore<Table>(store, logger);

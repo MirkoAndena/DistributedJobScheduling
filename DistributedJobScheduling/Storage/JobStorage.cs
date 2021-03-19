@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
-using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.Storage.SecureStorage;
 using DistributedJobScheduling.VirtualSynchrony;
 
-namespace DistributedJobScheduling.DistributedStorage
+namespace DistributedJobScheduling.Storage
 {
     public class Jobs
     { 
@@ -19,7 +19,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public Jobs() { List = new List<Job>(); }
     }
 
-    public class DistributedList : ILifeCycle
+    public class JobStorage : ILifeCycle
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Jobs> _secureStorage;
@@ -30,10 +30,10 @@ namespace DistributedJobScheduling.DistributedStorage
 
         public List<Job> Values => _secureStorage.Value.List;
 
-        public DistributedList() : this (DependencyInjection.DependencyManager.Get<IStore>(),
-                                        DependencyInjection.DependencyManager.Get<ILogger>(),
-                                        DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
-        public DistributedList(IStore store, ILogger logger, IGroupViewManager groupView)
+        public JobStorage(IStore<Jobs> store) : this (store, 
+            DependencyInjection.DependencyManager.Get<ILogger>(),
+            DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
+        public JobStorage(IStore<Jobs> store, ILogger logger, IGroupViewManager groupView)
         {
             _secureStorage = new SecureStore<Jobs>(store, logger);
             _reusableIndex = new ReusableIndex();

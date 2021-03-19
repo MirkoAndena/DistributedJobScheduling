@@ -1,6 +1,6 @@
 using System;
 
-namespace DistributedJobScheduling.DistributedStorage
+namespace DistributedJobScheduling.Storage
 {
     public class ReusableIndex
     {

@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.DependencyInjection;
-using DistributedJobScheduling.DistributedStorage;
-using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.LifeCycle
@@ -51,9 +49,6 @@ namespace DistributedJobScheduling.LifeCycle
             DependencyManager.Instance.RegisterSingletonServiceInstance<ILogger, CsvLogger>(new CsvLogger("../"));
             
             InitSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
-            InitSubSystem<IStore, Storage>(new Storage());
-            InitSubSystem<DistributedList>(new DistributedList());
-            InitSubSystem<TranslationTable>(new TranslationTable());
         }
 
         public void Start() => _subSystems.ForEach(subsystem => subsystem.Start());
