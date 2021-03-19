@@ -170,7 +170,7 @@ namespace DistributedJobScheduling.DistributedStorage
             DeletePendingAndRemovedJobs();
         }
 
-        public void Start() => RunAssignedJob();
+        public async void Start() => await RunAssignedJob();
 
         public void Stop()
         {

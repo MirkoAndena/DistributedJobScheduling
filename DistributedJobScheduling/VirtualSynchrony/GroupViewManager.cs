@@ -74,7 +74,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
                                   ICommunicationManager communicationManager, 
                                   ITimeStamper timeStamper,
                                   IConfigurationService configurationService,
-                                  ILogger logger)
+                                  ILogger logger,
+                                  int joinRequestTimeout = 5000,
+                                  Group coldStartView = null)
         {
             _nodeRegistry = nodeRegistry;
             _communicationManager = communicationManager;
@@ -89,7 +91,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                      new JobPublisher(),
                      new KeepAlivePublisher(),
                      new BullyElectionPublisher());
-            View = new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), coordinator: configurationService.GetValue<bool>("coordinator", false));
+            JoinRequestTimeout = joinRequestTimeout;
+            View = coldStartView ?? new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), coordinator: configurationService.GetValue<bool>("coordinator", false));
         }
 
         public event Action<Node, Message> OnMessageReceived;
