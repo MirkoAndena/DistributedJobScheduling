@@ -119,7 +119,7 @@ namespace DistributedJobScheduling.DistributedStorage
             return min.Item1;
         }
 
-        public async void RunAssignedJob()
+        public async Task RunAssignedJob()
         {
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {

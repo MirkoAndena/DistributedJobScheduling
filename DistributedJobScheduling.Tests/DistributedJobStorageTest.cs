@@ -7,10 +7,6 @@ using DistributedJobScheduling.Communication.Basic;
 using System.Collections.Generic;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using Xunit.Abstractions;
-using DistributedJobScheduling.Tests.Communication;
-using DistributedJobScheduling.Communication.Messaging;
-using DistributedJobScheduling.Tests.Communication.Messaging;
-using DistributedJobScheduling.Configuration;
 
 namespace DistributedJobScheduling.Tests
 {
@@ -54,6 +50,10 @@ namespace DistributedJobScheduling.Tests
         [Fact]
         public void JobRun()
         {
+            _list.AddAndAssign(new TimeoutJob(1));
+            _list.AddAndAssign(new TimeoutJob(1));
+            _list.AddAndAssign(new TimeoutJob(1));
+            _list.AddAndAssign(new TimeoutJob(1));
             _list.OnJobCompleted += (job, result) => 
             {
                 Assert.True(((BooleanJobResult)result).Value);

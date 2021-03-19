@@ -24,12 +24,13 @@ namespace DistributedJobScheduling.Tests
 
         public Task Send(Node node, Message message, int timeout = 30)
         {
-            return null;
+            OnMessageReceived?.Invoke(node, message);
+            throw new NotImplementedException();
         }
 
         public Task SendMulticast(Message message)
         {
-            return null;
+            throw new NotImplementedException();
         }
     }
 }
