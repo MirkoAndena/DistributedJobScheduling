@@ -38,9 +38,7 @@ namespace DistributedJobScheduling.Communication
             _speakers = new Dictionary<Node, Speaker>();
 
             Topics = new GenericTopicOutlet(this,
-                new VirtualSynchronyTopicPublisher(),
-                new BullyElectionPublisher(),
-                new KeepAlivePublisher()
+                new VirtualSynchronyTopicPublisher()
             );
         }
 

@@ -13,6 +13,8 @@ using DistributedJobScheduling.JobAssignment;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.Extensions;
+using DistributedJobScheduling.LeaderElection.KeepAlive;
+using DistributedJobScheduling.LeaderElection;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -83,7 +85,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _sentTemporaryMessages = new HashSet<TemporaryMessage>();
             _sendComplenentionMap = new Dictionary<TemporaryMessage, TaskCompletionSource<bool>>();
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
-            Topics = new GenericTopicOutlet(this, new JobPublisher());
+            Topics = new GenericTopicOutlet(this, 
+                     new JobPublisher(),
+                     new KeepAlivePublisher(),
+                     new BullyElectionPublisher());
             View = new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), coordinator: configurationService.GetValue<bool>("coordinator", false));
         }
 
@@ -117,28 +122,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
 
             TemporaryMessage tempMessage = new TemporaryMessage(false, message);
-            var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp);
-            TaskCompletionSource<bool> sendTask;
-
-            lock(_confirmationQueue)
-            {
-                _confirmationQueue.Add(messageKey, tempMessage);
-                _sentTemporaryMessages.Add(tempMessage);
-                _sendComplenentionMap.Add(tempMessage, (sendTask = new TaskCompletionSource<bool>(false)));
-                _confirmationMap.Add(messageKey, new HashSet<Node>(new []{ node }));
-            }
-
             await _communicationManager.Send(node, tempMessage, timeout);
-            _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network");
-
-            lock(_confirmationQueue)
-            {
-                ProcessAcknowledge(messageKey, View.Me);
-            }
-
-            //True if node acknowledged the message
-            if(!await sendTask.Task)
-                throw new NotDeliveredException();
         }
 
         public async Task SendMulticast(Message message)
@@ -187,8 +171,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                         if(tempMessage.IsMulticast)
                             _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
-                        else
-                            _communicationManager.Send(node, new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
 
                         ProcessAcknowledge(messageKey, node);
                     }
