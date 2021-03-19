@@ -11,7 +11,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public List<Node> ViewNodes { get; private set; }
 
-        public ViewSyncResponse(List<Node> viewNodes, ITimeStamper timestampMechanism = null) : base(timestampMechanism) 
+        public ViewSyncResponse(List<Node> viewNodes) : base() 
         {
             ViewNodes = viewNodes;
         }

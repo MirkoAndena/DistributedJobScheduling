@@ -7,11 +7,12 @@ using System.Collections.Generic;
 using DistributedJobScheduling.Communication;
 using System.Threading.Tasks.Dataflow;
 using DistributedJobScheduling.Communication.Basic;
+using System.Threading.Channels;
 
 namespace DistributedJobScheduling.Tests.Communication
 {
     //FIXME: Channels are not FIFO in this implementation...
-    public class StubNetworkBus
+    public class StubNetworkBus : IDisposable
     {
         private List<Node> _registeredNodes;
         private Dictionary<string, StubNetworkManager> _networkMap;
@@ -26,24 +27,24 @@ namespace DistributedJobScheduling.Tests.Communication
             private StubNetworkBus _networkBus;
             private CancellationTokenSource _cancellationTokenSource;
 
-            private AsyncQueue<Message> _forwardQueue;
-            private AsyncQueue<Message> _backwardsQueue;
+            private Channel<Message> _forwardQueue;
+            private Channel<Message> _backwardsQueue;
 
             public StubLink(Node a, Node b, StubNetworkBus networkBus)
             {
                 _a = a;
                 _b = b;
                 _networkBus = networkBus;
-                _forwardQueue = new AsyncQueue<Message>();
-                _backwardsQueue = new AsyncQueue<Message>();
+                _forwardQueue = Channel.CreateUnbounded<Message>();
+                _backwardsQueue = Channel.CreateUnbounded<Message>();
             }
 
             public void Enqueue(string fromIP, Message message)
             {
                 if(_a.IP == fromIP)
-                    _forwardQueue.Enqueue(message);
+                    _forwardQueue.Writer.WriteAsync(message);
                 else
-                    _backwardsQueue.Enqueue(message);
+                    _backwardsQueue.Writer.WriteAsync(message);
             }
 
             public async void ProcessLink()
@@ -52,14 +53,34 @@ namespace DistributedJobScheduling.Tests.Communication
                     _cancellationTokenSource.Cancel();
                 _cancellationTokenSource = new CancellationTokenSource();
 
-                await Task.WhenAny(
-                            Task.Run(async () => {await foreach(Message message in _forwardQueue.WithCancellation(_cancellationTokenSource.Token))
-                                _networkBus.FinalizeSendTo(_a, _b, message);
-                            }),
-                            Task.Run(async () => {await foreach(Message message in _backwardsQueue.WithCancellation(_cancellationTokenSource.Token))
-                                _networkBus.FinalizeSendTo(_b, _a, message);
-                            }));
-                throw new Exception("Link collapsed!");
+                await Task.WhenAny(ProcessChannel(_a, _b, _forwardQueue, _cancellationTokenSource.Token),
+                                    ProcessChannel(_b, _a, _backwardsQueue, _cancellationTokenSource.Token));
+
+                if(_cancellationTokenSource != null && !_cancellationTokenSource.Token.IsCancellationRequested)
+                    throw new Exception("Link collapsed!");
+            }
+
+            private async Task ProcessChannel(Node from, Node to, Channel<Message> channel, CancellationToken cancellationToken)
+            {
+                while(!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        Message message = await channel.Reader.ReadAsync(cancellationToken);
+                        _networkBus.FinalizeSendTo(from, to, message);
+                    }
+                    catch {}
+                }
+            }
+
+            public void StopLink()
+            {
+                _cancellationTokenSource?.Cancel();
+                _cancellationTokenSource = null;
+                _forwardQueue?.Writer.Complete();
+                _forwardQueue = null;
+                _backwardsQueue?.Writer.Complete();
+                _backwardsQueue = null;
             }
         }
 
@@ -104,9 +125,26 @@ namespace DistributedJobScheduling.Tests.Communication
                 {
                     _networkMap.Remove(node.IP);
                     _registryMap.Remove(node.IP);
-                    //TODO: Close links
+                    _registeredNodes.Remove(node);
+
+                    List<(string,string)> _problematicKeys = new List<(string, string)>();
+                    foreach(var nodeKey in _networkLinks.Keys)
+                        if(nodeKey.Item1 == node.IP || nodeKey.Item2 == node.IP)
+                            _problematicKeys.Add(nodeKey);
+
+                    _problematicKeys.ForEach(nodeKey => {
+                        _networkLinks[nodeKey].StopLink();
+                        _networkLinks.Remove(nodeKey);
+                    });
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            List<Node> _nodesToRemove = new List<Node>(_registeredNodes);
+            foreach(var node in _nodesToRemove)
+                UnregisterFromNetwork(node);
         }
 
         private void FinalizeSendTo(Node from, Node to, Message message)

@@ -19,13 +19,13 @@ namespace DistributedJobScheduling.Tests.Utils
 {
     public class EmptyMessage : Message 
     {
-        public EmptyMessage(ITimeStamper timeStamper) : base(timeStamper) {}
+        public EmptyMessage() : base() {}
     }
 
     public class IdMessage : Message 
     {
         public int Id { get; private set; }
-        public IdMessage(int id, ITimeStamper timeStamper) : base(timeStamper) { Id = id; }
+        public IdMessage(int id) : base() { Id = id; }
     }
 
     public class FakeNode
@@ -50,11 +50,11 @@ namespace DistributedJobScheduling.Tests.Utils
                                                                     ["coordinator"] = coordinator
                                                                   });
             Group = new GroupViewManager(Registry,
-                                                                  Communication, 
-                                                                  TimeStamper, 
-                                                                  Configuration,
-                                                                  Logger,
-                                                                  joinTimeout);
+                                        Communication, 
+                                        TimeStamper, 
+                                        Configuration,
+                                        Logger,
+                                        joinTimeout);
             Group.View.ViewChanged += () => { Logger.Log(Logging.Tag.VirtualSynchrony, $"View Changed: {Group.View.Others.ToString<Node>()}"); };
             networkBus.RegisterToNetwork(Node, Registry, (StubNetworkManager)Communication);
         }

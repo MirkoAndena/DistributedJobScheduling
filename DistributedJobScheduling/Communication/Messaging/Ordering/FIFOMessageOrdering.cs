@@ -22,13 +22,16 @@ namespace DistributedJobScheduling.Communication.Messaging.Ordering
 
         public async Task EnsureOrdering(Message message)
         {
+            if(!message.TimeStamp.HasValue)
+                return;
+
             TaskCompletionSource<bool> waitSendTask;
             int? lastObserved = null;
             lock(_waitingQueue)
             {
-                if(!_waitingQueue.ContainsKey(message.TimeStamp))
-                    _waitingQueue.Add(message.TimeStamp, new TaskCompletionSource<bool>());
-                waitSendTask = _waitingQueue[message.TimeStamp];
+                if(!_waitingQueue.ContainsKey(message.TimeStamp.Value))
+                    _waitingQueue.Add(message.TimeStamp.Value, new TaskCompletionSource<bool>());
+                waitSendTask = _waitingQueue[message.TimeStamp.Value];
                 lastObserved = _lastObserved;
             }
 
@@ -42,12 +45,15 @@ namespace DistributedJobScheduling.Communication.Messaging.Ordering
 
         public void Observe(Message message)
         {
+            if(!message.TimeStamp.HasValue)
+                return;
+                
             lock(_waitingQueue)
             {
                 _lastObserved = message.TimeStamp;
-                if(_waitingQueue.ContainsKey(message.TimeStamp + 1))
-                    _waitingQueue[message.TimeStamp + 1].SetResult(true);
-                _waitingQueue.Remove(message.TimeStamp);
+                if(_waitingQueue.ContainsKey(message.TimeStamp.Value + 1))
+                    _waitingQueue[message.TimeStamp.Value + 1].SetResult(true);
+                _waitingQueue.Remove(message.TimeStamp.Value);
             }
         }
 

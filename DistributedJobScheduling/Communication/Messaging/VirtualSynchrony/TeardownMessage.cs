@@ -7,7 +7,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// </summary>
     public class TeardownMessage : Message
     {
-        public TeardownMessage(ITimeStamper timestampMechanism = null) : base(timestampMechanism)
+        public TeardownMessage() : base()
         {
         }
     }

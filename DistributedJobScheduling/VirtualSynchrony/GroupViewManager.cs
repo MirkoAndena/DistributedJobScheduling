@@ -125,7 +125,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
 
             TemporaryMessage tempMessage = new TemporaryMessage(false, message);
-            await _communicationManager.Send(node, tempMessage, timeout);
+            await _communicationManager.Send(node, tempMessage.ApplyStamp(_messageTimeStamper), timeout);
         }
 
         public async Task SendMulticast(Message message)
@@ -134,21 +134,17 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             _logger.Log(Tag.VirtualSynchrony, $"Start send multicast {message.GetType().Name}");
             TemporaryMessage tempMessage = new TemporaryMessage(true, message);
-            var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp);
             TaskCompletionSource<bool> sendTask;
+            
+            await _communicationManager.SendMulticast(tempMessage.ApplyStamp(_messageTimeStamper));
 
+            _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network");
+            var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp.Value);
             lock(_confirmationQueue)
             {
                 _confirmationQueue.Add(messageKey, tempMessage);
                 _sentTemporaryMessages.Add(tempMessage);
                 _sendComplenentionMap.Add(tempMessage, (sendTask = new TaskCompletionSource<bool>(false)));
-            }
-
-            await _communicationManager.SendMulticast(tempMessage);
-            _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network");
-
-            lock(_confirmationQueue)
-            {
                 ProcessAcknowledge(messageKey, View.Me);
             }
 
@@ -167,19 +163,19 @@ namespace DistributedJobScheduling.VirtualSynchrony
             {
                 if(View.Others.Contains(node))
                 {
-                    var messageKey = (node.ID.Value, tempMessage.TimeStamp);
+                    var messageKey = (node.ID.Value, tempMessage.TimeStamp.Value);
                     lock(_confirmationQueue)
                     {
                         _confirmationQueue.Add(messageKey, tempMessage);
 
                         if(tempMessage.IsMulticast)
-                            _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage, _messageTimeStamper)).Wait();
+                            _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage).ApplyStamp(_messageTimeStamper)).Wait();
 
                         ProcessAcknowledge(messageKey, node);
                     }
                 }
                 else
-                    _communicationManager.Send(node, new NotInViewMessage(View.Others.Count + 1, _messageTimeStamper)).Wait();
+                    _communicationManager.Send(node, new NotInViewMessage(View.Others.Count + 1).ApplyStamp(_messageTimeStamper)).Wait();
             }
         }
 
@@ -196,13 +192,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
             if(notInViewMessage.MyViewSize > myViewSize)
             {
                 //We need to fault!
-                TeardownMessage teardownMessage = new TeardownMessage(_messageTimeStamper);
+                Message teardownMessage = new TeardownMessage().ApplyStamp(_messageTimeStamper);
                 _communicationManager.SendMulticast(teardownMessage).Wait();
                 OnTeardownReceived(View.Me, teardownMessage);
             }
 
             if(notInViewMessage.MyViewSize < myViewSize) //The other view needs to fault
-                _communicationManager.Send(node, new NotInViewMessage(myViewSize, _messageTimeStamper)).Wait();
+                _communicationManager.Send(node, new NotInViewMessage(myViewSize).ApplyStamp(_messageTimeStamper)).Wait();
         }
 
         private void OnTeardownReceived(Node node, Message message)
@@ -401,7 +397,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         if(!_flushed)
                         {
                             _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange.Operation} of {_pendingViewChange.Node}!");
-                            _communicationManager.SendMulticast(new FlushMessage(_pendingViewChange.Node, _pendingViewChange.Operation, _messageTimeStamper)).Wait();
+                            _communicationManager.SendMulticast(new FlushMessage(_pendingViewChange.Node, _pendingViewChange.Operation).ApplyStamp(_messageTimeStamper)).Wait();
                             _flushed = true;
                         }
 
@@ -424,7 +420,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             if(_currentJoinRequest != null)
                             {
                                 _logger.Log(Tag.VirtualSynchrony, $"Need to sync view with joined node");
-                                _communicationManager.Send(_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), _messageTimeStamper)).Wait();
+                                _communicationManager.Send(_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList()).ApplyStamp(_messageTimeStamper)).Wait();
                                 _currentJoinRequest = null;
                             }
 
@@ -520,7 +516,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     {
                         _logger.Warning(Tag.VirtualSynchrony, "View join request timedout, trying to join...");
-                        await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me, _messageTimeStamper));
+                        await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me).ApplyStamp(_messageTimeStamper));
                         
                         try
                         {

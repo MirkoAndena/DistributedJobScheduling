@@ -7,7 +7,7 @@ namespace DistributedJobScheduling.Communication.Messaging
         public ViewChangeMessage.ViewChangeOperation RelatedChangeOperation { get; private set; }
         public Node RelatedChangeNode { get; private set; }
         
-        public FlushMessage(Node node, ViewChangeMessage.ViewChangeOperation viewChange, ITimeStamper timestampMechanism = null) : base(timestampMechanism) 
+        public FlushMessage(Node node, ViewChangeMessage.ViewChangeOperation viewChange) : base() 
         {
             RelatedChangeNode = node;
             RelatedChangeOperation = viewChange;

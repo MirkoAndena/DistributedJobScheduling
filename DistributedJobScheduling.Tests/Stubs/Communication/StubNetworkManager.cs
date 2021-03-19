@@ -31,7 +31,8 @@ namespace DistributedJobScheduling.Tests.Communication
         {
             if(_networkBus == null)
                 throw new Exception("Connection failure!");
-
+            message.SenderID = _me.ID;
+            message.ReceiverID = node.ID;
             await _sendOrdering.OrderedExecute(message, () => _networkBus.SendTo(_me, node, message, timeout));
         }
 
@@ -40,6 +41,7 @@ namespace DistributedJobScheduling.Tests.Communication
             if(_networkBus == null)
                 throw new Exception("Connection failure!");
 
+            message.SenderID = _me.ID;
             await _sendOrdering.OrderedExecute(message, () => _networkBus.SendMulticast(_me, message));
         }
 

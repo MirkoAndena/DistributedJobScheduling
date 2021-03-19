@@ -19,16 +19,16 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private ILifeCycle _keepAlive;
 
-        public KeepAliveManager(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
+        public KeepAliveManager(IGroupViewManager group, ILogger logger)
         {
             if (group.View.ImCoordinator)
             {
-                _keepAlive = new CoordinatorKeepAlive(group, logger, timeStamper);
+                _keepAlive = new CoordinatorKeepAlive(group, logger);
                 ((CoordinatorKeepAlive)_keepAlive).NodesDied += nodes => NodesDied?.Invoke(nodes);
             }
             else
             {
-                _keepAlive = new WorkersKeepAlive(group, logger, timeStamper);
+                _keepAlive = new WorkersKeepAlive(group, logger);
                 ((WorkersKeepAlive)_keepAlive).CoordinatorDied += () => CoordinatorDied?.Invoke();
             }
 

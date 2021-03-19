@@ -30,7 +30,7 @@ namespace DistributedJobScheduling.Communication.Messaging
 
         public ViewChange Change { get; private set; }
 
-        public ViewChangeMessage(Node node, ViewChangeOperation operation, ITimeStamper timestampMechanism = null) : base(timestampMechanism) 
+        public ViewChangeMessage(Node node, ViewChangeOperation operation) : base() 
         {
             Change = new ViewChange
             {
