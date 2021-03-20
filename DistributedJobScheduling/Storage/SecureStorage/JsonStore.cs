@@ -2,20 +2,20 @@ using System.Text;
 using System;
 using System.IO;
 using System.Diagnostics.CodeAnalysis;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.Storage.SecureStorage
 {
-    public class JsonStore<T> : IStore<T>
+    public class JsonStore<T> : IStore<T>, IInitializable
     {
         private string _filePath;
 
         public JsonStore(string filepath)
         {
             _filePath = filepath;
-            CreateEmptyNotExists();
         }
 
-        private void CreateEmptyNotExists()
+        public void Init()
         {
             if (!File.Exists(_filePath))
                 File.Create(_filePath);

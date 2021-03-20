@@ -10,7 +10,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.JobAssignment
 {
-    public class JobExecutor
+    public class JobExecutor : IStartable
     {
         private CancellationTokenSource _cancellationTokenSource;
         private ILogger _logger;
@@ -23,9 +23,12 @@ namespace DistributedJobScheduling.JobAssignment
             _storage = storage;
             _logger = logger;
         }
+
+        public void Stop() => _cancellationTokenSource?.Cancel();
         
-        public async Task RunAssignedJob()
+        public async void Start()
         {
+            _cancellationTokenSource = new CancellationTokenSource();
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
                 Job current = _storage.FindJobToExecute();

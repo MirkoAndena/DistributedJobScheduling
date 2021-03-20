@@ -6,12 +6,13 @@ using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Communication.Messaging.LeaderElection;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
+using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.LeaderElection
 {
-    public class BullyElectionMessageHandler
+    public class BullyElectionMessageHandler : IInitializable, IStartable
     {
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
@@ -27,19 +28,34 @@ namespace DistributedJobScheduling.LeaderElection
             _timeStamper = timeStamper;
             _groupManager = groupViewManager;
             _candidate = new BullyElectionCandidate(groupViewManager, logger);
+        }
 
+        public void Init()
+        {
             var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
             jobPublisher.RegisterForMessage(typeof(ElectMessage), OnElectMessageArrived);
             jobPublisher.RegisterForMessage(typeof(CoordMessage), OnCoordMessageArrived);
+        }
 
+        public void Start()
+        {
             _candidate.SendElect += SendElectMessages;
             _candidate.SendCoords += SendCoordMessages;
+            _groupManager.View.ViewChanged += OnViewChanged;
+        }
 
-            _groupManager.View.ViewChanged += () => 
-            {
-                if (_groupManager.View.Coordinator == null)
-                    OnCoordinatorDeathReported();
-            };
+        public void Stop()
+        {
+            _candidate.CancelElection();
+            _candidate.SendElect -= SendElectMessages;
+            _candidate.SendCoords -= SendCoordMessages;
+            _groupManager.View.ViewChanged -= OnViewChanged;
+        }
+
+        private void OnViewChanged()
+        {
+            if (_groupManager.View.Coordinator == null)
+                OnCoordinatorDeathReported();
         }
 
         private void OnCoordinatorDeathReported()

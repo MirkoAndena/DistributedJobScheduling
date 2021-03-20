@@ -25,7 +25,7 @@ namespace DistributedJobScheduling.Storage
         public Table() { Dictionary = new Dictionary<int, TableItem>(); }
     }
 
-    public class TranslationTable : ILifeCycle
+    public class TranslationTable : IInitializable
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Table> _secureStorage;
@@ -38,6 +38,8 @@ namespace DistributedJobScheduling.Storage
             _secureStorage = new SecureStore<Table>(store, logger);
             _reusableIndex = new ReusableIndex(index => _secureStorage.Value.Dictionary.ContainsKey(index));
         }
+
+        public void Init() => DeleteUnconfirmedEntries();
 
         public int Add(Job job)
         {
@@ -76,18 +78,6 @@ namespace DistributedJobScheduling.Storage
             });
             _secureStorage.ValuesChanged.Invoke();
             _logger.Log(Tag.TranslationTable, "Unconfirmed entries deleted");
-        }
-
-        public void Init() => DeleteUnconfirmedEntries();
-
-        public void Start()
-        {
-            
-        }
-
-        public void Stop()
-        {
-
         }
     }
 }

@@ -6,31 +6,28 @@ using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.LifeCycle
 {
-    public class SystemLifeCycle : ILifeCycle
+    public abstract class SystemLifeCycle : ILifeCycle
     {
-        private static SystemLifeCycle _instance;
         public static Action Shutdown;
         private List<ILifeCycle> _subSystems;
 
-        private SystemLifeCycle() 
+        protected SystemLifeCycle() 
         { 
             _subSystems = new List<ILifeCycle>();
         }
 
-        public static void Run()
+        protected static void Run(SystemLifeCycle instance)
         {
-            _instance = new SystemLifeCycle();
-
             Shutdown += delegate 
             { 
-                _instance.Stop(); 
-                _instance.Destroy(); 
+                instance.Stop(); 
+                instance.Destroy(); 
             };
 
-            _instance.Init();
-            _instance.InitSubSystems();
-            _instance.Start();
-        }       
+            instance.Init();
+            instance.InitSubSystems();
+            instance.Start();
+        } 
 
         public void Init()
         {
@@ -41,10 +38,11 @@ namespace DistributedJobScheduling.LifeCycle
             RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
         }
         
-        private void RegisterSubSystem<IT, T>(T instance) where T : IT, ILifeCycle
+        protected void RegisterSubSystem<IT, T>(T instance) where T : IT, ILifeCycle
         {
             DependencyManager.Instance.RegisterSingletonServiceInstance<IT, T>(instance);
-            _subSystems.Add(instance);
+            if (instance is ILifeCycle lifeCycle)
+                _subSystems.Add(lifeCycle);
         }
 
         public void InitSubSystems()

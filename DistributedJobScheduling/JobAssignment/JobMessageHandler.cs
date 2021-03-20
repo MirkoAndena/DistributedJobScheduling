@@ -7,10 +7,11 @@ using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.JobAssignment
 {
-    public class JobMessageHandler
+    public class JobMessageHandler : IInitializable
     {
         private IGroupViewManager _groupManager;
         private TranslationTable _translationTable;
@@ -39,8 +40,11 @@ namespace DistributedJobScheduling.JobAssignment
             _groupManager = groupManager;
             _unconfirmedRequestIds = new Dictionary<Node, int>();
             _lastMessageSent = new Dictionary<Node, Message>();
+        }
 
-            var jobPublisher = groupManager.Topics.GetPublisher<JobPublisher>();
+        public void Init()
+        {
+            var jobPublisher = _groupManager.Topics.GetPublisher<JobPublisher>();
             jobPublisher.RegisterForMessage(typeof(ExecutionRequest), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionResponse), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionAck), OnMessageReceived);
