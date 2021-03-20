@@ -19,7 +19,7 @@ namespace DistributedJobScheduling.Storage
         public Jobs() { List = new List<Job>(); }
     }
 
-    public class JobStorage : IInitializable
+    public class JobManager : IInitializable
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Jobs> _secureStorage;
@@ -27,11 +27,12 @@ namespace DistributedJobScheduling.Storage
         private Group _group;
         public Action<Job> UpdateJob;
 
-        public JobStorage(IStore<Jobs> store) : this (store, 
+        public JobManager() : this (
+            DependencyInjection.DependencyManager.Get<IStore<Jobs>>(), 
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
         
-        public JobStorage(IStore<Jobs> store, ILogger logger, IGroupViewManager groupView)
+        public JobManager(IStore<Jobs> store, ILogger logger, IGroupViewManager groupView)
         {
             _secureStorage = new SecureStore<Jobs>(store, logger);
             _reusableIndex = new ReusableIndex();

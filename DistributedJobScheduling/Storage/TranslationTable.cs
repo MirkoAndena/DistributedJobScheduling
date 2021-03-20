@@ -31,7 +31,9 @@ namespace DistributedJobScheduling.Storage
         private SecureStore<Table> _secureStorage;
         private ILogger _logger;
 
-        public TranslationTable(IStore<Table> store) : this(store, DependencyInjection.DependencyManager.Get<ILogger>()) { }
+        public TranslationTable() : this(
+            DependencyInjection.DependencyManager.Get<IStore<Table>>(),
+            DependencyInjection.DependencyManager.Get<ILogger>()) { }
         public TranslationTable(IStore<Table> store, ILogger logger)
         {
             _logger = logger;

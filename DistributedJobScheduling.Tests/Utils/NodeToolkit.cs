@@ -71,7 +71,7 @@ namespace DistributedJobScheduling.Tests.Utils
 
         protected void StartIfLifeCycle(object Component)
         {
-            if(Component is ILifeCycle lifeCycle)
+            if(Component is IStartable lifeCycle)
                 lifeCycle.Start();
         }
     }

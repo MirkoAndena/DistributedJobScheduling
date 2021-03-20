@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.DependencyInjection;
-using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.LifeCycle
 {
@@ -16,33 +14,33 @@ namespace DistributedJobScheduling.LifeCycle
             _subSystems = new List<ILifeCycle>();
         }
 
-        protected static void Run(SystemLifeCycle instance)
+        public void Run()
         {
             Shutdown += delegate 
             { 
-                instance.Stop(); 
-                instance.Destroy(); 
+                Stop(); 
+                Destroy(); 
             };
 
-            instance.Init();
-            instance.InitSubSystems();
-            instance.Start();
+            Init();
+            InitSubSystems();
+            Start();
         } 
 
-        public void Init()
-        {
-            // Create objects instances
-            DependencyManager.Instance.RegisterSingletonServiceInstance<ILogger, CsvLogger>(new CsvLogger("../"));
-            
-            // Create subsystems
-            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
-        }
+        public void Init() => CreateSubsystems();
+
+        protected abstract void CreateSubsystems(); 
         
-        protected void RegisterSubSystem<IT, T>(T instance) where T : IT, ILifeCycle
+        protected void RegisterSubSystem<IT, T>(T instance) where T : IT
         {
             DependencyManager.Instance.RegisterSingletonServiceInstance<IT, T>(instance);
             if (instance is ILifeCycle lifeCycle)
                 _subSystems.Add(lifeCycle);
+        }
+
+        protected void RegisterSubSystem<T>(T instance) where T : ILifeCycle
+        {
+            _subSystems.Add(instance);
         }
 
         public void InitSubSystems()

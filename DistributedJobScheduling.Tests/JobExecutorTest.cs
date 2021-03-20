@@ -12,12 +12,13 @@ namespace DistributedJobScheduling.Tests
     public class JobExecutorTest
     {
         private JobExecutor _executor;
-        private JobStorage _store;
+        private JobManager _store;
 
         public JobExecutorTest(ITestOutputHelper output)
         {
             _store = TestElementsFactory.CreateJobStorage(output);
             _executor = new JobExecutor(_store);
+            _store.Init();
         }
 
         [Fact]
@@ -31,8 +32,8 @@ namespace DistributedJobScheduling.Tests
             {
                 Assert.True(((BooleanJobResult)result).Value);
             };
-            _executor.RunAssignedJob();
-            //Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(t => _store.Stop());
+            _executor.Start();
+            Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(t => _executor.Stop());
         }
     }
 }

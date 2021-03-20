@@ -19,6 +19,10 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private IStartable _keepAlive;
 
+        public KeepAliveManager() : this (
+            DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
+            DependencyInjection.DependencyManager.Get<ILogger>(),
+            DependencyInjection.DependencyManager.Get<ITimeStamper>()) {}
         public KeepAliveManager(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
         {
             if (group.View.ImCoordinator)
