@@ -1,4 +1,5 @@
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.JobAssignment;
 using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.VirtualSynchrony;
 using Xunit.Abstractions;
@@ -7,7 +8,16 @@ namespace DistributedJobScheduling.Tests.Utils
 {
     public static class TestElementsFactory
     {
-        public static JobManager CreateJobStorage(ITestOutputHelper output)
+        public static (JobManager, JobExecutor) CreateJobManagerAndExecutor(ITestOutputHelper output)
+        {
+            Group group = CreateStubGroup();
+            StubLogger stubLogger = new StubLogger(group.Me, output);
+            JobManager jobManager = new JobManager(new MemoryStore<Jobs>(), stubLogger, new FakeGroupViewManager(group));
+            JobExecutor jobExecutor = new JobExecutor(jobManager, stubLogger);
+            return (jobManager, jobExecutor);
+        }
+
+        public static JobManager CreateJobManager(ITestOutputHelper output)
         {
             Group group = CreateStubGroup();
             StubLogger stubLogger = new StubLogger(group.Me, output);

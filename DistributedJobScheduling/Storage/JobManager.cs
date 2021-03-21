@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.LifeCycle;
@@ -129,7 +128,7 @@ namespace DistributedJobScheduling.Storage
                 }
             }
 
-            _logger.Log(Tag.JobStorage, $"Total job assigned per node: {nodeJobCount.ToString()}");
+            _logger.Log(Tag.JobStorage, $"Total job assigned per node: {nodeJobCount.ToString<int, int>()}");
             return nodeJobCount;
         }
 

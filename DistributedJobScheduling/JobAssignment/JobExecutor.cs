@@ -34,11 +34,13 @@ namespace DistributedJobScheduling.JobAssignment
                 Job current = _storage.FindJobToExecute();
                 if (current != null)
                 {
+                    _logger.Log(Tag.JobExecutor, $"Start to execute job {current}");
                     UpdateStatus(current, JobStatus.RUNNING);
                     
                     IJobResult result = await RunJob(current);
                     if (result == null) return;
                     
+                    _logger.Log(Tag.JobExecutor, $"Job {current} has been executed");
                     UpdateStatus(current, JobStatus.COMPLETED);
                     OnJobCompleted?.Invoke(current, result);
                 }

@@ -16,8 +16,9 @@ namespace DistributedJobScheduling.Tests
 
         public JobExecutorTest(ITestOutputHelper output)
         {
-            _store = TestElementsFactory.CreateJobStorage(output);
-            _executor = new JobExecutor(_store);
+            (JobManager, JobExecutor) _ = TestElementsFactory.CreateJobManagerAndExecutor(output);
+            _store = _.Item1;
+            _executor = _.Item2;
             _store.Init();
         }
 
