@@ -7,28 +7,29 @@ using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.JobAssignment
 {
-    public class JobMessageHandler
+    public class JobMessageHandler : IInitializable
     {
         private IGroupViewManager _groupManager;
         private TranslationTable _translationTable;
-        private JobStorage _jobStorage;
+        private JobManager _jobStorage;
         private ILogger _logger;
         private ITimeStamper _timeStamper;
         
         private Dictionary<Node, int> _unconfirmedRequestIds;
         private Dictionary<Node, Message> _lastMessageSent;
 
-        public JobMessageHandler(TranslationTable translationTable, JobStorage jobStorage) : 
+        public JobMessageHandler(JobManager jobStorage, TranslationTable translationTable) : 
         this(DependencyManager.Get<IGroupViewManager>(),
             translationTable, jobStorage,
             DependencyManager.Get<ILogger>(),
             DependencyManager.Get<ITimeStamper>()) {}
         public JobMessageHandler(IGroupViewManager groupManager,
                           TranslationTable translationTable, 
-                          JobStorage jobStorage,
+                          JobManager jobStorage,
                           ILogger logger,
                           ITimeStamper timeStamper)
         {
@@ -39,8 +40,11 @@ namespace DistributedJobScheduling.JobAssignment
             _groupManager = groupManager;
             _unconfirmedRequestIds = new Dictionary<Node, int>();
             _lastMessageSent = new Dictionary<Node, Message>();
+        }
 
-            var jobPublisher = groupManager.Topics.GetPublisher<JobPublisher>();
+        public void Init()
+        {
+            var jobPublisher = _groupManager.Topics.GetPublisher<JobPublisher>();
             jobPublisher.RegisterForMessage(typeof(ExecutionRequest), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionResponse), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionAck), OnMessageReceived);

@@ -19,7 +19,7 @@ namespace DistributedJobScheduling.Storage
         public Jobs() { List = new List<Job>(); }
     }
 
-    public class JobStorage
+    public class JobManager : IInitializable
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Jobs> _secureStorage;
@@ -27,25 +27,28 @@ namespace DistributedJobScheduling.Storage
         private Group _group;
         public Action<Job> UpdateJob;
 
-        public JobStorage(IStore<Jobs> store) : this (store, 
+        public JobManager() : this (
+            DependencyInjection.DependencyManager.Get<IStore<Jobs>>(), 
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
         
-        public JobStorage(IStore<Jobs> store, ILogger logger, IGroupViewManager groupView)
+        public JobManager(IStore<Jobs> store, ILogger logger, IGroupViewManager groupView)
         {
             _secureStorage = new SecureStore<Jobs>(store, logger);
             _reusableIndex = new ReusableIndex();
             _logger = logger;
             _group = groupView.View;
-            UpdateJob += _UpdateJob;
+            UpdateJob += OnJobUpdateRequest;
         }
 
-        private void _UpdateJob(Job job)
+        private void OnJobUpdateRequest(Job job)
         {
             // Is allowed an update only on jobs with a reference in the storage
             if (_secureStorage.Value.List.Contains(job))
                 _secureStorage.ValuesChanged.Invoke();
         }
+
+        public void Init() => DeletePendingAndRemovedJobs();
 
         private void DeletePendingAndRemovedJobs()
         {

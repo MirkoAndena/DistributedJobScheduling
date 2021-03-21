@@ -13,32 +13,31 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
-    public class WorkersKeepAlive : ILifeCycle
+    public class WorkersKeepAlive : IStartable, IInitializable
     {
         private int ReceiveTimeout = CoordinatorKeepAlive.SendTimeout * 2;
         public Action CoordinatorDied;
         private ILogger _logger;
         private ITimeStamper _timeStamper;
         private CancellationTokenSource _cancellationTokenSource;
-        private IGroupViewManager _group;
+        private IGroupViewManager _groupManager;
 
         public WorkersKeepAlive(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
         {
-            _group = group;
+            _groupManager = group;
             _logger = logger;
             _timeStamper = timeStamper;
-
-            var jobPublisher = _group.Topics.GetPublisher<BullyElectionPublisher>();
-            jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
         }
 
         public void Init()
         {
-            _cancellationTokenSource = new CancellationTokenSource();
+            var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
+            jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
         }
         
         public void Start()
         {
+            _cancellationTokenSource = new CancellationTokenSource();
             Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t => TimeoutFinished());
         }
@@ -48,10 +47,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
             KeepAliveRequest received = (KeepAliveRequest)message;
-            _group.Send(node, new KeepAliveResponse(received, _timeStamper)).Wait();
+            _groupManager.Send(node, new KeepAliveResponse(received, _timeStamper)).Wait();
             _logger.Log(Tag.KeepAlive, "I'm alive");
             Stop();
-            Init();
             Start();
         }
 

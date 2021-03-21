@@ -12,13 +12,17 @@ using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
-    public class KeepAliveManager : ILifeCycle
+    public class KeepAliveManager : IStartable, IInitializable
     {
         public Action CoordinatorDied;
         public Action<List<Node>> NodesDied;
 
-        private ILifeCycle _keepAlive;
+        private IStartable _keepAlive;
 
+        public KeepAliveManager() : this (
+            DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
+            DependencyInjection.DependencyManager.Get<ILogger>(),
+            DependencyInjection.DependencyManager.Get<ITimeStamper>()) {}
         public KeepAliveManager(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
         {
             if (group.View.ImCoordinator)
@@ -42,7 +46,11 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             Start();
         }
 
-        public void Init() => _keepAlive.Init();
+        public void Init()
+        {
+            if (_keepAlive is IInitializable initializable)
+                initializable.Init();
+        }
 
         public void Start() => _keepAlive.Start();
 

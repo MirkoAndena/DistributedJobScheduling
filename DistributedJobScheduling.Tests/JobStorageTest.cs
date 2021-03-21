@@ -14,7 +14,7 @@ namespace DistributedJobScheduling.Tests
 {
     public class JobStorageTest
     {
-        private JobStorage _store;
+        private JobManager _store;
 
         public JobStorageTest(ITestOutputHelper output)
         {
@@ -36,7 +36,7 @@ namespace DistributedJobScheduling.Tests
             Assert.True(MaxJobPerNode(_store) == 2);
         }
 
-        private int MaxJobPerNode(JobStorage list)
+        private int MaxJobPerNode(JobManager list)
         {
             int max = 0;
             Dictionary<int, int> occurences = _store.FindNodesOccurrences();

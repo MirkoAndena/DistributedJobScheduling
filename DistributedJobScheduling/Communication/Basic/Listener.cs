@@ -4,11 +4,12 @@ using System.Net.Sockets;
 using System.Threading;
 using DistributedJobScheduling.Communication.Basic.Speakers;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
-    public class Listener
+    public class Listener : IStartable
     {
         private Node.INodeRegistry _nodeRegistry;
 
@@ -32,7 +33,7 @@ namespace DistributedJobScheduling.Communication.Basic
         public void Start()
         {
             if (_listener != null || _cancellationTokenSource != null)
-                Close();
+                Stop();
 
             IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
             IPAddress address = host.AddressList[0];
@@ -50,7 +51,7 @@ namespace DistributedJobScheduling.Communication.Basic
             catch (Exception e)
             {
                 _logger.Error(Tag.CommunicationBasic, "Listener unable to start", e);
-                Close();
+                Stop();
             }
             
             _cancellationTokenSource = new CancellationTokenSource();
@@ -83,7 +84,7 @@ namespace DistributedJobScheduling.Communication.Basic
             }
         }
 
-        public void Close()
+        public void Stop()
         {
             _cancellationTokenSource?.Cancel();
         }

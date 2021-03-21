@@ -7,7 +7,7 @@ namespace DistributedJobScheduling.Logging
 {
     enum LogType { INFORMATION, WARNING, ERROR, FATAL }
 
-    public class CsvLogger : ILogger
+    public class CsvLogger : ILogger, IInitializable
     {
         private string _sepatator;
         private string _directory;
@@ -21,7 +21,10 @@ namespace DistributedJobScheduling.Logging
 
             _sepatator = separator;
             _consoleWrite = consoleWrite;
+        }
 
+        public void Init()
+        {
             if (!File.Exists(_directory))
                 Directory.CreateDirectory(_directory);
 

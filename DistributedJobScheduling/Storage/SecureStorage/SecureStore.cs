@@ -1,11 +1,12 @@
 using System;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Storage.SecureStorage
 {
     // T must has the default constructor (without parameters)
-    public class SecureStore<T>
+    public class SecureStore<T> : IInitializable
     {
         private IStore<T> _store;
         private ILogger _logger;
@@ -40,12 +41,6 @@ namespace DistributedJobScheduling.Storage.SecureStorage
         {
             _store.Write(Value);
             _logger.Log(Tag.SecureStorage, $"Writed {typeof(T)} to secure storage");
-        }
-
-        public void Stop()
-        {
-            _logger.Warning(Tag.SecureStorage, "Secure storage closed");
-            ValuesChanged -= Write;
         }
     }
 }
