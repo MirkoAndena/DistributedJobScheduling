@@ -12,18 +12,21 @@ using DistributedJobScheduling.Tests.Utils;
 
 namespace DistributedJobScheduling.Tests
 {
-    public class JobStorageTest
+    public class JobManagerTest
     {
         private JobManager _store;
 
-        public JobStorageTest(ITestOutputHelper output)
+        public JobManagerTest(ITestOutputHelper output)
         {
             _store = TestElementsFactory.CreateJobStorage(output);
+            _store.Init();
         }
 
         [Fact]
         public void JobAssignment()
         {
+            Assert.True(MaxJobPerNode(_store) == 0);
+            
             _store.InsertAndAssign(new TimeoutJob(0));
             _store.InsertAndAssign(new TimeoutJob(0));
             _store.InsertAndAssign(new TimeoutJob(0));

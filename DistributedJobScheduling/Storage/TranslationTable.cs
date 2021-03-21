@@ -41,7 +41,11 @@ namespace DistributedJobScheduling.Storage
             _reusableIndex = new ReusableIndex(index => _secureStorage.Value.Dictionary.ContainsKey(index));
         }
 
-        public void Init() => DeleteUnconfirmedEntries();
+        public void Init()
+        {
+            _secureStorage.Init();
+            DeleteUnconfirmedEntries();
+        }
 
         public int Add(Job job)
         {

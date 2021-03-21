@@ -15,7 +15,7 @@ namespace DistributedJobScheduling.Tests
             
         }
 
-        public T Read() => default(T);
+        public T Read() => _storage;
 
         public void Write(T item) => _storage = item;
     }

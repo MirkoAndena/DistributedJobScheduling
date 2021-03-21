@@ -48,7 +48,11 @@ namespace DistributedJobScheduling.Storage
                 _secureStorage.ValuesChanged.Invoke();
         }
 
-        public void Init() => DeletePendingAndRemovedJobs();
+        public void Init()
+        {
+            _secureStorage.Init();
+            DeletePendingAndRemovedJobs();
+        }
 
         private void DeletePendingAndRemovedJobs()
         {
