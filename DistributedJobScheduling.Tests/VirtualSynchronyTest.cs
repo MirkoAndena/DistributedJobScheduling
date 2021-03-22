@@ -159,15 +159,14 @@ namespace DistributedJobScheduling.Tests
             }
         }
 
-/*
         [Fact]
         public async Task SimpleInViewSend()
         {
             using(StubNetworkBus networkBus = new StubNetworkBus(new Random().Next()))
             {
-                FakeNode[] nodes = new FakeNode[15];
+                FakeNode[] nodes = new FakeNode[10];
                 int joinTimeout = 100; //ms
-                int maxTestTime = 1000;
+                int maxTestTime = 2000;
 
                 for(int i = 0; i < nodes.Length; i++)
                     nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
@@ -178,50 +177,58 @@ namespace DistributedJobScheduling.Tests
                     await NodeToolkit.StartSequence(nodes, 0);
                     AssertGroupJoinView(nodes);
                 });
-
-                Dictionary<int, List<IdMessage>> consolidatedMessages = new Dictionary<int, List<IdMessage>>();
+                
+                var consolidatedMessages = new Dictionary<int, HashSet<IdMessage>>();
+                List<IdMessage> sentMessages = new List<IdMessage>(nodes.Length);
+                Task[] waitForAllMulticasts = SetupGroupSendAwaiters(consolidatedMessages, nodes.Length - 1, nodes);
+                //Send Messages
                 nodes.ForEach(node => {
-                    consolidatedMessages.Add(node.Node.ID.Value, new List<IdMessage>());
-                    node.Group.OnMessageReceived += (sender, message) => {
-                        if(message is IdMessage consolidatedMessage)
-                        {
-                            _output.WriteLine($"{node.Node.ID} consolidated {consolidatedMessage.Id}");
-                            consolidatedMessages[node.Node.ID.Value].Add(consolidatedMessage);
-                        }
-                    };
+                    var message = new IdMessage(node.Node.ID.Value);
+                    message.SenderID = node.Node.ID.Value;
+                    sentMessages.Add(message);
+                    node.Group.SendMulticast(message);
                 });
 
                 await Task.Run(async () =>
                 {
-                    await Task.WhenAny(Task.WhenAll(SetupGroupSendAwaiters(nodes[0], nodes[1..])), 
-                                    Task.Delay(maxTestTime)); //Worst Case delay
-                    AssertGroupSend(consolidatedMessages, nodes);
+                    await Task.WhenAll(Task.WhenAny(Task.WhenAll(waitForAllMulticasts), 
+                                    Task.Delay(maxTestTime))); //Worst Case delay
+                    AssertGroupSend(consolidatedMessages, sentMessages, nodes);
                 });
             }
         }
-        */
 
-        private Task[] SetupGroupSendAwaiters(FakeNode coordinator, params FakeNode[] nodes)
+        private Task[] SetupGroupSendAwaiters(Dictionary<int, HashSet<IdMessage>> consolidatedMessages, int expectedMessages, params FakeNode[] nodes)
         {
             List<Task> waitForNodes = new List<Task>();
 
-            int i = 0;
             nodes.ForEach(node => {
-                waitForNodes.Add(node.Group.SendMulticast(new IdMessage(i)));
+                consolidatedMessages.Add(node.Node.ID.Value, new HashSet<IdMessage>());
+                TaskCompletionSource<bool> waitForMessages = new TaskCompletionSource<bool>();
+                node.Group.OnMessageReceived += (sender, message) => {
+                    if(message is IdMessage consolidatedMessage)
+                    {
+                        _output.WriteLine($"{node.Node.ID} consolidated {consolidatedMessage.Id}");
+                        consolidatedMessages[node.Node.ID.Value].Add(consolidatedMessage);
+                        if(!waitForMessages.Task.IsCompleted &&
+                            consolidatedMessages[node.Node.ID.Value].Count >= expectedMessages)
+                            waitForMessages.SetResult(true);
+                    }
+                };
+                waitForNodes.Add(waitForMessages.Task);
             });
 
             return waitForNodes.ToArray();
         }
 
-        private void AssertGroupSend(Dictionary<int, List<IdMessage>> _consolidatedMessage, params FakeNode[] nodes)
+        private void AssertGroupSend(Dictionary<int, HashSet<IdMessage>> _consolidatedMessage, List<IdMessage> sentMessages, params FakeNode[] nodes)
         {
-            List<IdMessage> referenceMessage = null;
-            foreach(var messages in _consolidatedMessage.Values)
+            HashSet<IdMessage> referenceMessage = null;
+            foreach(var node in _consolidatedMessage.Keys)
             {
-                if(referenceMessage == null)
-                    referenceMessage = messages;
-                else
-                    Assert.True(referenceMessage.SequenceEqual(messages)); //In this case since we are on the same machine we expect also the message references to be the same
+                var messages = _consolidatedMessage[node];
+                referenceMessage = new HashSet<IdMessage>(sentMessages.Where(n => n.SenderID != node));
+                Assert.True(referenceMessage.SetEquals(messages)); //In this case since we are on the same machine we expect also the message references to be the same
             }
 
             Assert.NotNull(referenceMessage);

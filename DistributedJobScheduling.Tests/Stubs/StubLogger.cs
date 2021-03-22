@@ -35,9 +35,14 @@ namespace DistributedJobScheduling.Tests
 
         private void WriteLog(Tag tag, string content, Exception e = null)
         {
-            _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|{{{_boundNode.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}");
+            string message = $"|{DateTime.Now.ToString("hh:mm:ss.fff")}|{{{_boundNode.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}";
+            Console.WriteLine(message);
+            _output.WriteLine(message);
             if(e != null)
+            {
+                Console.WriteLine(e.StackTrace);
                 _output.WriteLine(e.StackTrace);
+            } 
         }
     }
 }

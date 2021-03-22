@@ -8,6 +8,7 @@ using DistributedJobScheduling.Communication;
 using System.Threading.Tasks.Dataflow;
 using DistributedJobScheduling.Communication.Basic;
 using System.Threading.Channels;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.Tests.Communication
 {
@@ -41,10 +42,13 @@ namespace DistributedJobScheduling.Tests.Communication
 
             public void Enqueue(string fromIP, Message message)
             {
+                Console.WriteLine($"ATTEMPT\t({_a.ID} -> {_b.ID}): {message.ToString()}");
                 if(_a.IP == fromIP)
-                    _forwardQueue.Writer.WriteAsync(message);
+                    _forwardQueue.Writer.WriteAsync(message).AsTask().Wait();
                 else
-                    _backwardsQueue.Writer.WriteAsync(message);
+                    _backwardsQueue.Writer.WriteAsync(message).AsTask().Wait();
+
+                Console.WriteLine($"WROTE\t({_a.ID} -> {_b.ID}): {message.ToString()}");
             }
 
             public async void ProcessLink()
@@ -62,15 +66,12 @@ namespace DistributedJobScheduling.Tests.Communication
 
             private async Task ProcessChannel(Node from, Node to, Channel<Message> channel, CancellationToken cancellationToken)
             {
-                while(!cancellationToken.IsCancellationRequested)
+                try
                 {
-                    try
-                    {
-                        Message message = await channel.Reader.ReadAsync(cancellationToken);
+                    await foreach (Message message in channel.Reader.ReadAllAsync(cancellationToken))
                         _networkBus.FinalizeSendTo(from, to, message);
-                    }
-                    catch {}
                 }
+                catch {}
             }
 
             public void StopLink()
@@ -181,17 +182,19 @@ namespace DistributedJobScheduling.Tests.Communication
 
         public async Task SendMulticast(Node from, Message message)
         {
-            IEnumerable<string> nodesToSendTo;
+            List<string> nodesToSendTo;
+            Console.WriteLine($"{from} attempting lock for {message.TimeStamp} {message}");
             lock(_networkMap)
             {
-                nodesToSendTo = _networkMap.Keys.Where(x => x != from.IP).OrderBy(n => _random.Next()).AsParallel();
+                nodesToSendTo = _networkMap.Keys.Where(x => x != from.IP).OrderBy(n => _random.Next()).ToList();
             }
+            Console.WriteLine($"{from} done lock for {message.TimeStamp} {message}");
 
-            await Task.Delay(1);
-            
+            //await Task.Delay(1);
+
             //Emulate latency and out of order receive
             Parallel.ForEach(nodesToSendTo, x => {
-
+                Console.WriteLine($"{from} attempting to {x} for {message.TimeStamp} {message}");
                 StubLink selectedLink = null;
                 (string,string) linkKey = (from.IP, x);
 
@@ -200,6 +203,7 @@ namespace DistributedJobScheduling.Tests.Communication
                     if(_networkLinks.ContainsKey(linkKey))
                         selectedLink = _networkLinks[linkKey];
                 }
+                Console.WriteLine($"{from} selected link for {x} for {message.TimeStamp} {message}");
 
                 selectedLink.Enqueue(linkKey.Item1, message);
             });
