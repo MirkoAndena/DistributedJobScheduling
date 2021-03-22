@@ -73,7 +73,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
             if (deaths.Count > 0)
             {
-                _logger.Log(Tag.KeepAlive, $"Nodes {deaths} died");
+                _logger.Log(Tag.KeepAlive, $"Nodes {deaths.ToString<Node>()} died");
                 NodesDied?.Invoke(deaths);
             }
 
