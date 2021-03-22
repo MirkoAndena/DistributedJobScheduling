@@ -22,8 +22,8 @@ namespace DistributedJobScheduling.Extensions
         public static string ToString<K, V>(this Dictionary<K, V> dictionary) 
         {
             StringBuilder stringBuilder = new StringBuilder();
-            dictionary.ForEach(element => stringBuilder.Append($" {element.Key}: {element.Value}"));
-            return stringBuilder.ToString().Trim();
+            dictionary.ForEach(element => stringBuilder.Append($"[{element.Key}]: {element.Value}, "));
+            return $"{{{stringBuilder.ToString().Trim(new char[] {',', ' '})}}}";
         }
     }
 }

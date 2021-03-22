@@ -3,40 +3,44 @@ using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 using DistributedJobScheduling.DependencyInjection;
-using DistributedJobScheduling.DistributedStorage;
-using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
+using DistributedJobScheduling.Storage;
+using DistributedJobScheduling.JobAssignment.Jobs;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.JobAssignment
 {
-    public class JobMessageHandler
+    public class JobMessageHandler : IInitializable
     {
         private IGroupViewManager _groupManager;
-        private TranslationTable _traductionTable;
-        private DistributedList _distributedList;
+        private TranslationTable _translationTable;
+        private JobManager _jobStorage;
         private ILogger _logger;
         
         private Dictionary<Node, int> _unconfirmedRequestIds;
         private Dictionary<Node, Message> _lastMessageSent;
 
-        public JobMessageHandler(TranslationTable traductionTable, DistributedList distributedList) : 
-        this(DependencyManager.Get<IGroupViewManager>(), 
-            traductionTable, distributedList,
+        public JobMessageHandler(JobManager jobStorage, TranslationTable translationTable) : 
+        this(DependencyManager.Get<IGroupViewManager>(),
+            translationTable, jobStorage,
             DependencyManager.Get<ILogger>()) {}
         public JobMessageHandler(IGroupViewManager groupManager,
-                          TranslationTable traductionTable, 
-                          DistributedList distributedList,
+                          TranslationTable translationTable, 
+                          JobManager jobStorage,
                           ILogger logger)
         {
             _logger = logger;
-            _traductionTable = traductionTable;
-            _distributedList = distributedList;
+            _translationTable = translationTable;
+            _jobStorage = jobStorage;
             _groupManager = groupManager;
             _unconfirmedRequestIds = new Dictionary<Node, int>();
             _lastMessageSent = new Dictionary<Node, Message>();
+        }
 
-            var jobPublisher = groupManager.Topics.GetPublisher<JobPublisher>();
+        public void Init()
+        {
+            var jobPublisher = _groupManager.Topics.GetPublisher<JobPublisher>();
             jobPublisher.RegisterForMessage(typeof(ExecutionRequest), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionResponse), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionAck), OnMessageReceived);
@@ -86,7 +90,7 @@ namespace DistributedJobScheduling.JobAssignment
         private void OnExecutionRequestArrived(Node node, ExecutionRequest message)
         {
             _logger.Log(Tag.JobManager, $"Request for an execution arrived from client {node}");
-            int requestID = _traductionTable.Add(message.Job);
+            int requestID = _translationTable.Add(message.Job);
             _unconfirmedRequestIds.Add(node, requestID);
             Send(node, new ExecutionResponse(message, requestID));
             _logger.Log(Tag.JobManager, $"Response sent with a proposal request id ({requestID})");
@@ -110,11 +114,11 @@ namespace DistributedJobScheduling.JobAssignment
             if (_unconfirmedRequestIds.ContainsKey(node) && _unconfirmedRequestIds[node] == requestID)
             {
                 _unconfirmedRequestIds.Remove(node);
-                _traductionTable.SetConfirmed(requestID);
+                _translationTable.SetConfirmed(requestID);
                 _logger.Log(Tag.JobManager, $"Request id confirmed");
 
                 // Request to coordinator for an insertion
-                Job job = _traductionTable.Get(requestID);
+                Job job = _translationTable.Get(requestID);
                 Send(_groupManager.View.Coordinator, new InsertionRequest(job, requestID));
                 _logger.Log(Tag.JobManager, $"Insertion request to coordinator for job with request id {requestID}");
             }
@@ -125,7 +129,7 @@ namespace DistributedJobScheduling.JobAssignment
         private void OnInsertionRequestArrived(Node node, InsertionRequest message)
         {
             _logger.Log(Tag.JobManager, $"Insertion request arrived from {node}");
-            _distributedList.AddAndAssign(message.Job);
+            _jobStorage.InsertAndAssign(message.Job);
             _logger.Log(Tag.JobManager, $"Job added to storage and assigned");
             SendMulticast(new DistributedStorageUpdate(message.Job));
             _logger.Log(Tag.JobManager, $"Multicast sent for storage sync");
@@ -136,7 +140,7 @@ namespace DistributedJobScheduling.JobAssignment
         private void OnInsertionResponseArrived(Node node, InsertionResponse message)
         {
             _logger.Log(Tag.JobManager, $"Received from the coordinator the job id assigned");
-            _traductionTable.SetJobID(message.RequestID, message.JobID);
+            _translationTable.SetJobID(message.RequestID, message.JobID);
             _logger.Log(Tag.JobManager, $"Translation added for request {message.RequestID} and job {message.JobID}");
         }
 
@@ -145,7 +149,7 @@ namespace DistributedJobScheduling.JobAssignment
             _logger.Log(Tag.JobManager, $"Storage sync message arrived");
             if (message.Job.ID.HasValue && message.Job.Node.HasValue)
             {
-                _distributedList.AddOrUpdate(message.Job);
+                _jobStorage.InsertOrUpdateExternalJob(message.Job);
                 _logger.Log(Tag.JobManager, $"Added/Updated job {message.Job.ID.Value}");
             }
             else

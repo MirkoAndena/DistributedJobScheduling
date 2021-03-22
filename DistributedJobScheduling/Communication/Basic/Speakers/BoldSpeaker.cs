@@ -25,7 +25,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             if (timeoutTask.IsCompleted)
             {
                 _logger.Warning(Tag.CommunicationBasic, $"Connection to {_remote} failed because of timeout");
-                this.Close();
+                this.Stop();
             }
             else
             {

@@ -6,10 +6,11 @@ using System.Threading;
 using Newtonsoft.Json;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
-    public class Speaker
+    public class Speaker : IStartable
     {
         protected TcpClient _client;
         private NetworkStream _stream;
@@ -38,7 +39,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         public void AbortSend() => _sendToken.Cancel();
         public void AbortReceive() => _receiveToken.Cancel();
 
-        public void Close()
+        public void Stop()
         {
             if (_client != null)
             {
@@ -62,12 +63,12 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             catch (Exception e)
             {
                 _logger.Warning(Tag.CommunicationBasic, $"Failed receive from {_remote}", e);
-                this.Close();
+                this.Stop();
                 throw;
             }
         }
 
-        public async void StartReceive()
+        public async void Start()
         {
             while(!_globalReceiveToken.Token.IsCancellationRequested)
             {
@@ -79,7 +80,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 
                     _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}");
-                    this.Close();
+                    this.Stop();
                 }
                 catch
                 {
@@ -98,7 +99,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
             catch (Exception e)
             {
-                this.Close();
+                this.Stop();
                 _logger.Warning(Tag.CommunicationBasic, $"Failed send to {_remote}", e);
             }
         }

@@ -60,6 +60,6 @@ namespace DistributedJobScheduling.LeaderElection
             SendCoords?.Invoke(nodesWithIdLowerThanMe);
         }
 
-        public void CancelElection() => _cancellationTokenSource.Cancel();
+        public void CancelElection() => _cancellationTokenSource?.Cancel();
     }
 }

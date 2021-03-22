@@ -1,14 +1,14 @@
 using System.Reflection.Metadata;
 using System.Collections.Generic;
-using DistributedJobScheduling.DistributedStorage.SecureStorage;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Extensions;
+using DistributedJobScheduling.Storage.SecureStorage;
 
-namespace DistributedJobScheduling.DistributedStorage
+namespace DistributedJobScheduling.Storage
 {
-    class TableItem
+    public class TableItem
     {
         public Job Job;
         public bool Confirmed;
@@ -17,7 +17,7 @@ namespace DistributedJobScheduling.DistributedStorage
         public TableItem(Job job) : this() { Job = job; }
     }
 
-    class Table
+    public class Table
     {
         // Key: requestID, Job, bool: confirmed by client
         public Dictionary<int, TableItem> Dictionary; 
@@ -25,19 +25,26 @@ namespace DistributedJobScheduling.DistributedStorage
         public Table() { Dictionary = new Dictionary<int, TableItem>(); }
     }
 
-    public class TranslationTable : ILifeCycle
+    public class TranslationTable : IInitializable
     {
         private ReusableIndex _reusableIndex;
         private SecureStore<Table> _secureStorage;
         private ILogger _logger;
 
-        public TranslationTable() : this(DependencyInjection.DependencyManager.Get<IStore>(),
-                                        DependencyInjection.DependencyManager.Get<ILogger>()) { }
-        public TranslationTable(IStore store, ILogger logger)
+        public TranslationTable() : this(
+            DependencyInjection.DependencyManager.Get<IStore<Table>>(),
+            DependencyInjection.DependencyManager.Get<ILogger>()) { }
+        public TranslationTable(IStore<Table> store, ILogger logger)
         {
             _logger = logger;
             _secureStorage = new SecureStore<Table>(store, logger);
             _reusableIndex = new ReusableIndex(index => _secureStorage.Value.Dictionary.ContainsKey(index));
+        }
+
+        public void Init()
+        {
+            _secureStorage.Init();
+            DeleteUnconfirmedEntries();
         }
 
         public int Add(Job job)
@@ -77,18 +84,6 @@ namespace DistributedJobScheduling.DistributedStorage
             });
             _secureStorage.ValuesChanged.Invoke();
             _logger.Log(Tag.TranslationTable, "Unconfirmed entries deleted");
-        }
-
-        public void Init() => DeleteUnconfirmedEntries();
-
-        public void Start()
-        {
-            
-        }
-
-        public void Stop()
-        {
-
         }
     }
 }

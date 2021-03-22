@@ -13,7 +13,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
-    public class CoordinatorKeepAlive : ILifeCycle
+    public class CoordinatorKeepAlive : IStartable, IInitializable
     {
         // Seconds delay of coordintator to send keepAlive message
         public static int SendTimeout = 5;
@@ -24,27 +24,27 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private ILogger _logger;
         private CancellationTokenSource _cancellationTokenSource;
 
-        private IGroupViewManager _group;
+        private IGroupViewManager _groupManager;
 
         public CoordinatorKeepAlive(IGroupViewManager group, ILogger logger)
         {
-            _group = group;
+            _groupManager = group;
             _logger = logger;
             _ticks = new Dictionary<Node, bool>();
-
-            var jobPublisher = _group.Topics.GetPublisher<BullyElectionPublisher>();
-            jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
         }
 
         public void Init()
         {
-            _cancellationTokenSource = new CancellationTokenSource();
-            _ticks.Clear();
-            _group.View.Others.ForEach(node => _ticks.Add(node, false));
+            var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
+            jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
         }
         
         public void Start()
         {
+            _cancellationTokenSource = new CancellationTokenSource();
+            _ticks.Clear();
+            _groupManager.View.Others.ForEach(node => _ticks.Add(node, false));
+
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t => SendKeepAliveToNodes());
             Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
@@ -55,8 +55,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void SendKeepAliveToNodes()
         {
-            _group.View.Others.ForEach(node => _group.Send(node, new KeepAliveRequest()).Wait());
-            Task.Delay(TimeSpan.FromSeconds(SendTimeout)).ContinueWith(t => SendKeepAliveToNodes());
+            _groupManager.View.Others.ForEach(node => _groupManager.Send(node, new KeepAliveRequest()).Wait());
+            Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
+                .ContinueWith(t => SendKeepAliveToNodes());
         }
 
         private void OnKeepAliveResponseReceived(Node node, Message message) => _ticks.Add(node, true);
@@ -76,8 +77,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 NodesDied?.Invoke(deaths);
             }
 
-            Init();
-            Start();
+            Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
+                .ContinueWith(t => TimeoutFinished());
         }
     }
 }

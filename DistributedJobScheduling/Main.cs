@@ -1,30 +1,35 @@
 using System;
-using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Configuration;
 
-public class Program
+namespace DistributedJobScheduling
 {
-    static void Main(string[] args)
+    public class Program
     {
-        (int, bool)? commandlineParams = ParseCommandLineArgs(args);
-        if (!commandlineParams.HasValue)
+        static void Main(string[] args)
         {
-            Console.WriteLine("ID not specified on launch");
-            return;
+            SystemManager systemManager = new SystemManager();
+            var config = DependencyInjection.DependencyManager.Get<IConfigurationService>();
+
+            if (!CreateConfiguration(config, args))
+            {
+                Console.WriteLine("ID not specified on launch");
+                return;
+            }
+            
+            systemManager.Run();
         }
-        Console.WriteLine($"Params: ID = {commandlineParams.Value.Item1}, Coordinator = {commandlineParams.Value.Item2}");
 
-        SystemLifeCycle.Run();
-        //var nodeRegistry = DependencyManager.Get<Node.INodeRegistry>();
-        //Node me = nodeRegistry.GetOrCreate(id: commandlineParams.Value.Item1);
-        //Group group = new Group(me, commandlineParams.Value.Item2);
-    }
-
-    private static (int, bool)? ParseCommandLineArgs(string[] args)
-    {
-        int id;
-        bool isId = Int32.TryParse(args.Length > 0 ? args[0] : "", out id);
-        bool coordinator = args.Length > 1 && args[1].ToLower() == "coordinator";
-        if (!isId) return null;
-        return (id, coordinator);
+        private static bool CreateConfiguration(IConfigurationService config, string[] args)
+        {
+            int id;
+            bool isId = Int32.TryParse(args.Length > 0 ? args[0] : "", out id);
+            bool coordinator = args.Length > 1 && args[1].ToLower() == "coordinator";
+            
+            if (!isId) return false;
+            
+            config.SetValue<int>("nodeId", id);
+            config.SetValue<bool>("coordinator", coordinator);
+            return true;
+        }
     }
 }
