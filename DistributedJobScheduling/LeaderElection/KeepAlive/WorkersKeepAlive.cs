@@ -21,7 +21,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private CancellationTokenSource _cancellationTokenSource;
         private IGroupViewManager _groupManager;
 
-        public WorkersKeepAlive(IGroupViewManager group)
+        public WorkersKeepAlive(IGroupViewManager group, ILogger logger)
         {
             _groupManager = group;
             _logger = logger;
