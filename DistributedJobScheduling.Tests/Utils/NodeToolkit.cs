@@ -61,18 +61,20 @@ namespace DistributedJobScheduling.Tests.Utils
 
         public virtual void Start()
         {
-            StartIfLifeCycle(Configuration);
-            StartIfLifeCycle(Logger);
-            StartIfLifeCycle(Registry);
-            StartIfLifeCycle(TimeStamper);
-            StartIfLifeCycle(Communication);
-            StartIfLifeCycle(Group);
+            InitAndStart(Configuration);
+            InitAndStart(Logger);
+            InitAndStart(Registry);
+            InitAndStart(TimeStamper);
+            InitAndStart(Communication);
+            InitAndStart(Group);
         }
 
-        protected void StartIfLifeCycle(object Component)
+        protected void InitAndStart(object Component)
         {
-            if(Component is IStartable lifeCycle)
-                lifeCycle.Start();
+            if(Component is IInitializable initializable)
+                initializable.Init();
+            if(Component is IStartable startable)
+                startable.Start();
         }
     }
 
