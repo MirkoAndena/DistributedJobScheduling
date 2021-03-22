@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         public void Init()
         {
-            var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
+            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
             jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
         }
         
@@ -44,8 +44,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
-            KeepAliveRequest received = (KeepAliveRequest)message;
-            _groupManager.Send(node, new KeepAliveResponse(received)).Wait();
+            _logger.Log(Tag.KeepAlive, "Received keep-alive request from coordinator");
+            _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
             _logger.Log(Tag.KeepAlive, "I'm alive");
             Stop();
             Start();

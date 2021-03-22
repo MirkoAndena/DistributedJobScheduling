@@ -35,7 +35,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         public void Init()
         {
-            var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
+            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
             jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
         }
         
@@ -55,12 +55,20 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void SendKeepAliveToNodes()
         {
-            _groupManager.View.Others.ForEach(node => _groupManager.Send(node, new KeepAliveRequest()).Wait());
+            _groupManager.View.Others.ForEach(node => 
+            {
+                _groupManager.Send(node, new KeepAliveRequest()).Wait();
+                _logger.Log(Tag.KeepAlive, $"Sent keep-alive request to {node}");
+            });
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t => SendKeepAliveToNodes());
         }
 
-        private void OnKeepAliveResponseReceived(Node node, Message message) => _ticks.Add(node, true);
+        private void OnKeepAliveResponseReceived(Node node, Message message)
+        { 
+            _ticks.Add(node, true);
+            _logger.Log(Tag.KeepAlive, $"Received keep-alive response from {node}");
+        }
 
         private void TimeoutFinished()
         {
