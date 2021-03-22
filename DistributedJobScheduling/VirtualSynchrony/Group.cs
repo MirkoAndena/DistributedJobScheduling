@@ -16,6 +16,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public HashSet<Node> Others  { get; private set; }
 
         public bool ImCoordinator => Me == Coordinator;
+        public int Count
+        {
+            get {
+                lock(this)
+                {
+                    return Others.Count + 1;
+                }
+            }
+        }
 
         public Group(Node me, bool coordinator = false) 
         {
@@ -64,6 +73,14 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 Others.Remove(node);
             }
             ViewChanged?.Invoke();
+        }
+
+        public bool Contains(Node node)
+        {
+            lock(this)
+            {
+                return node == Me || Others.Contains(node);
+            }
         }
     }
 }

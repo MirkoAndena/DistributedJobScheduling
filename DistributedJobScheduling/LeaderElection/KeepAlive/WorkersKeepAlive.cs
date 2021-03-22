@@ -18,15 +18,13 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private int ReceiveTimeout = CoordinatorKeepAlive.SendTimeout * 2;
         public Action CoordinatorDied;
         private ILogger _logger;
-        private ITimeStamper _timeStamper;
         private CancellationTokenSource _cancellationTokenSource;
         private IGroupViewManager _groupManager;
 
-        public WorkersKeepAlive(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
+        public WorkersKeepAlive(IGroupViewManager group)
         {
             _groupManager = group;
             _logger = logger;
-            _timeStamper = timeStamper;
         }
 
         public void Init()
@@ -47,7 +45,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
             KeepAliveRequest received = (KeepAliveRequest)message;
-            _groupManager.Send(node, new KeepAliveResponse(received, _timeStamper)).Wait();
+            _groupManager.Send(node, new KeepAliveResponse(received)).Wait();
             _logger.Log(Tag.KeepAlive, "I'm alive");
             Stop();
             Start();

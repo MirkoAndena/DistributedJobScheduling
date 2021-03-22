@@ -13,7 +13,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         public Job Job => _job;
         public int RequestID => _requestID;
 
-        public InsertionRequest(Job job, int requestID, ITimeStamper timeStamper) : base(timeStamper)
+        public InsertionRequest(Job job, int requestID) : base()
         {
             _job = job;
             _requestID = requestID;
@@ -30,7 +30,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         public int JobID => _jobID;
         public int RequestID => _requestID;
 
-        public InsertionResponse(InsertionRequest request, int jobID, int requestID, ITimeStamper timeStamper) : base(request, timeStamper)
+        public InsertionResponse(InsertionRequest request, int jobID, int requestID) : base(request)
         {
             _jobID = jobID;
             _requestID = requestID;

@@ -8,11 +8,18 @@ namespace DistributedJobScheduling.Communication.Messaging
         public Message UnstablePayload { get; private set; }
 
         //We don't need the timestamper
-        public TemporaryMessage(bool isMulticast, Message unstableMessage) : base(null)
+        public TemporaryMessage(bool isMulticast, Message unstableMessage) : base()
         {
             IsMulticast = isMulticast;
             UnstablePayload = unstableMessage;
             unstableMessage.Bind(this);
+        }
+
+        public override Message ApplyStamp(ITimeStamper timeStamper)
+        {
+            UnstablePayload.ApplyStamp(timeStamper);
+            UnstablePayload.Bind(this);
+            return this;
         }
     }
 }

@@ -10,7 +10,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public Node JoiningNode { get; private set; }
 
-        public ViewJoinRequest(Node node, ITimeStamper timestampMechanism = null) : base(timestampMechanism) 
+        public ViewJoinRequest(Node node) : base() 
         {
             JoiningNode = node;
         }

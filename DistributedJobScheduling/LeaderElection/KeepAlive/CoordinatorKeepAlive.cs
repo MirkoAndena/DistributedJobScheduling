@@ -22,16 +22,14 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         public Action<List<Node>> NodesDied;
         private Dictionary<Node, bool> _ticks;
         private ILogger _logger;
-        private ITimeStamper _timeStamper;
         private CancellationTokenSource _cancellationTokenSource;
 
         private IGroupViewManager _groupManager;
 
-        public CoordinatorKeepAlive(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
+        public CoordinatorKeepAlive(IGroupViewManager group, ILogger logger)
         {
             _groupManager = group;
             _logger = logger;
-            _timeStamper = timeStamper;
             _ticks = new Dictionary<Node, bool>();
         }
 
@@ -57,7 +55,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void SendKeepAliveToNodes()
         {
-            _groupManager.View.Others.ForEach(node => _groupManager.Send(node, new KeepAliveRequest(_timeStamper)).Wait());
+            _groupManager.View.Others.ForEach(node => _groupManager.Send(node, new KeepAliveRequest()).Wait());
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t => SendKeepAliveToNodes());
         }

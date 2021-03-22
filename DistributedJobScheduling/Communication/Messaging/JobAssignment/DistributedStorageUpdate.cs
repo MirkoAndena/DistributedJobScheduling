@@ -11,7 +11,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         private Job _job;
         public Job Job => _job;
 
-        public DistributedStorageUpdate(Job job, ITimeStamper timeStamper) : base(timeStamper)
+        public DistributedStorageUpdate(Job job) : base()
         {
             _job = job;
         }

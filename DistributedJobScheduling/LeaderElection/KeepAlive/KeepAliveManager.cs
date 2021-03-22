@@ -21,18 +21,17 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         public KeepAliveManager() : this (
             DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
-            DependencyInjection.DependencyManager.Get<ILogger>(),
-            DependencyInjection.DependencyManager.Get<ITimeStamper>()) {}
-        public KeepAliveManager(IGroupViewManager group, ILogger logger, ITimeStamper timeStamper)
+            DependencyInjection.DependencyManager.Get<ILogger>()) {}
+        public KeepAliveManager(IGroupViewManager group, ILogger logger)
         {
             if (group.View.ImCoordinator)
             {
-                _keepAlive = new CoordinatorKeepAlive(group, logger, timeStamper);
+                _keepAlive = new CoordinatorKeepAlive(group, logger);
                 ((CoordinatorKeepAlive)_keepAlive).NodesDied += nodes => NodesDied?.Invoke(nodes);
             }
             else
             {
-                _keepAlive = new WorkersKeepAlive(group, logger, timeStamper);
+                _keepAlive = new WorkersKeepAlive(group, logger);
                 ((WorkersKeepAlive)_keepAlive).CoordinatorDied += () => CoordinatorDied?.Invoke();
             }
 

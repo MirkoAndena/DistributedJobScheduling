@@ -10,28 +10,19 @@ namespace DistributedJobScheduling.Communication.Basic
     /// </summary>
     public abstract class Message
     {
-        public int TimeStamp => _messageID;
-        private int _messageID;
-        private int _isResponseOf;
+        public int? TimeStamp => _messageID;
+        private int? _messageID;
+        private int? _isResponseOf;
 
         public int? SenderID;
         public int? ReceiverID;
 
-        public Message(ITimeStamper timestampMechanism)
-        {
-            if(timestampMechanism != null)
-            {  
-                lock(timestampMechanism)
-                {
-                    _messageID = timestampMechanism.CreateTimeStamp();
-                }
-            }
-        }
+        public Message() { }
 
         /// <summary>
         /// Create a message that is the response of another message
         /// </summary>
-        public Message(Message message, ITimeStamper timestampMechanism) : this(timestampMechanism)
+        public Message(Message message)
         {
             _isResponseOf = message._messageID;
         }
@@ -63,5 +54,17 @@ namespace DistributedJobScheduling.Communication.Basic
         /// Binds the message node references to nodes from a specific node registry
         /// </summary>
         public virtual void BindToRegistry(INodeRegistry registry) {}
+
+        public virtual Message ApplyStamp(ITimeStamper timeStamper)
+        {
+            if(this._messageID != null)
+                throw new System.Exception("Message already timestamped!");
+                
+            lock(timeStamper)
+            {
+                this._messageID = timeStamper.CreateTimeStamp();
+            }
+            return this;
+        }
     }
 }

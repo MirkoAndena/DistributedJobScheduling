@@ -30,7 +30,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             Node diedNode = null;
             bool someoneDies = false;
-            CoordinatorKeepAlive keepAlive = new CoordinatorKeepAlive(_group, _logger, _timeStamper);
+            CoordinatorKeepAlive keepAlive = new CoordinatorKeepAlive(_group, _logger);
             keepAlive.NodesDied += nodes =>
             {
                 Assert.Equal(nodes.Count, 1);
@@ -52,7 +52,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             Node coordinator = null;
             bool coordinatorDies = false;
-            WorkersKeepAlive keepAlive = new WorkersKeepAlive(_group, _logger, _timeStamper);
+            WorkersKeepAlive keepAlive = new WorkersKeepAlive(_group, _logger);
             keepAlive.CoordinatorDied += () =>
             {
                 coordinatorDies = true;

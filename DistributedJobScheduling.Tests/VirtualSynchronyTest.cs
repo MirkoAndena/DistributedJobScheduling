@@ -27,30 +27,32 @@ namespace DistributedJobScheduling.Tests
         [Fact]
         public async Task MulticastWorks()
         {
-            StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
-            FakeNode[] nodes = new FakeNode[10];
-            int joinTimeout = 100; //ms
-            int messageCount = 100;
-
-            for(int i = 0; i < nodes.Length; i++)
-                nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
-
-            var messages = new Dictionary<int, Dictionary<int, List<Message>>>();
-            var receiveTask = Task.WhenAll(SetupMulticastAwaiters(messages, messageCount, nodes));
-            
-            Parallel.ForEach(nodes.AsParallel(), async node => {
-                for(int i = 0; i < messageCount; i++)
-                {
-                    Message message = new EmptyMessage(node.TimeStamper);
-                    await node.Communication.SendMulticast(message);
-                }
-            });
-            
-            await Task.Run(async () =>
+            using(StubNetworkBus networkBus = new StubNetworkBus(new Random().Next()))
             {
-                await receiveTask;
-                AssertMulticasts(messages, messageCount);
-            });
+                FakeNode[] nodes = new FakeNode[10];
+                int joinTimeout = 100; //ms
+                int messageCount = 100;
+
+                for(int i = 0; i < nodes.Length; i++)
+                    nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
+
+                var messages = new Dictionary<int, Dictionary<int, List<Message>>>();
+                var receiveTask = Task.WhenAll(SetupMulticastAwaiters(messages, messageCount, nodes));
+                
+                Parallel.ForEach(nodes.AsParallel(), async node => {
+                    for(int i = 0; i < messageCount; i++)
+                    {
+                        Message message = new EmptyMessage();
+                        await node.Communication.SendMulticast(message.ApplyStamp(node.TimeStamper));
+                    }
+                });
+                
+                await Task.Run(async () =>
+                {
+                    await receiveTask;
+                    AssertMulticasts(messages, messageCount);
+                });
+            }
         }
 
         private Task[] SetupMulticastAwaiters(Dictionary<int, Dictionary<int, List<Message>>> messages, int expectedCount, params FakeNode[] nodes)
@@ -95,31 +97,34 @@ namespace DistributedJobScheduling.Tests
         [Fact]
         public async Task SimpleJoin()
         {
-            StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
-            FakeNode[] nodes = new FakeNode[15];
-            int joinTimeout = 100; //ms
-            int startupTime = 50;
-
-            for(int i = 0; i < nodes.Length; i++)
-                nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
-
-            await Task.Run(async () =>
+            using(StubNetworkBus networkBus = new StubNetworkBus(new Random().Next()))
             {
-                Task[] joinAwaiters = SetupGroupJoinAwaiters(nodes[0], nodes[1..]);
-                Task completed;
-                await Task.WhenAll(
-                    NodeToolkit.StartSequence(nodes, startupTime),
-                    Task.WhenAny(completed = Task.WhenAll(joinAwaiters))//, 
-                                   //Task.Delay(Math.Max(nodes.Length * joinTimeout * 10, startupTime*nodes.Length + joinTimeout * 10))) //Worst Case delay
-                );
+                FakeNode[] nodes = new FakeNode[10];
+                int joinTimeout = 100; //ms
+                int startupTime = 50;
 
-                if(completed.IsCompleted)
-                    _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|\tCompleted before timeout!");
-                else
-                    _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|\t============ TIMEOUT ===============");
-                AssertGroupJoinView(nodes);
-            });
+                for(int i = 0; i < nodes.Length; i++)
+                    nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
+
+                await Task.Run(async () =>
+                {
+                    Task[] joinAwaiters = SetupGroupJoinAwaiters(nodes[0], nodes[1..]);
+                    Task completed;
+                    await Task.WhenAll(
+                        NodeToolkit.StartSequence(nodes, startupTime),
+                        Task.WhenAny(completed = Task.WhenAll(joinAwaiters))//, 
+                                    //Task.Delay(Math.Max(nodes.Length * joinTimeout * 10, startupTime*nodes.Length + joinTimeout * 10))) //Worst Case delay
+                    );
+
+                    if(completed.IsCompleted)
+                        _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|\tCompleted before timeout!");
+                    else
+                        _output.WriteLine($"|{DateTime.Now.ToString("hh:mm:ss.fff")}|\t============ TIMEOUT ===============");
+                    AssertGroupJoinView(nodes);
+                });
+            }
         }
+
 
         private Task[] SetupGroupJoinAwaiters(FakeNode coordinator, params FakeNode[] nodes)
         {
@@ -154,68 +159,76 @@ namespace DistributedJobScheduling.Tests
             }
         }
 
-
         [Fact]
         public async Task SimpleInViewSend()
         {
-            StubNetworkBus networkBus = new StubNetworkBus(new Random().Next());//123); //3 before 2
-            FakeNode[] nodes = new FakeNode[15];
-            int joinTimeout = 100; //ms
-            int maxTestTime = 1000;
-
-            for(int i = 0; i < nodes.Length; i++)
-                nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
-
-            await Task.Run(async () =>
+            using(StubNetworkBus networkBus = new StubNetworkBus(new Random().Next()))
             {
-                NodeToolkit.CreateView(nodes, nodes[0]);
-                await NodeToolkit.StartSequence(nodes, 0);
-                AssertGroupJoinView(nodes);
-            });
+                FakeNode[] nodes = new FakeNode[10];
+                int joinTimeout = 100; //ms
+                int maxTestTime = 2000;
 
-            Dictionary<int, List<IdMessage>> consolidatedMessages = new Dictionary<int, List<IdMessage>>();
+                for(int i = 0; i < nodes.Length; i++)
+                    nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
+
+                await Task.Run(async () =>
+                {
+                    NodeToolkit.CreateView(nodes, nodes[0]);
+                    await NodeToolkit.StartSequence(nodes, 0);
+                    AssertGroupJoinView(nodes);
+                });
+                
+                var consolidatedMessages = new Dictionary<int, HashSet<IdMessage>>();
+                List<IdMessage> sentMessages = new List<IdMessage>(nodes.Length);
+                Task[] waitForAllMulticasts = SetupGroupSendAwaiters(consolidatedMessages, nodes.Length - 1, nodes);
+                //Send Messages
+                nodes.ForEach(node => {
+                    var message = new IdMessage(node.Node.ID.Value);
+                    message.SenderID = node.Node.ID.Value;
+                    sentMessages.Add(message);
+                    node.Group.SendMulticast(message);
+                });
+
+                await Task.Run(async () =>
+                {
+                    await Task.WhenAll(Task.WhenAny(Task.WhenAll(waitForAllMulticasts), 
+                                    Task.Delay(maxTestTime))); //Worst Case delay
+                    AssertGroupSend(consolidatedMessages, sentMessages, nodes);
+                });
+            }
+        }
+
+        private Task[] SetupGroupSendAwaiters(Dictionary<int, HashSet<IdMessage>> consolidatedMessages, int expectedMessages, params FakeNode[] nodes)
+        {
+            List<Task> waitForNodes = new List<Task>();
+
             nodes.ForEach(node => {
-                consolidatedMessages.Add(node.Node.ID.Value, new List<IdMessage>());
+                consolidatedMessages.Add(node.Node.ID.Value, new HashSet<IdMessage>());
+                TaskCompletionSource<bool> waitForMessages = new TaskCompletionSource<bool>();
                 node.Group.OnMessageReceived += (sender, message) => {
                     if(message is IdMessage consolidatedMessage)
                     {
                         _output.WriteLine($"{node.Node.ID} consolidated {consolidatedMessage.Id}");
                         consolidatedMessages[node.Node.ID.Value].Add(consolidatedMessage);
+                        if(!waitForMessages.Task.IsCompleted &&
+                            consolidatedMessages[node.Node.ID.Value].Count >= expectedMessages)
+                            waitForMessages.SetResult(true);
                     }
                 };
-            });
-
-            await Task.Run(async () =>
-            {
-                await Task.WhenAny(Task.WhenAll(SetupGroupSendAwaiters(nodes[0], nodes[1..])), 
-                                   Task.Delay(maxTestTime)); //Worst Case delay
-                AssertGroupSend(consolidatedMessages, nodes);
-            });
-        }
-
-        private Task[] SetupGroupSendAwaiters(FakeNode coordinator, params FakeNode[] nodes)
-        {
-            List<Task> waitForNodes = new List<Task>();
-
-            int i = 0;
-            nodes.ForEach(node => {
-                waitForNodes.Add(node.Group.SendMulticast(new IdMessage(i, node.TimeStamper)));
+                waitForNodes.Add(waitForMessages.Task);
             });
 
             return waitForNodes.ToArray();
         }
 
-        private void AssertGroupSend(Dictionary<int, List<IdMessage>> _consolidatedMessage, params FakeNode[] nodes)
+        private void AssertGroupSend(Dictionary<int, HashSet<IdMessage>> _consolidatedMessage, List<IdMessage> sentMessages, params FakeNode[] nodes)
         {
-            AssertGroupJoinView(nodes);
-            
-            List<IdMessage> referenceMessage = null;
-            foreach(var messages in _consolidatedMessage.Values)
+            HashSet<IdMessage> referenceMessage = null;
+            foreach(var node in _consolidatedMessage.Keys)
             {
-                if(referenceMessage == null)
-                    referenceMessage = messages;
-                else
-                    Assert.True(referenceMessage.SequenceEqual(messages)); //In this case since we are on the same machine we expect also the message references to be the same
+                var messages = _consolidatedMessage[node];
+                referenceMessage = new HashSet<IdMessage>(sentMessages.Where(n => n.SenderID != node));
+                Assert.True(referenceMessage.SetEquals(messages)); //In this case since we are on the same machine we expect also the message references to be the same
             }
 
             Assert.NotNull(referenceMessage);

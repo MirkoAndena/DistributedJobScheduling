@@ -14,7 +14,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public int MyViewSize { get; private set; }
 
-        public NotInViewMessage(int viewSize, ITimeStamper timestampMechanism = null) : base(timestampMechanism)
+        public NotInViewMessage(int viewSize) : base()
         {
             MyViewSize = viewSize;
         }

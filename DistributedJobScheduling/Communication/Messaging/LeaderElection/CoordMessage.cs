@@ -10,7 +10,7 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
     {
         public Node Coordinator { get; private set; }
 
-        public CoordMessage(Node me, ITimeStamper timeStamper) : base(timeStamper)
+        public CoordMessage(Node me) : base()
         {
             Coordinator = me;
         }

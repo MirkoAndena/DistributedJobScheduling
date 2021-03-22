@@ -1,3 +1,4 @@
+using System.Drawing;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -22,49 +23,60 @@ namespace DistributedJobScheduling.Communication.Messaging.Ordering
 
         public async Task EnsureOrdering(Message message)
         {
+            if(!message.TimeStamp.HasValue)
+                return;
+
             TaskCompletionSource<bool> waitSendTask;
             int? lastObserved = null;
+            bool shouldWait = false;
             lock(_waitingQueue)
             {
-                if(!_waitingQueue.ContainsKey(message.TimeStamp))
-                    _waitingQueue.Add(message.TimeStamp, new TaskCompletionSource<bool>());
-                waitSendTask = _waitingQueue[message.TimeStamp];
+                if(!_waitingQueue.ContainsKey(message.TimeStamp.Value))
+                    _waitingQueue.Add(message.TimeStamp.Value, new TaskCompletionSource<bool>());
+                waitSendTask = _waitingQueue[message.TimeStamp.Value];
                 lastObserved = _lastObserved;
+                shouldWait = _lastObserved.HasValue && message.TimeStamp.Value > _lastObserved+1;
             }
 
-            if(lastObserved.HasValue && message.TimeStamp > lastObserved+1)
+            if(shouldWait)
             {
-                if(message.TimeStamp > lastObserved + 5)
-                    _logger.Error(Tag.CommunicationBasic, $"Message ordering seems to be stuck waiting from message with timestamp { lastObserved+1 }", null);
+                _logger.Error(Tag.CommunicationBasic, $"Message ordering seems to be stuck waiting from message with timestamp { lastObserved+1 }", null);
                 await waitSendTask.Task;
             }
         }
 
         public void Observe(Message message)
         {
+            if(!message.TimeStamp.HasValue)
+                return;
+                
             lock(_waitingQueue)
             {
-                _lastObserved = message.TimeStamp;
-                if(_waitingQueue.ContainsKey(message.TimeStamp + 1))
-                    _waitingQueue[message.TimeStamp + 1].SetResult(true);
-                _waitingQueue.Remove(message.TimeStamp);
+                _lastObserved = message.TimeStamp.Value;
+                if(_waitingQueue.ContainsKey(message.TimeStamp.Value + 1))
+                    _waitingQueue[message.TimeStamp.Value + 1].SetResult(true);
+                _waitingQueue.Remove(message.TimeStamp.Value);
             }
         }
 
         public async Task OrderedExecute(Message message, Func<Task> _actionToExecute)
         {
+            Console.WriteLine($"Starting {message.TimeStamp}  {message}");
             await EnsureOrdering(message);
 
             try 
             {
+                Console.WriteLine($"Can execute {message.TimeStamp} {message}");
                 await _actionToExecute?.Invoke();
             }
-            catch 
+            catch (Exception ex)
             {
+                Console.WriteLine(ex.StackTrace);
                 throw;
             }
             finally
             {
+                Console.WriteLine($"Advancing timestamp to {message.TimeStamp + 1}");
                 Observe(message);
             }
         }

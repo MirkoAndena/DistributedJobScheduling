@@ -10,7 +10,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     {
         private Job _job;
 
-        public AssignmentMessage(Job job, ITimeStamper timeStamper) : base(timeStamper)
+        public AssignmentMessage(Job job) : base()
         {
             if (!job.ID.HasValue)
                 throw new System.Exception("You must send a assigned job (ID not null)");
