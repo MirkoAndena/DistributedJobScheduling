@@ -1,5 +1,8 @@
+using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 
 public static class NetworkUtils
 {
@@ -7,5 +10,17 @@ public static class NetworkUtils
     {
         IPEndPoint endpoint = client.Client.RemoteEndPoint as IPEndPoint;
         return endpoint.Address.MapToIPv4().ToString();
+    }
+
+    public static async Task ConnectAsync(this TcpClient tcpClient, string host, int port, CancellationToken cancellationToken) 
+    {
+        using (cancellationToken.Register(() => tcpClient.Close())) {
+            try {
+                cancellationToken.ThrowIfCancellationRequested();
+                await tcpClient.ConnectAsync(host, port).ConfigureAwait(false);
+            } catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested) {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
     }
 }

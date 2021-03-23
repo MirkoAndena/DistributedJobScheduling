@@ -47,9 +47,26 @@ namespace DistributedJobScheduling.Communication
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
         {
-            _logger.Log(Tag.Communication, $"New speaker created for communicate to {node}");
-            _speakers.Add(node, speaker);
+            _logger.Log(Tag.Communication, $"New speaker created for communications with {node}");
+            
+            if(_speakers.ContainsKey(node))
+            {
+                var oldSpeaker = _speakers[node];
+
+                if(oldSpeaker.IsConnected)
+                {
+                    _logger.Warning(Tag.Communication, $"Discarded duplicate speaker for {node}");
+                    return;
+                }
+                    
+                _logger.Log(Tag.Communication, $"Speaker for {node} was due to a previous disconnection, updating");
+                oldSpeaker.OnMessageReceived -= _OnMessageReceived;
+                oldSpeaker.Stop();
+                _speakers.Remove(node);
+            }
+
             speaker.OnMessageReceived += _OnMessageReceived;
+            _speakers.Add(node, speaker);
             speaker.Start();
         }
 

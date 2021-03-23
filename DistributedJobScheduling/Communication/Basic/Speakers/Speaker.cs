@@ -12,8 +12,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
     public class Speaker : IStartable
     {
+        public bool IsConnected => _client.Connected;
         protected TcpClient _client;
-        private NetworkStream _stream;
+        protected NetworkStream _stream;
 
         private CancellationTokenSource _sendToken;
         private CancellationTokenSource _receiveToken;
@@ -29,11 +30,14 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         public Speaker(TcpClient client, Node remote, ILogger logger)
         {
             _logger = logger;
-            _stream = _client.GetStream();
+            _client = client;
+            _remote = remote;
             _sendToken = new CancellationTokenSource();
             _receiveToken = new CancellationTokenSource();
             _globalReceiveToken = new CancellationTokenSource();
-            _remote = remote;
+
+            if(_client.Connected)
+                _stream = _client.GetStream();
         }
 
         public void AbortSend() => _sendToken.Cancel();
