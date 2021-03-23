@@ -1,5 +1,6 @@
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
 {
@@ -10,6 +11,7 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
     {
         public Node Coordinator { get; private set; }
 
+        [JsonConstructor]
         public CoordMessage(Node me) : base()
         {
             Coordinator = me;

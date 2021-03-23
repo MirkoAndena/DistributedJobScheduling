@@ -1,5 +1,6 @@
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
 {
@@ -10,6 +11,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     {
         private Job _job;
 
+        [JsonConstructor]
         public AssignmentMessage(Job job) : base()
         {
             if (!job.ID.HasValue)

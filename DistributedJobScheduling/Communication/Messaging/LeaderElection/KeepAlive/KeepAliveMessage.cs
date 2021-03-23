@@ -1,5 +1,6 @@
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAlive
 {
@@ -8,11 +9,13 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAl
     /// </summary>
     public class KeepAliveRequest : Message
     {
+        [JsonConstructor]
         public KeepAliveRequest() : base() {}
     }
 
     public class KeepAliveResponse : Message
     {
+        [JsonConstructor]
         public KeepAliveResponse(KeepAliveRequest request) : base(request) { }
     }
 }

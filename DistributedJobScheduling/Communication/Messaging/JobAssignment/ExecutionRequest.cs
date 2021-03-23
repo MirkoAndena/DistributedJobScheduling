@@ -1,5 +1,6 @@
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
 {
@@ -11,6 +12,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         private Job _job;
         public Job Job => _job;
 
+        [JsonConstructor]
         public ExecutionRequest(Job job) : base()
         {
             _job = job;
@@ -25,6 +27,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         private int _requestID;
         public int RequestID => _requestID;
 
+        [JsonConstructor]
         public ExecutionResponse(ExecutionRequest request, int requestID) : base(request)
         {
             _requestID = requestID;
@@ -39,6 +42,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         private int _requestID;
         public int RequestID => _requestID;
 
+        [JsonConstructor]
         public ExecutionAck(ExecutionResponse response, int requestID) : base(response)
         {
             _requestID = requestID;

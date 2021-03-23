@@ -1,4 +1,5 @@
 using DistributedJobScheduling.Communication.Basic;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
 {
@@ -9,6 +10,7 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
     {
         public int ID { get; private set; }
 
+        [JsonConstructor]
         public ElectMessage(int id) : base()
         {
             ID = id;
