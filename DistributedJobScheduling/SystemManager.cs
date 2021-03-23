@@ -30,7 +30,7 @@ namespace DistributedJobScheduling
         protected override void CreateSubsystems()
         {
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
-            RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT));
+            RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
             RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
