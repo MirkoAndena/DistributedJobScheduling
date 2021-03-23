@@ -1,11 +1,13 @@
+using System.Threading;
 using System;
 using DistributedJobScheduling.Configuration;
+using System.Threading.Tasks;
 
 namespace DistributedJobScheduling
 {
-    public class Program
+    public static class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             SystemManager systemManager = new SystemManager();
             var config = DependencyInjection.DependencyManager.Get<IConfigurationService>();
@@ -16,7 +18,7 @@ namespace DistributedJobScheduling
                 return;
             }
             
-            systemManager.Run();
+            await systemManager.Run();
         }
 
         private static bool CreateConfiguration(IConfigurationService config, string[] args)

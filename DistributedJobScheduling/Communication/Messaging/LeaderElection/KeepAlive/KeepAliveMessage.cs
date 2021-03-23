@@ -7,15 +7,15 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAl
     /// <summary>
     /// Message from node to others for Keep Alive 
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class KeepAliveRequest : Message
     {
-        [JsonConstructor]
         public KeepAliveRequest() : base() {}
     }
 
+    [JsonObject(MemberSerialization.Fields)]
     public class KeepAliveResponse : Message
     {
-        [JsonConstructor]
         public KeepAliveResponse(KeepAliveRequest request) : base(request) { }
     }
 }

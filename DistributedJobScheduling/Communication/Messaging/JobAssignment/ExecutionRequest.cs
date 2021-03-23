@@ -7,12 +7,12 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// <summary>
     /// Client to InterfaceExecutor, request for a job execution
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class ExecutionRequest : Message
     {
         private Job _job;
         public Job Job => _job;
 
-        [JsonConstructor]
         public ExecutionRequest(Job job) : base()
         {
             _job = job;
@@ -22,12 +22,12 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// <summary>
     /// InterfaceExecutor to Client, response for a job execution
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class ExecutionResponse : Message
     {
         private int _requestID;
         public int RequestID => _requestID;
 
-        [JsonConstructor]
         public ExecutionResponse(ExecutionRequest request, int requestID) : base(request)
         {
             _requestID = requestID;
@@ -37,12 +37,12 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// <summary>
     /// Client to InterfaceExecutor, acknowledge
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class ExecutionAck : Message
     {
         private int _requestID;
         public int RequestID => _requestID;
 
-        [JsonConstructor]
         public ExecutionAck(ExecutionResponse response, int requestID) : base(response)
         {
             _requestID = requestID;

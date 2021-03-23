@@ -11,11 +11,11 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// If the receiving view has less members they'll teardown
     /// Data might be lost in this operation (this situation is assumed to never occur)
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class NotInViewMessage : Message
     {
         public int MyViewSize { get; private set; }
         
-        [JsonConstructor]
         public NotInViewMessage(int myViewSize) : base()
         {
             MyViewSize = myViewSize;

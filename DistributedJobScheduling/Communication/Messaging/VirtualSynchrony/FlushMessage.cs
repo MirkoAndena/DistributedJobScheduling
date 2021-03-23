@@ -3,12 +3,12 @@ using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
+    [JsonObject(MemberSerialization.Fields)]
     public class FlushMessage : Message 
     {
         public ViewChangeMessage.ViewChangeOperation RelatedChangeOperation { get; private set; }
         public Node RelatedChangeNode { get; private set; }
         
-        [JsonConstructor]
         public FlushMessage(Node relatedChangeNode, ViewChangeMessage.ViewChangeOperation relatedChangeOperation) : base() 
         {
             RelatedChangeNode = relatedChangeNode;

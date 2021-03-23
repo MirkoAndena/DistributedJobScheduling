@@ -7,11 +7,11 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
     /// <summary>
     /// Coord message sent from coordinator (elected) to others
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class CoordMessage : Message
     {
         public Node Coordinator { get; private set; }
 
-        [JsonConstructor]
         public CoordMessage(Node me) : base()
         {
             Coordinator = me;

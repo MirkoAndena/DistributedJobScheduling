@@ -3,12 +3,12 @@ using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
+    [JsonObject(MemberSerialization.Fields)]
     public class TemporaryMessage : Message
     {
         public bool IsMulticast { get; private set; }
         public Message UnstablePayload { get; private set; }
 
-        [JsonConstructor]
         //We don't need the timestamper
         public TemporaryMessage(bool isMulticast, Message unstablePayload) : base()
         {

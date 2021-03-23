@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
+    [JsonObject(MemberSerialization.Fields)]
     public class ViewChangeMessage : Message
     {
         public class ViewChange
@@ -31,7 +32,6 @@ namespace DistributedJobScheduling.Communication.Messaging
 
         public ViewChange Change { get; private set; }
 
-        [JsonConstructor]
         public ViewChangeMessage(Node node, ViewChangeOperation operation) : base() 
         {
             Change = new ViewChange

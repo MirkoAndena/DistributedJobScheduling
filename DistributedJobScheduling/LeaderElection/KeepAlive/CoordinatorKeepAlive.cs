@@ -41,6 +41,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         
         public void Start()
         {
+            _logger.Log(Tag.KeepAlive, "Starting coordinator keep alive service...");
             _cancellationTokenSource = new CancellationTokenSource();
             _ticks.Clear();
             _groupManager.View.Others.ForEach(node => _ticks.Add(node, false));

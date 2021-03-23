@@ -25,6 +25,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// <summary>
     ///  Coordinator to InterfaceExecutor, insert response for a job insertion
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class InsertionResponse : Message
     {
         private int _jobID;
@@ -32,7 +33,6 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         public int JobID => _jobID;
         public int RequestID => _requestID;
 
-        [JsonConstructor]
         public InsertionResponse(InsertionRequest request, int jobID, int requestID) : base(request)
         {
             _jobID = jobID;

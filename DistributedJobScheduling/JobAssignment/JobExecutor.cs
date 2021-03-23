@@ -44,6 +44,8 @@ namespace DistributedJobScheduling.JobAssignment
                     UpdateStatus(current, JobStatus.COMPLETED);
                     OnJobCompleted?.Invoke(current, result);
                 }
+                else
+                    return;
             }
         }
 

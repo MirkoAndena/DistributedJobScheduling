@@ -1,30 +1,36 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using DistributedJobScheduling.DependencyInjection;
 
 namespace DistributedJobScheduling.LifeCycle
 {
     public abstract class SystemLifeCycle : ILifeCycle
     {
+        private SemaphoreSlim _terminationSemaphore;
         public static Action Shutdown;
         private List<ILifeCycle> _subSystems;
 
         protected SystemLifeCycle() 
         { 
             _subSystems = new List<ILifeCycle>();
+            _terminationSemaphore = new SemaphoreSlim(0, 1);
         }
 
-        public void Run()
+        public async Task Run()
         {
             Shutdown += delegate 
             { 
                 Stop(); 
-                Destroy(); 
+                _terminationSemaphore.Release();
+                Destroy();
             };
 
             Init();
             InitSubSystems();
             Start();
+            await _terminationSemaphore.WaitAsync();
         } 
 
         public void Init() => CreateSubsystems();

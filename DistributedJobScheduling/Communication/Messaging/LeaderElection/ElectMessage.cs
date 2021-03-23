@@ -6,11 +6,11 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
     /// <summary>
     /// Elect message sent from coordinator candidate to others
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class ElectMessage : Message
     {
         public int ID { get; private set; }
 
-        [JsonConstructor]
         public ElectMessage(int id) : base()
         {
             ID = id;

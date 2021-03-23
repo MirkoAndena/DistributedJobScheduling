@@ -7,11 +7,11 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// <summary>
     /// Coordinator to each Executor, assignment for a job
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class AssignmentMessage : Message
     {
         private Job _job;
 
-        [JsonConstructor]
         public AssignmentMessage(Job job) : base()
         {
             if (!job.ID.HasValue)

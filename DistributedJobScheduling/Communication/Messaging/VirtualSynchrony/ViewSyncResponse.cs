@@ -8,11 +8,11 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// <summary>
     /// Response to a ViewJoinRequest, sent by the coordinator once the join viewchange was handled
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class ViewSyncResponse : Message
     {
         public List<Node> ViewNodes { get; private set; }
 
-        [JsonConstructor]
         public ViewSyncResponse(List<Node> viewNodes) : base() 
         {
             ViewNodes = viewNodes;

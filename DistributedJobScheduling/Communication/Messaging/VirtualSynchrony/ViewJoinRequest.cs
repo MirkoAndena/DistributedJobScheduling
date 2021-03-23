@@ -7,11 +7,11 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// <summary>
     /// Request a group to join, processed only by the coordinator
     /// </summary>
+    [JsonObject(MemberSerialization.Fields)]
     public class ViewJoinRequest : Message
     {
         public Node JoiningNode { get; private set; }
 
-        [JsonConstructor]
         public ViewJoinRequest(Node joiningNode) : base() 
         {
             JoiningNode = joiningNode;
