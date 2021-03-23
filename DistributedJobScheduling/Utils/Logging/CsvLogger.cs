@@ -31,12 +31,7 @@ namespace DistributedJobScheduling.Logging
             if (!File.Exists(_directory))
                 Directory.CreateDirectory(_directory);
             
-            if (!File.Exists(_filepath))
-                using(var writer = File.Create(_filepath))
-                using(var stringWriter = new StreamWriter(writer))
-                {
-                    stringWriter.WriteLine(Compile("Index", "TimeStamp", "Type", "Tag", "Content", "Exception")); 
-                }
+            File.WriteAllText(_filepath, Compile("Index", "TimeStamp", "Type", "Tag", "Content", "Exception"));
             
             _startupTime = DateTime.Now;
             _reusableIndex = new ReusableIndex();
@@ -45,12 +40,12 @@ namespace DistributedJobScheduling.Logging
         private string Compile(params string[] elements)
         {
             StringBuilder stringBuilder = new StringBuilder();
-            return stringBuilder.AppendJoin(_sepatator, elements).ToString();
+            return stringBuilder.AppendJoin(_sepatator, elements).ToString() + Environment.NewLine;
         }
 
         private void Log(LogType type, Tag tag, string content, Exception e)
         {
-            string entry = Compile(_reusableIndex.NewIndex.ToString(), (DateTime.Now - _startupTime).ToString(), type.ToString(), tag.ToString(), content, e?.Message, Environment.NewLine);
+            string entry = Compile(_reusableIndex.NewIndex.ToString(), (DateTime.Now - _startupTime).ToString(), type.ToString(), tag.ToString(), content, e?.Message);
             File.AppendAllText(_filepath, entry);
 
             if (_consoleWrite) 
