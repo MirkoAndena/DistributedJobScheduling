@@ -1,0 +1,1 @@
+docker build -t distributed-job-scheduling -f Dockerfile .

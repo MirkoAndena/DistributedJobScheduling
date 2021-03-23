@@ -1,3 +1,5 @@
+using Newtonsoft.Json;
+
 namespace DistributedJobScheduling.Communication.Basic
 {
     public partial class Node
@@ -5,6 +7,7 @@ namespace DistributedJobScheduling.Communication.Basic
         public string IP { get; private set; }
         public int? ID { get; private set; }
 
+        [JsonConstructor]
         private Node(string ip, int? id = null)
         {
             IP = ip;

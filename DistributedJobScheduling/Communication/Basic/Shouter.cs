@@ -20,6 +20,7 @@ namespace DistributedJobScheduling.Communication.Basic
         private CancellationTokenSource _closeTokenSource;
         private UdpClient _client;
         private ILogger _logger;
+        private IPAddress _multicastGroup;
 
         public Shouter() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
                                 DependencyInjection.DependencyManager.Get<ILogger>()) {}
@@ -40,7 +41,8 @@ namespace DistributedJobScheduling.Communication.Basic
             _client = new UdpClient(new IPEndPoint(IPAddress.Any, PORT));
             _closeTokenSource = new CancellationTokenSource();
             
-            _client.JoinMulticastGroup(IPAddress.Parse(MULTICAST_IP));
+            _multicastGroup = IPAddress.Parse(MULTICAST_IP);
+            _client.JoinMulticastGroup(_multicastGroup);
             _logger.Log(Tag.CommunicationBasic, $"Shouter joined multicast group ({MULTICAST_IP})");
             Receive();
         }
@@ -71,7 +73,7 @@ namespace DistributedJobScheduling.Communication.Basic
         public async Task SendMulticast(Message message)
         {
             byte[] content = message.Serialize();
-            await _client.SendAsync(content, content.Length);
+            await _client.SendAsync(content, content.Length, new IPEndPoint(_multicastGroup, PORT));
             _logger.Log(Tag.CommunicationBasic, $"Sent {content.Length} bytes to MULTICAST");
         }
 

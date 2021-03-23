@@ -1,4 +1,5 @@
 using DistributedJobScheduling.Communication;
+using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.JobAssignment;
 using DistributedJobScheduling.LeaderElection;
@@ -31,6 +32,7 @@ namespace DistributedJobScheduling
         {
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
+            RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
             RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
