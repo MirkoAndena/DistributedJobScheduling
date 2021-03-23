@@ -7,6 +7,7 @@ using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.Storage.SecureStorage;
+using DistributedJobScheduling.VirtualSynchrony;
 using static DistributedJobScheduling.Communication.Basic.Node;
 
 namespace DistributedJobScheduling
@@ -15,7 +16,7 @@ namespace DistributedJobScheduling
     {
         #region Paths
 
-        private const string ROOT = ".";
+        private const string ROOT = "./DataStore/";
         private string JOBS_PATH = $"{ROOT}/jobs.json";
         private string TRANSLATIONTABLE_PATH = $"{ROOT}/translationTable.json";
 
@@ -31,6 +32,7 @@ namespace DistributedJobScheduling
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT));
             RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
+            RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
             RegisterSubSystem<IStore<Jobs>, JsonStore<Jobs>>(new JsonStore<Jobs>(JOBS_PATH));
             JobManager jobManager = new JobManager();

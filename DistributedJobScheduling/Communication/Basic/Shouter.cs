@@ -37,7 +37,7 @@ namespace DistributedJobScheduling.Communication.Basic
             IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
             IPAddress address = host.AddressList[0];
 
-            _client = new UdpClient(new IPEndPoint(address, PORT));
+            _client = new UdpClient(new IPEndPoint(IPAddress.Any, PORT));
             _closeTokenSource = new CancellationTokenSource();
             
             _client.JoinMulticastGroup(IPAddress.Parse(MULTICAST_IP));

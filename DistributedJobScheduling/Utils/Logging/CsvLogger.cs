@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Storage;
 
 namespace DistributedJobScheduling.Logging
 {
@@ -9,6 +10,8 @@ namespace DistributedJobScheduling.Logging
 
     public class CsvLogger : ILogger, IInitializable
     {
+        private DateTime _startupTime;
+        private ReusableIndex _reusableIndex;
         private string _sepatator;
         private string _directory;
         private string _filepath;
@@ -27,9 +30,16 @@ namespace DistributedJobScheduling.Logging
         {
             if (!File.Exists(_directory))
                 Directory.CreateDirectory(_directory);
-
+            
             if (!File.Exists(_filepath))
-                File.Create(_filepath);
+                using(var writer = File.Create(_filepath))
+                using(var stringWriter = new StreamWriter(writer))
+                {
+                    stringWriter.WriteLine(Compile("Index", "TimeStamp", "Type", "Tag", "Content", "Exception")); 
+                }
+            
+            _startupTime = DateTime.Now;
+            _reusableIndex = new ReusableIndex();
         }
 
         private string Compile(params string[] elements)
@@ -40,7 +50,7 @@ namespace DistributedJobScheduling.Logging
 
         private void Log(LogType type, Tag tag, string content, Exception e)
         {
-            string entry = Compile(type.ToString(), tag.ToString(), content, e?.Message);
+            string entry = Compile(_reusableIndex.NewIndex.ToString(), (DateTime.Now - _startupTime).ToString(), type.ToString(), tag.ToString(), content, e?.Message, Environment.NewLine);
             File.AppendAllText(_filepath, entry);
 
             if (_consoleWrite) 
@@ -52,8 +62,11 @@ namespace DistributedJobScheduling.Logging
                 Console.ResetColor();
             }
 
-            string exceptionPath = $"{_directory}/{DateTime.Now.ToString("ddMMyyHHmmssfff")}.txt";
-            File.WriteAllText(exceptionPath, e.StackTrace);
+            if(e != null)
+            {
+                string exceptionPath = $"{_directory}/{DateTime.Now.ToString("ddMMyyHHmmssfff")}.txt";
+                File.WriteAllText(exceptionPath, e.StackTrace);
+            }
         }
 
         public void Error(Tag tag, Exception e) => Log(LogType.ERROR, tag, null, e);

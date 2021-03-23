@@ -18,7 +18,7 @@ namespace DistributedJobScheduling.Storage.SecureStorage
         public void Init()
         {
             if (!File.Exists(_filePath))
-                File.Create(_filePath);
+                File.Create(_filePath).Dispose();
         }
 
         [return: MaybeNull]

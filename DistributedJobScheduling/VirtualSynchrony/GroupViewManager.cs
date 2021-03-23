@@ -22,7 +22,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
     //TODO: Timeouts?
     //TODO: Re-Broadcast messages? This is part of the original algorithm but can we get away with dropping them like we are doing?
     //FIXME: Resource Locks? Messages are asynchronous, some blocks should have mutual exclusion
-    public class GroupViewManager : IGroupViewManager, ILifeCycle
+    public class GroupViewManager : IGroupViewManager, IStartable
     {
         public int JoinRequestTimeout { get; set; } = 5000;
         private class MulticastNotDeliveredException : Exception {}
@@ -479,10 +479,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     _joinRequestCancellation.Cancel();
             }
-        }
-
-        public void Init()
-        {
         }
 
         public async void Start()

@@ -32,14 +32,14 @@ namespace DistributedJobScheduling.DependencyInjection
             if(serviceType == ServiceType.Singleton)
                 RegisterSingletonServiceInstance<IT, T>(Activator.CreateInstance<T>());
             else
-                _statefullServiceTypes.Add(typeof(T), typeof(IT));
+                _statefullServiceTypes.Add(typeof(IT), typeof(T));
         }
 
         public void RegisterSingletonServiceInstance<IT, T>(T dependencyService)
             where T : IT
         {
-            if(!_singleInstanceServices.ContainsKey(typeof(T)))
-                _singleInstanceServices.Add(typeof(T), dependencyService);
+            if(!_singleInstanceServices.ContainsKey(typeof(IT)))
+                _singleInstanceServices.Add(typeof(IT), dependencyService);
         }
 
         public static T Get<T>() => Instance.GetService<T>();
