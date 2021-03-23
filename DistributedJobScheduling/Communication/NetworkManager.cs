@@ -30,7 +30,7 @@ namespace DistributedJobScheduling.Communication
         public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger)
         {
             _logger = logger;
-            _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeID"));
+            _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeId"));
 
             _sendOrdering = new FIFOMessageOrdering(logger);
             _speakers = new Dictionary<Node, Speaker>();
@@ -90,14 +90,15 @@ namespace DistributedJobScheduling.Communication
 
         public async Task SendMulticast(Message message)
         {
+            message.SenderID = _me.ID;
             await _sendOrdering.OrderedExecute(message, () => _shouter.SendMulticast(message));
         }
 
         public void Start()
         {
+            _listener.Start();
             _speakers.Clear();
             _shouter.Start();
-            _listener.Start();
         }
         
         public void Stop() 

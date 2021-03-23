@@ -1,4 +1,5 @@
 using DistributedJobScheduling.Communication.Basic;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
@@ -13,10 +14,11 @@ namespace DistributedJobScheduling.Communication.Messaging
     public class NotInViewMessage : Message
     {
         public int MyViewSize { get; private set; }
-
-        public NotInViewMessage(int viewSize) : base()
+        
+        [JsonConstructor]
+        public NotInViewMessage(int myViewSize) : base()
         {
-            MyViewSize = viewSize;
+            MyViewSize = myViewSize;
         }
     }
 }

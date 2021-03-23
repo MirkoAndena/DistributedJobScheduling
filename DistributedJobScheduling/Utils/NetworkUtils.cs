@@ -8,10 +8,4 @@ public static class NetworkUtils
         IPEndPoint endpoint = client.Client.RemoteEndPoint as IPEndPoint;
         return endpoint.Address.MapToIPv4().ToString();
     }
-
-    public static string GetRemoteIP(UdpClient client)
-    {
-        IPEndPoint endpoint = client.Client.RemoteEndPoint as IPEndPoint;
-        return endpoint.Address.MapToIPv4().ToString();
-    }
 }

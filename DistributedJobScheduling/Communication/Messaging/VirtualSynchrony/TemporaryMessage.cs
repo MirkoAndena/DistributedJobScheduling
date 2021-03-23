@@ -1,4 +1,5 @@
 using DistributedJobScheduling.Communication.Basic;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
@@ -7,12 +8,13 @@ namespace DistributedJobScheduling.Communication.Messaging
         public bool IsMulticast { get; private set; }
         public Message UnstablePayload { get; private set; }
 
+        [JsonConstructor]
         //We don't need the timestamper
-        public TemporaryMessage(bool isMulticast, Message unstableMessage) : base()
+        public TemporaryMessage(bool isMulticast, Message unstablePayload) : base()
         {
             IsMulticast = isMulticast;
-            UnstablePayload = unstableMessage;
-            unstableMessage.Bind(this);
+            UnstablePayload = unstablePayload;
+            UnstablePayload.Bind(this);
         }
 
         public override Message ApplyStamp(ITimeStamper timeStamper)

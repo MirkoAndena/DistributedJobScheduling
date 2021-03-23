@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
@@ -11,10 +12,12 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public List<Node> ViewNodes { get; private set; }
 
+        [JsonConstructor]
         public ViewSyncResponse(List<Node> viewNodes) : base() 
         {
             ViewNodes = viewNodes;
         }
+        
         public override void BindToRegistry(Node.INodeRegistry registry)
         {
             base.BindToRegistry(registry);

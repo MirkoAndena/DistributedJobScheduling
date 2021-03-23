@@ -42,6 +42,7 @@ namespace DistributedJobScheduling.Communication.Basic
             _closeTokenSource = new CancellationTokenSource();
             
             _multicastGroup = IPAddress.Parse(MULTICAST_IP);
+            _client.MulticastLoopback = false;
             _client.JoinMulticastGroup(_multicastGroup);
             _logger.Log(Tag.CommunicationBasic, $"Shouter joined multicast group ({MULTICAST_IP})");
             Receive();
@@ -55,8 +56,8 @@ namespace DistributedJobScheduling.Communication.Basic
                 {
                     UdpReceiveResult result = await _client.ReceiveAsync();
                     Message message = Message.Deserialize<Message>(result.Buffer);
-                    Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(_client));
-                    _logger.Log(Tag.CommunicationBasic, $"Received {result.Buffer.Length} bytes from MULTICAST");
+                    Node remote = _nodeRegistry.GetOrCreate(ip: result.RemoteEndPoint.Address.ToString(), id: message.SenderID);
+                    _logger.Log(Tag.CommunicationBasic, $"Received {result.Buffer.Length} bytes from MULTICAST ({remote.IP}/{remote.ID})");
                     OnMessageReceived?.Invoke(remote, message);
                 }
             }

@@ -1,4 +1,5 @@
 using DistributedJobScheduling.Communication.Basic;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
@@ -30,6 +31,7 @@ namespace DistributedJobScheduling.Communication.Messaging
 
         public ViewChange Change { get; private set; }
 
+        [JsonConstructor]
         public ViewChangeMessage(Node node, ViewChangeOperation operation) : base() 
         {
             Change = new ViewChange

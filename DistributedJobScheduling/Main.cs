@@ -27,7 +27,8 @@ namespace DistributedJobScheduling
             
             if (!isId) return false;
             
-            config.SetValue<int>("nodeId", id);
+            Console.WriteLine($"Configuration nodeId: {id}");
+            config.SetValue<int?>("nodeId", id);
             config.SetValue<bool>("coordinator", coordinator);
             return true;
         }

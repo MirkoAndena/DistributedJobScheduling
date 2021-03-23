@@ -1,5 +1,6 @@
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
@@ -10,9 +11,10 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public Node JoiningNode { get; private set; }
 
-        public ViewJoinRequest(Node node) : base() 
+        [JsonConstructor]
+        public ViewJoinRequest(Node joiningNode) : base() 
         {
-            JoiningNode = node;
+            JoiningNode = joiningNode;
         }
 
         public override void BindToRegistry(Node.INodeRegistry registry)

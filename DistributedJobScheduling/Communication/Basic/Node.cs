@@ -1,7 +1,9 @@
+using System;
 using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
+    [Serializable]
     public partial class Node
     {
         public string IP { get; private set; }

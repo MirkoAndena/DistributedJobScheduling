@@ -1,4 +1,5 @@
 using DistributedJobScheduling.Communication.Basic;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
@@ -7,10 +8,11 @@ namespace DistributedJobScheduling.Communication.Messaging
         public ViewChangeMessage.ViewChangeOperation RelatedChangeOperation { get; private set; }
         public Node RelatedChangeNode { get; private set; }
         
-        public FlushMessage(Node node, ViewChangeMessage.ViewChangeOperation viewChange) : base() 
+        [JsonConstructor]
+        public FlushMessage(Node relatedChangeNode, ViewChangeMessage.ViewChangeOperation relatedChangeOperation) : base() 
         {
-            RelatedChangeNode = node;
-            RelatedChangeOperation = viewChange;
+            RelatedChangeNode = relatedChangeNode;
+            RelatedChangeOperation = relatedChangeOperation;
         }
 
         public override void BindToRegistry(Node.INodeRegistry registry)

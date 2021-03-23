@@ -26,7 +26,7 @@ namespace DistributedJobScheduling.Communication.Basic
         public Listener(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger)
         {
             _nodeRegistry = nodeRegistry;
-            _myID = configurationService.GetValue<int>("nodeID");
+            _myID = configurationService.GetValue<int>("nodeId");
             _logger = logger;
         }
 
