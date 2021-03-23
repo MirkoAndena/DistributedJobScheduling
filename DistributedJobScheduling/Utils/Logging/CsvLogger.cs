@@ -53,7 +53,7 @@ namespace DistributedJobScheduling.Logging
                 if (type == LogType.WARNING) Console.ForegroundColor = ConsoleColor.DarkYellow;
                 if (type == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
                 if (type == LogType.FATAL) Console.ForegroundColor = ConsoleColor.Magenta;
-                Console.WriteLine(entry);
+                Console.Write(entry);
                 Console.ResetColor();
             }
 

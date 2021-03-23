@@ -69,9 +69,9 @@ namespace DistributedJobScheduling.DistributedStorage
             workersKeepAlive.Start();
             coordinatorKeepAlive.Start();
 
-            Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => KillNode(_diedNode));
+            Task.Delay(TimeSpan.FromSeconds(20)).ContinueWith(t => KillNode(_diedNode));
 
-            await Task.Delay(TimeSpan.FromSeconds(120)).ContinueWith(t => 
+            await Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(t => 
             {
                 workersKeepAlive.Stop();
                 coordinatorKeepAlive.Stop();
