@@ -99,7 +99,7 @@ namespace DistributedJobScheduling.Tests
         {
             using(StubNetworkBus networkBus = new StubNetworkBus(new Random().Next()))
             {
-                FakeNode[] nodes = new FakeNode[10];
+                FakeNode[] nodes = new FakeNode[5];
                 int joinTimeout = 100; //ms
                 int startupTime = 50;
 
@@ -112,8 +112,8 @@ namespace DistributedJobScheduling.Tests
                     Task completed;
                     await Task.WhenAll(
                         NodeToolkit.StartSequence(nodes, startupTime),
-                        Task.WhenAny(completed = Task.WhenAll(joinAwaiters))//, 
-                                    //Task.Delay(Math.Max(nodes.Length * joinTimeout * 10, startupTime*nodes.Length + joinTimeout * 10))) //Worst Case delay
+                        Task.WhenAny(completed = Task.WhenAll(joinAwaiters), 
+                                    Task.Delay(Math.Max(nodes.Length * joinTimeout * 10, startupTime*nodes.Length + joinTimeout * 10))) //Worst Case delay
                     );
 
                     if(completed.IsCompleted)

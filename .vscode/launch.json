@@ -13,7 +13,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "OS-COMMENT4": "If you have changed target frameworks, make sure to update the program path.",
-            "program": "${workspaceFolder}/DistributedJobScheduling/bin/Debug/net5.0/DistributedJobScheduling.dll",
+            "program": "${workspaceFolder}/DistributedJobScheduling/bin/Debug/netcoreapp3.1/DistributedJobScheduling.dll",
             "args": [],
             "cwd": "${workspaceFolder}/DistributedJobScheduling",
             "OS-COMMENT5": "For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console",

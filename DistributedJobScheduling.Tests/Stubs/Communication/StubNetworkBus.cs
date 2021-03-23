@@ -193,7 +193,7 @@ namespace DistributedJobScheduling.Tests.Communication
             //await Task.Delay(1);
 
             //Emulate latency and out of order receive
-            Parallel.ForEach(nodesToSendTo, x => {
+            nodesToSendTo.ForEach(x => {
                 Console.WriteLine($"{from} attempting to {x} for {message.TimeStamp} {message}");
                 StubLink selectedLink = null;
                 (string,string) linkKey = (from.IP, x);
