@@ -1,3 +1,4 @@
+using System.Reflection.PortableExecutable;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -19,6 +20,7 @@ namespace DistributedJobScheduling.Communication
         private Node _me;
         private ILogger _logger;
         private IMessageOrdering _sendOrdering;
+        private Node.INodeRegistry _registry;
 
         public ITopicOutlet Topics { get; private set; }
 
@@ -29,6 +31,7 @@ namespace DistributedJobScheduling.Communication
                                        DependencyInjection.DependencyManager.Get<ILogger>()) {}
         public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger)
         {
+            _registry = nodeRegistry;
             _logger = logger;
             _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeId"));
 
@@ -42,7 +45,7 @@ namespace DistributedJobScheduling.Communication
             _shouter = new Shouter();
             _shouter.OnMessageReceived += _OnMessageReceived;
             _listener = new Listener();
-            _listener.OnSpeakerCreated += OnSpeakerCreated;
+            _listener.SpeakerCreated += OnSpeakerCreated;
         }
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
@@ -72,6 +75,9 @@ namespace DistributedJobScheduling.Communication
 
         private void _OnMessageReceived(Node node, Message message)
         {
+            if (!node.ID.HasValue && message.SenderID.HasValue)
+                _registry.UpdateNodeID(node, message.SenderID.Value);
+
             OnMessageReceived?.Invoke(node, message);
         }
 
@@ -121,7 +127,7 @@ namespace DistributedJobScheduling.Communication
         public void Stop() 
         {
             _shouter.OnMessageReceived -= _OnMessageReceived;
-            _listener.OnSpeakerCreated -= OnSpeakerCreated;
+            _listener.SpeakerCreated -= OnSpeakerCreated;
 
             _shouter.Stop();
             _listener.Stop();

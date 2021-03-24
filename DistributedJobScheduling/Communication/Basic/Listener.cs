@@ -16,7 +16,7 @@ namespace DistributedJobScheduling.Communication.Basic
         public const int PORT = 30308;
         private TcpListener _listener;
         private CancellationTokenSource _cancellationTokenSource;
-        public event Action<Node, Speaker> OnSpeakerCreated;
+        public event Action<Node, Speaker> SpeakerCreated;
         private int _myID;
         protected ILogger _logger;
 
@@ -68,7 +68,7 @@ namespace DistributedJobScheduling.Communication.Basic
                     Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(client));
                     _logger.Log(Tag.CommunicationBasic, $"Accepted connection request to {remote}");
                     Speaker speaker = new Speaker(client, remote);
-                    OnSpeakerCreated?.Invoke(remote, speaker);
+                    SpeakerCreated?.Invoke(remote, speaker);
                 }
             }
             catch when (token.IsCancellationRequested) { }
