@@ -15,6 +15,7 @@ namespace DistributedJobScheduling.JobAssignment
         private CancellationTokenSource _cancellationTokenSource;
         private ILogger _logger;
         private JobManager _storage;
+        private SemaphoreSlim _semaphore;
         public Action<Job, IJobResult> OnJobCompleted;
 
         public JobExecutor(JobManager storage) : this (storage, DependencyInjection.DependencyManager.Get<ILogger>()) {}
@@ -22,38 +23,46 @@ namespace DistributedJobScheduling.JobAssignment
         {
             _storage = storage;
             _logger = logger;
+            _semaphore = new SemaphoreSlim(0, 1);
         }
 
         public void Stop() => _cancellationTokenSource?.Cancel();
-        
+
         public async void Start()
         {
             _cancellationTokenSource = new CancellationTokenSource();
-            while (!_cancellationTokenSource.Token.IsCancellationRequested)
+
+            Action findAndExecute = async () => 
             {
-                Job current = _storage.FindJobToExecute();
-                if (current != null)
+                while (!_cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    _logger.Log(Tag.JobExecutor, $"Start to execute job {current}");
-                    UpdateStatus(current, JobStatus.RUNNING);
-                    
-                    IJobResult result = await RunJob(current);
-                    if (result == null) return;
-                    
-                    _logger.Log(Tag.JobExecutor, $"Job {current} has been executed");
-                    UpdateStatus(current, JobStatus.COMPLETED);
-                    OnJobCompleted?.Invoke(current, result);
+                    //_logger.Log(Tag.JobExecutor, $"Finding a new job to execute");
+                    Job current = _storage.FindJobToExecute();
+                    if (current != null)
+                        await ExecuteJob(current);
                 }
-                else
-                    return;
-            }
+            };
+
+            Task.Run(findAndExecute, _cancellationTokenSource.Token);
+        }
+
+        private async Task ExecuteJob(Job current)
+        {
+            _logger.Log(Tag.JobExecutor, $"Start to execute job {current}");
+            UpdateStatus(current, JobStatus.RUNNING);
+            
+            IJobResult result = await RunJob(current);
+            if (result == null) return;
+            
+            _logger.Log(Tag.JobExecutor, $"Job {current} has been executed");
+            UpdateStatus(current, JobStatus.COMPLETED);
+            OnJobCompleted?.Invoke(current, result);
         }
 
         private void UpdateStatus(Job job, JobStatus status)
         {
             job.Status = status;
             _storage.UpdateJob?.Invoke(job);
-            _logger.Log(Tag.JobExecutor, $"Job {job} RUNNING");
         }
 
         private async Task<IJobResult> RunJob(Job job)

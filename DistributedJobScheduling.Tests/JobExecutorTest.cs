@@ -23,8 +23,9 @@ namespace DistributedJobScheduling.Tests
         }
 
         [Fact]
-        public void JobRun()
+        public async void JobRun()
         {
+            bool executed = false;
             _store.InsertAndAssign(new TimeoutJob(1));
             _store.InsertAndAssign(new TimeoutJob(1));
             _store.InsertAndAssign(new TimeoutJob(1));
@@ -32,9 +33,14 @@ namespace DistributedJobScheduling.Tests
             _executor.OnJobCompleted += (job, result) => 
             {
                 Assert.True(((BooleanJobResult)result).Value);
+                executed = true;
             };
             _executor.Start();
-            Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(t => _executor.Stop());
+            await Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => 
+            {
+                _executor.Stop();
+                Assert.True(executed);
+            });
         }
     }
 }
