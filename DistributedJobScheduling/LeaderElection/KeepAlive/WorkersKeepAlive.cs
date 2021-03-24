@@ -40,7 +40,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 .ContinueWith(t => TimeoutFinished());
         }
 
-        public void Stop() => _cancellationTokenSource.Cancel();
+        public void Stop() => _cancellationTokenSource?.Cancel();
 
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {

@@ -22,6 +22,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         public KeepAliveManager() : this (
             DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
             DependencyInjection.DependencyManager.Get<ILogger>()) {}
+
         public KeepAliveManager(IGroupViewManager group, ILogger logger)
         {
             if (group.View.ImCoordinator)
@@ -51,7 +52,10 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 initializable.Init();
         }
 
-        public void Start() => _keepAlive.Start();
+        public void Start()
+        {
+            // First start is not needed
+        }
 
         public void Stop() => _keepAlive.Stop();
     }

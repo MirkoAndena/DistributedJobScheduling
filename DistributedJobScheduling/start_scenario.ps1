@@ -1,7 +1,9 @@
 $nodes = 10
-if ($args.count > 0) {
+if ($args.Count -gt 0) {
     $nodes = $args[0]
 }
+
+Write-Host 'Creation of' $nodes 'machines'
 
 $initiatorIndex = 0 #No Initiator is negative
 $nodeContainers = New-Object string[] $nodes
