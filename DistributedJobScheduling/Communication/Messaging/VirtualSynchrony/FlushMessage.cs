@@ -9,6 +9,7 @@ namespace DistributedJobScheduling.Communication.Messaging
         public ViewChangeMessage.ViewChangeOperation RelatedChangeOperation { get; private set; }
         public Node RelatedChangeNode { get; private set; }
         
+        [JsonConstructor]
         public FlushMessage(Node relatedChangeNode, ViewChangeMessage.ViewChangeOperation relatedChangeOperation) : base() 
         {
             RelatedChangeNode = relatedChangeNode;

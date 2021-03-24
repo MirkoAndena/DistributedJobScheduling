@@ -12,6 +12,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public Node JoiningNode { get; private set; }
 
+        [JsonConstructor]
         public ViewJoinRequest(Node joiningNode) : base() 
         {
             JoiningNode = joiningNode;

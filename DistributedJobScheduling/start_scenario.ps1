@@ -1,11 +1,13 @@
 $nodes = 10
+$initiatorIndex = 0 #No Initiator is negative
 if ($args.Count -gt 0) {
     $nodes = $args[0]
+    $initiatorIndex = $args[1]
 }
 
 Write-Host 'Creation of' $nodes 'machines'
 
-$initiatorIndex = 0 #No Initiator is negative
+
 $nodeContainers = New-Object string[] $nodes
 For ($i=0; $i -lt $nodeContainers.Count; $i++) {
     $nodeDirectory = $(Get-Location).tostring() + "/ExecutorsStorage/node_" + $i

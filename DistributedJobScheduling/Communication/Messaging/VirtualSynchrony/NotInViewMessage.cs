@@ -16,6 +16,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public int MyViewSize { get; private set; }
         
+        [JsonConstructor]
         public NotInViewMessage(int myViewSize) : base()
         {
             MyViewSize = myViewSize;

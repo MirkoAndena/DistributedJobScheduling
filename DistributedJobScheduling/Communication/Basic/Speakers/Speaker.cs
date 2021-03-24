@@ -1,3 +1,4 @@
+using System.IO;
 using System;
 using System.Net.Sockets;
 using System.Text;
@@ -7,6 +8,7 @@ using Newtonsoft.Json;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.DependencyInjection;
 using DistributedJobScheduling.LifeCycle;
+using System.Collections.Generic;
 
 namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
@@ -15,6 +17,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         public bool IsConnected => _client.Connected;
         protected TcpClient _client;
         protected NetworkStream _stream;
+        protected MemoryStream _memoryStream;
+        protected byte[] _partialBuffer;
+        protected int _lastTerminatorIndex;
 
         private CancellationTokenSource _sendToken;
         private CancellationTokenSource _receiveToken;
@@ -32,6 +37,8 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             _logger = logger;
             _client = client;
             _remote = remote;
+            _partialBuffer = new byte[4096];
+            _memoryStream = new MemoryStream();
             _sendToken = new CancellationTokenSource();
             _receiveToken = new CancellationTokenSource();
             _globalReceiveToken = new CancellationTokenSource();
@@ -55,14 +62,36 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
         }
 
-        private async Task<T> Receive<T>() where T: Message
+        private async Task<List<T>> Receive<T>() where T: Message
         {
             try
             {
-                byte[] bytes = new byte[1024];
-                int bytesRed = await _stream.ReadAsync(bytes, 0, bytes.Length, _receiveToken.Token);
-                _logger.Log(Tag.CommunicationBasic, $"Received {bytesRed} bytes from {_remote}");
-                return Message.Deserialize<T>(bytes);
+                byte[] fullMessage = null;
+                int bytesReceived = await _stream.ReadAsync(_partialBuffer, 0, _partialBuffer.Length, _receiveToken.Token);
+                if(bytesReceived > 0)
+                {
+                    _lastTerminatorIndex = Array.LastIndexOf(_partialBuffer, ((byte)'\0'), bytesReceived - 1, bytesReceived);
+                    _logger.Log(Tag.CommunicationBasic, $"Expecting {bytesReceived} bytes from {_remote} and terminator at {_lastTerminatorIndex}");
+                    if(_lastTerminatorIndex >= 0)
+                    {
+                        //New Message Completed
+                        await _memoryStream.WriteAsync(_partialBuffer, 0, _lastTerminatorIndex + 1, _receiveToken.Token);
+                        fullMessage = _memoryStream.ToArray();
+                        await _memoryStream.DisposeAsync();
+                        _memoryStream = new MemoryStream();
+                        await _memoryStream.WriteAsync(_partialBuffer, _lastTerminatorIndex, bytesReceived - _lastTerminatorIndex + 1, _receiveToken.Token);
+                        _logger.Log(Tag.CommunicationBasic, $"Received {fullMessage.Length} bytes from {_remote}");
+                        return ParseMessages<T>(fullMessage);
+                    }
+                    else
+                    {
+                        //Partial message, continue
+                        await _memoryStream.WriteAsync(_partialBuffer, 0, bytesReceived, _receiveToken.Token);
+                        return null;
+                    }
+                }
+                else
+                    return null;
             }
             catch (Exception e)
             {
@@ -72,14 +101,29 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
         }
 
+        private List<T> ParseMessages<T>(byte[] byteStream) 
+            where T : Message
+        {
+            List<T> detectedMessages = new List<T>(1);
+            int terminator = byteStream.Length;
+            int lastTerminator = 0;
+            do {
+                terminator = Array.IndexOf(byteStream[lastTerminator..], (byte)'\0');
+                detectedMessages.Add(Message.Deserialize<T>(byteStream[lastTerminator..terminator]));
+                lastTerminator = terminator;
+            } while(terminator < byteStream.Length - 1);
+            return detectedMessages;
+        }
+
         public async void Start()
         {
             while(!_globalReceiveToken.Token.IsCancellationRequested)
             {
                 try
                 {
-                    Message response = await Receive<Message>();
-                    OnMessageReceived?.Invoke(_remote, response);
+                    List<Message> response = await Receive<Message>();
+                    if(response != null)
+                        response.ForEach(message => OnMessageReceived?.Invoke(_remote, message));
                 }
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 
@@ -99,6 +143,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             {
                 byte[] bytes = message.Serialize();
                 await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
+                await _stream.FlushAsync(_sendToken.Token);
                 _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
             }
             catch (Exception e)

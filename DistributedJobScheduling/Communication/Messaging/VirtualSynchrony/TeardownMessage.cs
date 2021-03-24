@@ -9,6 +9,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     [JsonObject(MemberSerialization.Fields)]
     public class TeardownMessage : Message
     {
+        [JsonConstructor]
         public TeardownMessage() : base()
         {
         }

@@ -13,6 +13,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     {
         public List<Node> ViewNodes { get; private set; }
 
+        [JsonConstructor]
         public ViewSyncResponse(List<Node> viewNodes) : base() 
         {
             ViewNodes = viewNodes;

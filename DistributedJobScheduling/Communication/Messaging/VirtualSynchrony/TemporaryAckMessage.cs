@@ -9,6 +9,7 @@ namespace DistributedJobScheduling.Communication.Messaging
         public int OriginalSenderID { get; private set; }
         public int OriginalTimestamp { get; private set; }
 
+        [JsonConstructor]
         public TemporaryAckMessage(int originalSenderID, int originalTimestamp) : base() 
         { 
             OriginalSenderID = originalSenderID; //AckMessages need to have a sender and TimeStamp
