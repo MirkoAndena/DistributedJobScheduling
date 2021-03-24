@@ -41,9 +41,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void Restart()
         {
-            Stop();
+            _keepAlive.Stop();
             Init();
-            Start();
+            _keepAlive.Start();
         }
 
         public void Init()

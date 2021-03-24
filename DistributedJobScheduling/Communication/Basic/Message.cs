@@ -4,6 +4,7 @@ using DistributedJobScheduling.Communication.Messaging;
 using Newtonsoft.Json;
 using static DistributedJobScheduling.Communication.Basic.Node;
 
+//TODO: Byte serialize instead of json
 namespace DistributedJobScheduling.Communication.Basic
 {
     /// <summary>

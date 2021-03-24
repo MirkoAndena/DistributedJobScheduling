@@ -70,8 +70,17 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 int bytesReceived = await _stream.ReadAsync(_partialBuffer, 0, _partialBuffer.Length, _receiveToken.Token);
                 if(bytesReceived > 0)
                 {
-                    _lastTerminatorIndex = Array.LastIndexOf(_partialBuffer, ((byte)'\0'), bytesReceived - 1, bytesReceived);
+                    //TODO: Restore LastIndexOf
+                    _lastTerminatorIndex = -1;
+                    for(int i = bytesReceived - 1; i >= 0; i--)
+                        if(_partialBuffer[i] == '\0')
+                        {
+                            _lastTerminatorIndex = i;
+                            break;
+                        }
+                    
                     _logger.Log(Tag.CommunicationBasic, $"Expecting {bytesReceived} bytes from {_remote} and terminator at {_lastTerminatorIndex}");
+                    _logger.Log(Tag.CommunicationBasic, Encoding.UTF8.GetString(_partialBuffer));
                     if(_lastTerminatorIndex >= 0)
                     {
                         //New Message Completed
@@ -79,8 +88,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                         fullMessage = _memoryStream.ToArray();
                         await _memoryStream.DisposeAsync();
                         _memoryStream = new MemoryStream();
-                        await _memoryStream.WriteAsync(_partialBuffer, _lastTerminatorIndex, bytesReceived - _lastTerminatorIndex + 1, _receiveToken.Token);
+                        await _memoryStream.WriteAsync(_partialBuffer, _lastTerminatorIndex + 1, bytesReceived - (_lastTerminatorIndex + 1), _receiveToken.Token);
                         _logger.Log(Tag.CommunicationBasic, $"Received {fullMessage.Length} bytes from {_remote}");
+                        _logger.Log(Tag.CommunicationBasic, $"Parsing fullMessage: {Encoding.UTF8.GetString(fullMessage)}");
                         return ParseMessages<T>(fullMessage);
                     }
                     else
@@ -143,6 +153,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             {
                 byte[] bytes = message.Serialize();
                 await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
+                await _stream.WriteAsync(new byte[] { (byte)'\0' }, _sendToken.Token);
                 await _stream.FlushAsync(_sendToken.Token);
                 _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
             }
