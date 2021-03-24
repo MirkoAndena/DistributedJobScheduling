@@ -1,7 +1,12 @@
-$initiatorContainer = docker run -d distributed-job-scheduling 0 coordinator
+$initiatorIndex = 0 #No Initiator is negative
 $nodeContainers = New-Object string[] 10
 For ($i=0; $i -lt $nodeContainers.Count; $i++) {
-    $nodeContainers[$i] = docker run -d distributed-job-scheduling $i
+    $nodeDirectory = $(Get-Location).tostring() + "/ExecutorsStorage/node_" + $i
+    $toExecute = 'docker run --mount src="' + $nodeDirectory + '",target=/app/DataStore,type=bind --restart=on-failure -d distributed-job-scheduling ' + $i
+    if ($i -eq $initiatorIndex) {
+        $toExecute += " coordinator"
+    }
+    $nodeContainers[$i] = Invoke-Expression($toExecute)
 }
 
 Write-Host -NoNewLine 'Press any key to kill...';
