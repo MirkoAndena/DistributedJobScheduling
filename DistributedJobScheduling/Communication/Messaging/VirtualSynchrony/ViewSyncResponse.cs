@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
@@ -9,6 +10,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// Response to a ViewJoinRequest, sent by the coordinator once the join viewchange was handled
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class ViewSyncResponse : Message
     {
         public List<Node> ViewNodes { get; private set; }

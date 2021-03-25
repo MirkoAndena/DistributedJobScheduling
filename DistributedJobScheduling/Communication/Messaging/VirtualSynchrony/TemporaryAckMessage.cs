@@ -1,9 +1,11 @@
+using System;
 using DistributedJobScheduling.Communication.Basic;
 using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging
 {
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class TemporaryAckMessage : Message
     {
         public int OriginalSenderID { get; private set; }

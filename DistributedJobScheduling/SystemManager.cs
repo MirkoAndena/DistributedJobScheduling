@@ -40,10 +40,10 @@ namespace DistributedJobScheduling
             RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager(byteSerializer));
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
-            RegisterSubSystem<IStore<Jobs>, JsonStore<Jobs>>(new JsonStore<Jobs>(JOBS_PATH, jsonSerializer));
+            RegisterSubSystem<IStore<Jobs>, FileStore<Jobs>>(new FileStore<Jobs>(JOBS_PATH, jsonSerializer));
             JobManager jobManager = new JobManager();
             RegisterSubSystem<JobManager>(jobManager);
-            RegisterSubSystem<IStore<Table>, JsonStore<Table>>(new JsonStore<Table>(TRANSLATIONTABLE_PATH, jsonSerializer));
+            RegisterSubSystem<IStore<Table>, FileStore<Table>>(new FileStore<Table>(TRANSLATIONTABLE_PATH, jsonSerializer));
             TranslationTable translationTable = new TranslationTable();
             RegisterSubSystem<TranslationTable>(translationTable);
 

@@ -1,3 +1,4 @@
+using System;
 using DistributedJobScheduling.Communication.Basic;
 using Newtonsoft.Json;
 
@@ -12,6 +13,7 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// Data might be lost in this operation (this situation is assumed to never occur)
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class NotInViewMessage : Message
     {
         public int MyViewSize { get; private set; }

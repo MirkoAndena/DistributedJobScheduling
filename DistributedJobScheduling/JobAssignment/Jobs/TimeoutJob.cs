@@ -13,6 +13,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
         }
     }
 
+    [Serializable]
     public class TimeoutJob : Job
     {
         private int _seconds;

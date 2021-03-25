@@ -9,38 +9,48 @@ using Xunit;
 namespace DistributedJobScheduling.DistributedStorage
 {
     public class SerializationTest
-    {    
-        JsonSerializer jsonSerializer;
+    {
 
-        public SerializationTest()
+        [Fact]
+        public void JsonSerializerTest()
         {
-            jsonSerializer = new JsonSerializer();
+            JsonSerializer serializer = new JsonSerializer();
+            KeepAliveRequestSerialization(serializer);
+            InsertionRequestSerialization(serializer);
         }
 
         [Fact]
-        public void KeepAliveRequestSerialization()
+        public void ByteSerializerTest()
+        {
+            ByteSerializer serializer = new ByteSerializer();
+            KeepAliveRequestSerialization(serializer);
+            InsertionRequestSerialization(serializer);
+        }
+
+        public void KeepAliveRequestSerialization(ISerializer serializer)
         {
             Message message = new KeepAliveRequest();
-            byte[] serialized = jsonSerializer.Serialize(message);
-            Message deserialized = jsonSerializer.Deserialize<KeepAliveRequest>(serialized);
+            byte[] serialized = serializer.Serialize(message);
+            Message deserialized = serializer.Deserialize<KeepAliveRequest>(serialized);
             Assert.True(deserialized is KeepAliveRequest);
         }
 
-        [Fact]
-        public void InsertionRequestSerialization()
+        public void InsertionRequestSerialization(ISerializer serializer)
         {
-            string ip = "198.168.1.54";
-            int id = 7262;
+            int nodeId = 7262;
             int requestId = 15272;
-            Node node = new Node.NodeRegistryService().GetOrCreate(ip, id);
+            int jobId = 2432;
+            Node node = new Node.NodeRegistryService().GetOrCreate("198.168.1.54", nodeId);
             Job job = new TimeoutJob(0);
-            job.ID = 2432;
+            job.ID = jobId;
             job.Node = node.ID;
             Message message = new InsertionRequest(job, requestId);
-            byte[] serialized = jsonSerializer.Serialize(message);
-            InsertionRequest deserialized = jsonSerializer.Deserialize<InsertionRequest>(serialized);
+            byte[] serialized = serializer.Serialize(message);
+            InsertionRequest deserialized = serializer.Deserialize<InsertionRequest>(serialized);
 
             Assert.Equal(deserialized.RequestID, requestId);
+            Assert.Equal(deserialized.Job.ID.Value, jobId);
+            Assert.Equal(deserialized.Job.Node.Value, nodeId);
         }
     }
 }

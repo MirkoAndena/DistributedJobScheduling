@@ -1,3 +1,4 @@
+using System;
 using DistributedJobScheduling.Communication.Basic;
 using Newtonsoft.Json;
 
@@ -7,6 +8,7 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
     /// Elect message sent from coordinator candidate to others
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class ElectMessage : Message
     {
         public int ID { get; private set; }

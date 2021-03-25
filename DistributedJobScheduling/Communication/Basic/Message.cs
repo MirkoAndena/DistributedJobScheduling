@@ -11,6 +11,7 @@ namespace DistributedJobScheduling.Communication.Basic
     /// Implement the Scalar Clock
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public abstract class Message
     {
         public int? TimeStamp => _messageID;

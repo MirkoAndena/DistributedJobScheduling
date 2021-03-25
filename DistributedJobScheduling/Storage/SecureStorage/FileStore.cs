@@ -7,12 +7,12 @@ using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Storage.SecureStorage
 {
-    public class JsonStore<T> : IStore<T>, IInitializable
+    public class FileStore<T> : IStore<T>, IInitializable
     {
         private string _filePath;
         private ISerializer _serializer;
 
-        public JsonStore(string filepath, ISerializer serializer)
+        public FileStore(string filepath, ISerializer serializer)
         {
             _filePath = filepath;
             _serializer = serializer;

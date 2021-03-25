@@ -1,3 +1,4 @@
+using System;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using Newtonsoft.Json;
@@ -7,6 +8,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// <summary>
     /// InterfaceExecutor to Coordinator, insert request for a job
     /// </summary>
+    [Serializable]
     public class InsertionRequest : Message
     {
         private Job _job;
@@ -26,6 +28,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     ///  Coordinator to InterfaceExecutor, insert response for a job insertion
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class InsertionResponse : Message
     {
         private int _jobID;

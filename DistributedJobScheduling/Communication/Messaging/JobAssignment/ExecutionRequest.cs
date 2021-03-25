@@ -1,3 +1,4 @@
+using System;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using Newtonsoft.Json;
@@ -8,6 +9,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// Client to InterfaceExecutor, request for a job execution
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class ExecutionRequest : Message
     {
         private Job _job;
@@ -23,6 +25,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// InterfaceExecutor to Client, response for a job execution
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class ExecutionResponse : Message
     {
         private int _requestID;
@@ -38,6 +41,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     /// Client to InterfaceExecutor, acknowledge
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
+    [Serializable]
     public class ExecutionAck : Message
     {
         private int _requestID;

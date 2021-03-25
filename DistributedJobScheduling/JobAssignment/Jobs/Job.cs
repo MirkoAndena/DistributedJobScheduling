@@ -13,6 +13,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
     public interface IJobResult { }
 
+    [Serializable]
     public abstract class Job
     {
         public JobStatus Status { get; set; }
