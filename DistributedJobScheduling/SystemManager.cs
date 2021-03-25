@@ -6,6 +6,7 @@ using DistributedJobScheduling.LeaderElection;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.Serialization;
 using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.Storage.SecureStorage;
 using DistributedJobScheduling.VirtualSynchrony;
@@ -30,17 +31,19 @@ namespace DistributedJobScheduling
 
         protected override void CreateSubsystems()
         {
+            JsonSerializer jsonSerializer = new JsonSerializer();
+            ByteSerializer byteSerializer = new ByteSerializer();
+
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
             RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
-            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
+            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager(byteSerializer));
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
-            RegisterSubSystem<IStore<Jobs>, JsonStore<Jobs>>(new JsonStore<Jobs>(JOBS_PATH));
+            RegisterSubSystem<IStore<Jobs>, JsonStore<Jobs>>(new JsonStore<Jobs>(JOBS_PATH, jsonSerializer));
             JobManager jobManager = new JobManager();
             RegisterSubSystem<JobManager>(jobManager);
-
-            RegisterSubSystem<IStore<Table>, JsonStore<Table>>(new JsonStore<Table>(TRANSLATIONTABLE_PATH));
+            RegisterSubSystem<IStore<Table>, JsonStore<Table>>(new JsonStore<Table>(TRANSLATIONTABLE_PATH, jsonSerializer));
             TranslationTable translationTable = new TranslationTable();
             RegisterSubSystem<TranslationTable>(translationTable);
 

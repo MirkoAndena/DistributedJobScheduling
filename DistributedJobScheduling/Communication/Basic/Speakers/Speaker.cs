@@ -9,6 +9,7 @@ using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.DependencyInjection;
 using DistributedJobScheduling.LifeCycle;
 using System.Collections.Generic;
+using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
@@ -24,6 +25,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         private CancellationTokenSource _sendToken;
         private CancellationTokenSource _receiveToken;
         private CancellationTokenSource _globalReceiveToken;
+        private ISerializer _serializer;
 
         protected Node _remote;
 
@@ -31,9 +33,10 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
         protected ILogger _logger;
 
-        public Speaker(TcpClient client, Node remote) : this(client, remote, DependencyManager.Get<ILogger>()) {}
-        public Speaker(TcpClient client, Node remote, ILogger logger)
+        public Speaker(TcpClient client, Node remote, ISerializer serializer) : this(client, remote, serializer, DependencyManager.Get<ILogger>()) {}
+        public Speaker(TcpClient client, Node remote, ISerializer serializer, ILogger logger)
         {
+            _serializer = serializer;
             _logger = logger;
             _client = client;
             _remote = remote;
@@ -119,7 +122,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             int lastTerminator = 0;
             do {
                 terminator = Array.IndexOf(byteStream[lastTerminator..], (byte)'\0');
-                detectedMessages.Add(Message.Deserialize<T>(byteStream[lastTerminator..terminator]));
+                detectedMessages.Add(_serializer.Deserialize<T>(byteStream[lastTerminator..terminator]));
                 lastTerminator = terminator;
             } while(terminator < byteStream.Length - 1);
             return detectedMessages;
@@ -151,7 +154,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         {
             try
             {
-                byte[] bytes = message.Serialize();
+                byte[] bytes = _serializer.Serialize(message);
                 await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
                 await _stream.WriteAsync(new byte[] { (byte)'\0' }, _sendToken.Token);
                 await _stream.FlushAsync(_sendToken.Token);

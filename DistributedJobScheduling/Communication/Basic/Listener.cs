@@ -6,6 +6,7 @@ using DistributedJobScheduling.Communication.Basic.Speakers;
 using DistributedJobScheduling.DependencyInjection;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
@@ -19,12 +20,14 @@ namespace DistributedJobScheduling.Communication.Basic
         public event Action<Node, Speaker> SpeakerCreated;
         private int _myID;
         protected ILogger _logger;
+        private ISerializer _serializer;
 
-        public Listener() : this(DependencyManager.Get<Node.INodeRegistry>(),
+        public Listener(ISerializer serializer) : this(DependencyManager.Get<Node.INodeRegistry>(),
                                  DependencyManager.Get<Configuration.IConfigurationService>(),
-                                 DependencyManager.Get<ILogger>()) {}
-        public Listener(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger)
+                                 DependencyManager.Get<ILogger>(), serializer) {}
+        public Listener(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger, ISerializer serializer)
         {
+            _serializer = serializer;
             _nodeRegistry = nodeRegistry;
             _myID = configurationService.GetValue<int>("nodeId");
             _logger = logger;
@@ -67,7 +70,7 @@ namespace DistributedJobScheduling.Communication.Basic
                     TcpClient client = await _listener.AcceptTcpClientAsync();
                     Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(client));
                     _logger.Log(Tag.CommunicationBasic, $"Accepted connection request to {remote}");
-                    Speaker speaker = new Speaker(client, remote);
+                    Speaker speaker = new Speaker(client, remote, _serializer);
                     SpeakerCreated?.Invoke(remote, speaker);
                 }
             }

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
@@ -20,12 +21,14 @@ namespace DistributedJobScheduling.Communication.Basic
         private CancellationTokenSource _closeTokenSource;
         private UdpClient _client;
         private ILogger _logger;
+        private ISerializer _serializer;
         private IPAddress _multicastGroup;
 
-        public Shouter() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
-                                DependencyInjection.DependencyManager.Get<ILogger>()) {}
-        public Shouter(Node.INodeRegistry nodeRegistry, ILogger logger)
+        public Shouter(ISerializer serializer) : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
+                                DependencyInjection.DependencyManager.Get<ILogger>(), serializer) {}
+        public Shouter(Node.INodeRegistry nodeRegistry, ILogger logger, ISerializer serializer)
         {
+            _serializer = serializer;
             _nodeRegistry = nodeRegistry;
             _logger = logger;
         }
@@ -55,7 +58,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 while (!_closeTokenSource.Token.IsCancellationRequested)
                 {
                     UdpReceiveResult result = await _client.ReceiveAsync();
-                    Message message = Message.Deserialize<Message>(result.Buffer);
+                    Message message = _serializer.Deserialize<Message>(result.Buffer);
                     Node remote = _nodeRegistry.GetOrCreate(ip: result.RemoteEndPoint.Address.ToString(), id: message.SenderID);
                     _logger.Log(Tag.CommunicationBasic, $"Received {result.Buffer.Length} bytes from MULTICAST ({remote.IP}/{remote.ID})");
                     OnMessageReceived?.Invoke(remote, message);
@@ -73,7 +76,7 @@ namespace DistributedJobScheduling.Communication.Basic
 
         public async Task SendMulticast(Message message)
         {
-            byte[] content = message.Serialize();
+            byte[] content = _serializer.Serialize(message);
             await _client.SendAsync(content, content.Length, new IPEndPoint(_multicastGroup, PORT));
             _logger.Log(Tag.CommunicationBasic, $"Sent {content.Length} bytes to MULTICAST");
         }

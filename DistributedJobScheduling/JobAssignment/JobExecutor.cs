@@ -28,11 +28,11 @@ namespace DistributedJobScheduling.JobAssignment
 
         public void Stop() => _cancellationTokenSource?.Cancel();
 
-        public async void Start()
+        public void Start()
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
-            Action findAndExecute = async () => 
+            Action findAndExecute = async () =>
             {
                 while (!_cancellationTokenSource.Token.IsCancellationRequested)
                 {
@@ -43,7 +43,7 @@ namespace DistributedJobScheduling.JobAssignment
                 }
             };
 
-            Task.Run(findAndExecute, _cancellationTokenSource.Token);
+            _ = Task.Run(findAndExecute, _cancellationTokenSource.Token);
         }
 
         private async Task ExecuteJob(Job current)

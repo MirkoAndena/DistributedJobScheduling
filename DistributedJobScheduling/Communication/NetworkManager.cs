@@ -1,3 +1,4 @@
+using System.Runtime.Serialization;
 using System.Reflection.PortableExecutable;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using DistributedJobScheduling.Communication.Topics;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Communication
 {
@@ -19,6 +21,7 @@ namespace DistributedJobScheduling.Communication
         private Shouter _shouter;
         private Node _me;
         private ILogger _logger;
+        private ISerializer _serializer;
         private IMessageOrdering _sendOrdering;
         private Node.INodeRegistry _registry;
 
@@ -26,11 +29,13 @@ namespace DistributedJobScheduling.Communication
 
         public event Action<Node, Message> OnMessageReceived;
 
-        public NetworkManager() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
+        public NetworkManager(ISerializer serializer) : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
                                        DependencyInjection.DependencyManager.Get<Configuration.IConfigurationService>(),
-                                       DependencyInjection.DependencyManager.Get<ILogger>()) {}
-        public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger)
+                                       DependencyInjection.DependencyManager.Get<ILogger>(),
+                                       serializer) {}
+        public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger, ISerializer serializer)
         {
+            _serializer = serializer;
             _registry = nodeRegistry;
             _logger = logger;
             _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeId"));
@@ -42,9 +47,9 @@ namespace DistributedJobScheduling.Communication
                 new VirtualSynchronyTopicPublisher()
             );
 
-            _shouter = new Shouter();
+            _shouter = new Shouter(_serializer);
             _shouter.OnMessageReceived += _OnMessageReceived;
-            _listener = new Listener();
+            _listener = new Listener(_serializer);
             _listener.SpeakerCreated += OnSpeakerCreated;
         }
 
@@ -99,7 +104,7 @@ namespace DistributedJobScheduling.Communication
             }
 
             // Create a new speaker and connect to remote
-            BoldSpeaker speaker = new BoldSpeaker(node);
+            BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
             await speaker.Connect(timeout);
             
             if (!_speakers.ContainsKey(node))

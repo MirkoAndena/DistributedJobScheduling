@@ -3,16 +3,19 @@ using System;
 using System.IO;
 using System.Diagnostics.CodeAnalysis;
 using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Storage.SecureStorage
 {
     public class JsonStore<T> : IStore<T>, IInitializable
     {
         private string _filePath;
+        private ISerializer _serializer;
 
-        public JsonStore(string filepath)
+        public JsonStore(string filepath, ISerializer serializer)
         {
             _filePath = filepath;
+            _serializer = serializer;
         }
 
         public void Init()
@@ -24,13 +27,13 @@ namespace DistributedJobScheduling.Storage.SecureStorage
         [return: MaybeNull]
         public T Read()
         {
-            string content = File.ReadAllText(_filePath);
-            return JsonSerialization.Deserialize<T>(content);
+            byte[] content = File.ReadAllBytes(_filePath);
+            return _serializer.Deserialize<T>(content);
         }
 
         public void Write(T item)
         {
-            byte[] bytes = JsonSerialization.Serialize(item);
+            byte[] bytes = _serializer.Serialize(item);
             File.WriteAllBytes(_filePath, bytes);
         }
     }

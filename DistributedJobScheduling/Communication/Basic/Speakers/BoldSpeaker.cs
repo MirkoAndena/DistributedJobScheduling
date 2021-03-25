@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Logging;
+using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
@@ -10,7 +11,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
     {
         private CancellationTokenSource _connectToken;
 
-        public BoldSpeaker(Node remote) : base(new TcpClient(), remote)
+        public BoldSpeaker(Node remote, ISerializer serializer) : base(new TcpClient(), remote, serializer)
         {
             
         }

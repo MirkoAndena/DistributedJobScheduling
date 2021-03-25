@@ -39,10 +39,6 @@ namespace DistributedJobScheduling.Communication.Basic
             return idCheck && nodeCheckEnabled ? SenderID.Value == previous.ReceiverID.Value && ReceiverID.Value == previous.SenderID.Value : true;
         }
 
-        public byte[] Serialize() => JsonSerialization.Serialize(this);
-
-        public static T Deserialize<T>(byte[] bytes) where T: Message => JsonSerialization.Deserialize<T>(bytes); 
-
         /// <summary>
         /// Binds message to this one (copies the IDs)
         /// </summary>
