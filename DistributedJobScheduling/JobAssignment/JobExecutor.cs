@@ -37,7 +37,7 @@ namespace DistributedJobScheduling.JobAssignment
                 while (!_cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     //_logger.Log(Tag.JobExecutor, $"Finding a new job to execute");
-                    Job current = _storage.FindJobToExecute();
+                    Job current = await _storage.FindJobToExecute();
                     if (current != null)
                         await ExecuteJob(current);
                 }

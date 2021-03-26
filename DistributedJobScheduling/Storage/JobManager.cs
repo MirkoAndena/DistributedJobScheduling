@@ -21,6 +21,7 @@ namespace DistributedJobScheduling.Storage
     public class JobManager : IInitializable
     {
         private ReusableIndex _reusableIndex;
+        private SemaphoreSlim _checkJobSemaphore;
         private SecureStore<Jobs> _secureStorage;
         private ILogger _logger;
         private Group _group;
@@ -35,6 +36,7 @@ namespace DistributedJobScheduling.Storage
         {
             _secureStorage = new SecureStore<Jobs>(store, logger);
             _reusableIndex = new ReusableIndex();
+            _checkJobSemaphore = new SemaphoreSlim(1,1);
             _logger = logger;
             _group = groupView.View;
             UpdateJob += OnJobUpdateRequest;
@@ -81,6 +83,7 @@ namespace DistributedJobScheduling.Storage
             _secureStorage.ValuesChanged.Invoke();
 
             _logger.Log(Tag.JobStorage, $"Job {job} assigned to {job.Node.Value}");
+            UnlockJobExecution();
         }
 
         public void InsertOrUpdateExternalJob(Job job)
@@ -105,6 +108,15 @@ namespace DistributedJobScheduling.Storage
                 
             _secureStorage.Value.List.Add(job);
             _secureStorage.ValuesChanged.Invoke();
+            UnlockJobExecution();
+        }
+
+        private void UnlockJobExecution()
+        {
+            lock(_checkJobSemaphore)
+            {
+                if(_checkJobSemaphore.CurrentCount != 1) _checkJobSemaphore.Release();
+            }
         }
 
         public Dictionary<int, int> FindNodesOccurrences()
@@ -148,8 +160,9 @@ namespace DistributedJobScheduling.Storage
             return min.Item1;
         }
 
-        public Job FindJobToExecute()
+        public async Task<Job> FindJobToExecute()
         {
+            await _checkJobSemaphore.WaitAsync();
             Job toExecute = null;
             _secureStorage.Value.List.ForEach(job => 
             {
