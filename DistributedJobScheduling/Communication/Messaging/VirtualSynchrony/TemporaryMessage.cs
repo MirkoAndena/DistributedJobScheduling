@@ -11,7 +11,6 @@ namespace DistributedJobScheduling.Communication.Messaging
         public bool IsMulticast { get; private set; }
         public Message UnstablePayload { get; private set; }
 
-        [JsonConstructor]
         //We don't need the timestamper
         public TemporaryMessage(bool isMulticast, Message unstablePayload) : base()
         {

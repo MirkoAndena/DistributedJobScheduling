@@ -11,7 +11,7 @@ Write-Host 'Creation of' $nodes 'machines'
 $nodeContainers = New-Object string[] $nodes
 For ($i=0; $i -lt $nodeContainers.Count; $i++) {
     $nodeDirectory = $(Get-Location).tostring() + "/ExecutorsStorage/node_" + $i
-    $toExecute = 'docker run --mount src="' + $nodeDirectory + '",target=/app/DataStore,type=bind --restart=on-failure -d distributed-job-scheduling ' + $i
+    $toExecute = 'docker run --mount src="' + $nodeDirectory + '",target=/app/DataStore,type=bind --restart=on-failure -d distributedjobscheduling:latest ' + $i
     if ($i -eq $initiatorIndex) {
         $toExecute += " coordinator"
     }

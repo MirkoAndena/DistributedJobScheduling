@@ -10,7 +10,10 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/DistributedJobScheduling/bin/Debug/netcoreapp3.1/DistributedJobScheduling.dll",
-            "args": ["0", "coordinator"],
+            "args": [
+                "0",
+                "coordinator"
+            ],
             "cwd": "${workspaceFolder}/DistributedJobScheduling",
             "console": "internalConsole",
             "stopAtEntry": false
@@ -21,7 +24,9 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/DistributedJobScheduling/bin/Debug/netcoreapp3.1/DistributedJobScheduling.dll",
-            "args": ["1"],
+            "args": [
+                "1"
+            ],
             "cwd": "${workspaceFolder}/DistributedJobScheduling",
             "console": "internalConsole",
             "stopAtEntry": false
@@ -31,6 +36,24 @@
             "type": "coreclr",
             "request": "attach",
             "processId": "${command:pickProcess}"
+        },
+        {
+            "name": "Docker Coordinator",
+            "type": "docker",
+            "request": "launch",
+            "preLaunchTask": "docker-run: debugc",
+            "netCore": {
+                "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj"
+            }
+        },
+        {
+            "name": "Docker Node",
+            "type": "docker",
+            "request": "launch",
+            "preLaunchTask": "docker-run: debug",
+            "netCore": {
+                "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj"
+            }
         }
     ]
 }

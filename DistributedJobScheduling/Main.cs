@@ -24,8 +24,8 @@ namespace DistributedJobScheduling
         private static bool CreateConfiguration(IConfigurationService config, string[] args)
         {
             int id;
-            bool isId = Int32.TryParse(args.Length > 0 ? args[0] : "", out id);
-            bool coordinator = args.Length > 1 && args[1].ToLower() == "coordinator";
+            bool isId = Int32.TryParse(args.Length > 0 ? args[0] : Environment.GetEnvironmentVariable("NODE_ID"), out id);
+            bool coordinator = (args.Length > 1 && args[1].ToLower() == "coordinator") || (Environment.GetEnvironmentVariable("COORD") != null);
             
             if (!isId) return false;
             

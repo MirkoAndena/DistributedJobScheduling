@@ -37,7 +37,7 @@ namespace DistributedJobScheduling
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
             RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
-            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager(byteSerializer));
+            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager(jsonSerializer));
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
             RegisterSubSystem<IStore<Jobs>, FileStore<Jobs>>(new FileStore<Jobs>(JOBS_PATH, jsonSerializer));

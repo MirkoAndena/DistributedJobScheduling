@@ -1,0 +1,11 @@
+
+version: '3.4'
+
+services:
+  distributedjobscheduling:
+    image: distributedjobscheduling
+    build:
+      context: .
+      dockerfile: DistributedJobScheduling/Dockerfile
+    volumes:
+      - ~/.vsdbg:/remote_debugger:rw
