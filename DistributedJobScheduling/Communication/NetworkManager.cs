@@ -83,6 +83,7 @@ namespace DistributedJobScheduling.Communication
             if (!node.ID.HasValue && message.SenderID.HasValue)
                 _registry.UpdateNodeID(node, message.SenderID.Value);
 
+            _logger.Log(Tag.Communication, $"Received message of type {message.GetType()} from {node.ToString()}");
             OnMessageReceived?.Invoke(node, message);
         }
 

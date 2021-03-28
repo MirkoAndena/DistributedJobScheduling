@@ -1,19 +1,22 @@
+using System.Text;
+using System;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 namespace DistributedJobScheduling.Serialization
 {
-    public class ByteSerializer : ISerializer
+    public class ByteBase64Serializer : ISerializer
     {
         private BinaryFormatter _binaryFormatter;
 
-        public ByteSerializer()
+        public ByteBase64Serializer()
         {
             _binaryFormatter = new BinaryFormatter();
         }
 
         public T Deserialize<T>(byte[] serialized)
         {
-            using (MemoryStream stream = new MemoryStream(serialized))
+            string base64 = Encoding.ASCII.GetString(serialized);
+            using (MemoryStream stream = new MemoryStream(Convert.FromBase64String(base64)))
             {
                 object o = _binaryFormatter.Deserialize(stream);
                 return (T)o;
@@ -25,7 +28,9 @@ namespace DistributedJobScheduling.Serialization
             using (MemoryStream stream = new MemoryStream())
             {
                 _binaryFormatter.Serialize(stream, o);
-                return stream.ToArray();
+                byte[] bytes = stream.ToArray();
+                string base64 = Convert.ToBase64String(bytes);
+                return Encoding.ASCII.GetBytes(base64);
             }
         }
     }

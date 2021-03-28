@@ -32,7 +32,7 @@ namespace DistributedJobScheduling
         protected override void CreateSubsystems()
         {
             JsonSerializer jsonSerializer = new JsonSerializer();
-            ByteSerializer byteSerializer = new ByteSerializer();
+            ByteBase64Serializer byteSerializer = new ByteBase64Serializer();
 
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));

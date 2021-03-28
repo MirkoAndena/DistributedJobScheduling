@@ -83,7 +83,6 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                         }
                     
                     _logger.Log(Tag.CommunicationBasic, $"Expecting {bytesReceived} bytes from {_remote} and terminator at {_lastTerminatorIndex}");
-                    _logger.Log(Tag.CommunicationBasic, Encoding.UTF8.GetString(_partialBuffer));
                     if(_lastTerminatorIndex >= 0)
                     {
                         //New Message Completed
@@ -93,7 +92,6 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                         _memoryStream = new MemoryStream();
                         await _memoryStream.WriteAsync(_partialBuffer, _lastTerminatorIndex + 1, bytesReceived - (_lastTerminatorIndex + 1), _receiveToken.Token);
                         _logger.Log(Tag.CommunicationBasic, $"Received {fullMessage.Length} bytes from {_remote}");
-                        _logger.Log(Tag.CommunicationBasic, $"Parsing fullMessage: {Encoding.UTF8.GetString(fullMessage)}");
                         return ParseMessages<T>(fullMessage);
                     }
                     else

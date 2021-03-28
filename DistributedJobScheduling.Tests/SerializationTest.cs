@@ -22,7 +22,7 @@ namespace DistributedJobScheduling.DistributedStorage
         [Fact]
         public void ByteSerializerTest()
         {
-            ByteSerializer serializer = new ByteSerializer();
+            ByteBase64Serializer serializer = new ByteBase64Serializer();
             KeepAliveRequestSerialization(serializer);
             InsertionRequestSerialization(serializer);
         }
