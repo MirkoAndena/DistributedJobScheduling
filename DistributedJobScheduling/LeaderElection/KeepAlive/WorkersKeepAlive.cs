@@ -37,7 +37,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _cancellationTokenSource = new CancellationTokenSource();
             Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
-                .ContinueWith(t => TimeoutFinished());
+                .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
         public void Stop() => _cancellationTokenSource?.Cancel();
@@ -46,7 +46,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _logger.Log(Tag.KeepAlive, "Received keep-alive request from coordinator");
             _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
-            _logger.Log(Tag.KeepAlive, "I'm alive");
             Stop();
             Start();
         }

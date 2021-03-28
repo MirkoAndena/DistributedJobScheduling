@@ -48,7 +48,7 @@ namespace DistributedJobScheduling.Communication
             );
 
             _shouter = new Shouter(_serializer);
-            _shouter.OnMessageReceived += _OnMessageReceived;
+            _shouter.OnMessageReceived += OnMessageReceivedFromSpeakerOrShouter;
             _listener = new Listener(_serializer);
             _listener.SpeakerCreated += OnSpeakerCreated;
         }
@@ -68,17 +68,17 @@ namespace DistributedJobScheduling.Communication
                 }
                     
                 _logger.Log(Tag.Communication, $"Speaker for {node} was due to a previous disconnection, updating");
-                oldSpeaker.OnMessageReceived -= _OnMessageReceived;
+                oldSpeaker.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
                 oldSpeaker.Stop();
                 _speakers.Remove(node);
             }
 
-            speaker.OnMessageReceived += _OnMessageReceived;
+            speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
             _speakers.Add(node, speaker);
             speaker.Start();
         }
 
-        private void _OnMessageReceived(Node node, Message message)
+        private void OnMessageReceivedFromSpeakerOrShouter(Node node, Message message)
         {
             if (!node.ID.HasValue && message.SenderID.HasValue)
                 _registry.UpdateNodeID(node, message.SenderID.Value);
@@ -107,12 +107,7 @@ namespace DistributedJobScheduling.Communication
             // Create a new speaker and connect to remote
             BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
             await speaker.Connect(timeout);
-            
-            if (!_speakers.ContainsKey(node))
-                _speakers.Add(node, speaker);
-
-            speaker.Start();
-            _logger.Log(Tag.Communication, $"A new speaker to {node} is created and stored");
+            OnSpeakerCreated(node, speaker);
 
             return speaker;
         }
@@ -132,7 +127,7 @@ namespace DistributedJobScheduling.Communication
         
         public void Stop() 
         {
-            _shouter.OnMessageReceived -= _OnMessageReceived;
+            _shouter.OnMessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
             _listener.SpeakerCreated -= OnSpeakerCreated;
 
             _shouter.Stop();
@@ -141,7 +136,7 @@ namespace DistributedJobScheduling.Communication
             _speakers.ForEach(speakerIdPair => 
             {
                 speakerIdPair.Value.Stop();
-                speakerIdPair.Value.OnMessageReceived -= _OnMessageReceived;
+                speakerIdPair.Value.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
                 _speakers.Remove(speakerIdPair.Key);
             });
 

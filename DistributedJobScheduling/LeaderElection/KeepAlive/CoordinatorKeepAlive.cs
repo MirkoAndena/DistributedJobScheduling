@@ -47,9 +47,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _groupManager.View.Others.ForEach(node => _ticks.Add(node, false));
 
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
-                .ContinueWith(t => SendKeepAliveToNodes());
+                .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
             Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
-                .ContinueWith(t => TimeoutFinished());
+                .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
         public void Stop() => _cancellationTokenSource?.Cancel();
@@ -62,7 +62,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 _logger.Log(Tag.KeepAlive, $"Sent keep-alive request to {node}");
             });
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
-                .ContinueWith(t => SendKeepAliveToNodes());
+                .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
         }
 
         private void OnKeepAliveResponseReceived(Node node, Message message)
@@ -87,7 +87,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             }
 
             Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
-                .ContinueWith(t => TimeoutFinished());
+                .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
     }
 }

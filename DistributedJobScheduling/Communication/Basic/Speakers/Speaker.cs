@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
         protected Node _remote;
 
-        public event Action<Node, Message> OnMessageReceived;
+        public event Action<Node, Message> MessageReceived;
 
         protected ILogger _logger;
 
@@ -134,7 +134,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 {
                     List<Message> response = await Receive<Message>();
                     if(response != null)
-                        response.ForEach(message => OnMessageReceived?.Invoke(_remote, message));
+                        response.ForEach(message => MessageReceived?.Invoke(_remote, message));
                 }
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 
