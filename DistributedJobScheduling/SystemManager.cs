@@ -18,7 +18,7 @@ namespace DistributedJobScheduling
     {
         #region Paths
 
-        private const string ROOT = "./DataStore/";
+        private const string ROOT = "./AppData/";
         private string JOBS_PATH = $"{ROOT}/jobs.json";
         private string TRANSLATIONTABLE_PATH = $"{ROOT}/translationTable.json";
 

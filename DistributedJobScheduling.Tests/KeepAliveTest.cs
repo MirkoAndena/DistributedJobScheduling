@@ -53,7 +53,7 @@ namespace DistributedJobScheduling.DistributedStorage
             CoordinatorKeepAlive coordinatorKeepAlive = new CoordinatorKeepAlive(_group, _logger);
             coordinatorKeepAlive.NodesDied += nodes =>
             {
-                Assert.Equal(nodes.Count, 1);
+                Assert.Equal(1, nodes.Count);
                 Assert.Equal(_diedNode.Node, nodes[0]);
                 someoneDies = true;
                 _output.WriteLine($"Expected to die: {_diedNode.Node.ToString()}, Nodes died: {nodes.ToString<Node>()}");

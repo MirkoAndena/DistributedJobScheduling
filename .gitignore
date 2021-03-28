@@ -30,8 +30,8 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-[Dd]ata[Ss]tore/
-[Ee]xecutors[Ss]torage/
+[Aa]pp[Dd]ata/
+[Aa]pp[Dd]ata[Dd]ocker/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
