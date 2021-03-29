@@ -11,6 +11,7 @@ namespace DistributedJobScheduling.Logging
         TranslationTable,
         JobManager,
         LeaderElection,
-        KeepAlive
+        KeepAlive,
+        WorkerSearcher
     }
 }

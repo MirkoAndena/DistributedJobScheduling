@@ -40,6 +40,7 @@ namespace DistributedJobScheduling.Client
             JsonSerializer jsonSerializer = new JsonSerializer();
             ByteBase64Serializer byteSerializer = new ByteBase64Serializer();
 
+            RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
         }
     }
