@@ -67,8 +67,15 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnKeepAliveResponseReceived(Node node, Message message)
         { 
-            _ticks.Add(node, true);
-            _logger.Log(Tag.KeepAlive, $"Received keep-alive response from {node}");
+            if (_ticks.ContainsKey(node))
+            {
+                _ticks[node] = true;
+                _logger.Log(Tag.KeepAlive, $"Received keep-alive response from {node}");
+            }
+            else
+            {
+                _logger.Warning(Tag.KeepAlive, $"Received keep-alive response from {node} that's not in view");
+            }
         }
 
         private void TimeoutFinished()
@@ -82,7 +89,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
             if (deaths.Count > 0)
             {
-                _logger.Log(Tag.KeepAlive, $"Nodes {deaths.ToString<Node>()} died");
+                _logger.Warning(Tag.KeepAlive, $"Nodes {deaths.ToString<Node>()} died");
                 NodesDied?.Invoke(deaths);
             }
 

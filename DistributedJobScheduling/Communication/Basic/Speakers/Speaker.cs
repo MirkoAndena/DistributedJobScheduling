@@ -141,8 +141,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}");
                     this.Stop();
                 }
-                catch
+                catch (Exception e)
                 {
+                    _logger.Error(Tag.CommunicationBasic, e);
                     return;
                 }
             }

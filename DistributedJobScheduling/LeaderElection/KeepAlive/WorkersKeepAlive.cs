@@ -44,15 +44,15 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
-            _logger.Log(Tag.KeepAlive, "Received keep-alive request from coordinator");
             _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
+            _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
             Stop();
             Start();
         }
 
         private void TimeoutFinished()
         {
-            _logger.Log(Tag.KeepAlive, "No keep alive request arrived, coordinator has crashed");
+            _logger.Warning(Tag.KeepAlive, "No keep alive request arrived, coordinator has crashed");
             CoordinatorDied?.Invoke();
             Stop();
         }
