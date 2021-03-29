@@ -106,7 +106,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
             catch (Exception e)
             {
-                _logger.Warning(Tag.CommunicationBasic, $"Failed receive from {_remote}", e);
+                _logger.Error(Tag.CommunicationBasic, $"Failed receive from {_remote}", e);
                 this.Stop();
                 throw;
             }
@@ -138,7 +138,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 }
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 
-                    _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}");
+                    _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}, stopped by CancellationToken");
                     this.Stop();
                 }
                 catch (Exception e)
@@ -162,7 +162,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             catch (Exception e)
             {
                 this.Stop();
-                _logger.Warning(Tag.CommunicationBasic, $"Failed send to {_remote}", e);
+                _logger.Error(Tag.CommunicationBasic, $"Failed send to {_remote}", e);
             }
         }
     }
