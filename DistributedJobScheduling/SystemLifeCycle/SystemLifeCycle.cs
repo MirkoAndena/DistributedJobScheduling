@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.DependencyInjection;
 
 namespace DistributedJobScheduling.LifeCycle
@@ -13,9 +14,18 @@ namespace DistributedJobScheduling.LifeCycle
         private List<ILifeCycle> _subSystems;
 
         protected SystemLifeCycle() 
-        { 
+        {
             _subSystems = new List<ILifeCycle>();
             _terminationSemaphore = new SemaphoreSlim(0, 1);
+        }
+
+        protected abstract bool CreateConfiguration(IConfigurationService configurationService, string[] args);
+
+        public bool CreateConfiguration(string[] args)
+        {
+            var configurationService = DependencyManager.Get<IConfigurationService>();
+            if (configurationService == null) throw new Exception("IConfigurationService must be created in the constructor");
+            return CreateConfiguration(configurationService, args);
         }
 
         public async Task Run()

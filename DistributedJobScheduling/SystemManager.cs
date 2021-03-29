@@ -1,3 +1,4 @@
+using System;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
@@ -27,6 +28,20 @@ namespace DistributedJobScheduling
         public SystemManager()
         {
             RegisterSubSystem<IConfigurationService, DictConfigService>(new DictConfigService());
+        }
+
+        protected override bool CreateConfiguration(IConfigurationService configurationService, string[] args)
+        {
+            int id;
+            bool isId = Int32.TryParse(args.Length > 0 ? args[0].Trim() : Environment.GetEnvironmentVariable("NODE_ID"), out id);
+            bool coordinator = (args.Length > 1 && args[1].Trim().ToLower() == "coordinator") || (Environment.GetEnvironmentVariable("COORD") != null);
+            
+            if (!isId) return false;
+            
+            Console.WriteLine($"Configuration nodeId: {id}");
+            configurationService.SetValue<int?>("nodeId", id);
+            configurationService.SetValue<bool>("coordinator", coordinator);
+            return true;
         }
 
         protected override void CreateSubsystems()
