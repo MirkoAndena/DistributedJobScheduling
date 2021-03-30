@@ -32,6 +32,7 @@ bld/
 [Ll]ogs/
 [Aa]pp[Dd]ata/
 [Aa]pp[Dd]ata[Dd]ocker/
+[Aa]pp[Dd]ata[Cc]lient/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
