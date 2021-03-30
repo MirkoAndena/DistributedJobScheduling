@@ -1,7 +1,9 @@
 using DistributedJobScheduling.Communication;
+using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.JobAssignment;
+using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.LeaderElection;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LifeCycle;
@@ -23,6 +25,8 @@ namespace DistributedJobScheduling.Client
 
         #endregion
 
+        private JobMessageHandler _messageHandler;
+
         public ClientSystemManager()
         {
             RegisterSubSystem<IConfigurationService, DictConfigService>(new DictConfigService());
@@ -37,11 +41,21 @@ namespace DistributedJobScheduling.Client
 
         protected override void CreateSubsystems()
         {
-            JsonSerializer jsonSerializer = new JsonSerializer();
-            ByteBase64Serializer byteSerializer = new ByteBase64Serializer();
-
+            RegisterSubSystem<ISerializer, JsonSerializer>(new JsonSerializer());
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
+            
+            ClientStore store = new ClientStore();
+            WorkerSearcher workerSearcher = new WorkerSearcher(store);
+            _messageHandler = new JobMessageHandler(store);
+
+            workerSearcher.WorkerFound += CreateAndRequestAssignment;
+        }
+
+        private void CreateAndRequestAssignment(Node worker)
+        {
+            Job job = new TimeoutJob(5);
+            _messageHandler.SubmitJob(worker, job);
         }
     }
 }

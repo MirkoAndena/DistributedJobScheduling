@@ -12,17 +12,20 @@ namespace DistributedJobScheduling.Client
     {
         private Shouter _shouter;
         private ILogger _logger;
+        private ClientStore _store;
         public event Action<Node> WorkerFound;
         private bool _found;
 
-        public WorkerSearcher(ISerializer serializer) : this (
+        public WorkerSearcher(ClientStore clientStore) : this (
             DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
             DependencyInjection.DependencyManager.Get<ILogger>(),
-            serializer) { }
+            DependencyInjection.DependencyManager.Get<ISerializer>(),
+            clientStore) { }
 
-        public WorkerSearcher(INodeRegistry nodeRegistry, ILogger logger, ISerializer serializer)
+        public WorkerSearcher(INodeRegistry nodeRegistry, ILogger logger, ISerializer serializer, ClientStore clientStore)
         {
             _logger = logger;
+            _store = clientStore;
             _shouter = new Shouter(nodeRegistry, logger, serializer);
             _shouter.OnMessageReceived += OnWorkerAvailableResponseArrived;
             _found = false;
@@ -31,8 +34,20 @@ namespace DistributedJobScheduling.Client
         public void Start()
         {
             _logger.Log(Tag.WorkerSearcher, "Searching for an available worker");
-            _shouter.Start();
-            _shouter.SendMulticast(new WorkerAvaiableRequest()).Wait();
+            
+            if (_store.IsWorkerPresent)
+            {
+                Node worker = _store.GetWorker();
+                _found = true;
+                _logger.Log(Tag.WorkerSearcher, $"Worker {worker.ToString()} found into store");
+                WorkerFound?.Invoke(worker);
+            }
+            else
+            {
+                _logger.Log(Tag.WorkerSearcher, $"No worker stored, started multicast search");
+                _shouter.Start();
+                _shouter.SendMulticast(new WorkerAvaiableRequest()).Wait();
+            }
         }
 
         public void Stop()
@@ -46,6 +61,7 @@ namespace DistributedJobScheduling.Client
             if (!_found && message is WorkerAvaiableResponse)
             {
                 _logger.Log(Tag.WorkerSearcher, $"Worker found: {node.ToString()}");
+                _store.StoreWorker(node);
                 WorkerFound?.Invoke(node);
                 _found = true;
                 this.Stop();
