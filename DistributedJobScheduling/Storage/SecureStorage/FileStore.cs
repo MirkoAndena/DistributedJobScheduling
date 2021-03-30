@@ -12,6 +12,8 @@ namespace DistributedJobScheduling.Storage.SecureStorage
         private string _filePath;
         private ISerializer _serializer;
 
+        public FileStore(string filepath) : this (filepath, DependencyInjection.DependencyManager.Get<ISerializer>()) { }
+        
         public FileStore(string filepath, ISerializer serializer)
         {
             _filePath = filepath;

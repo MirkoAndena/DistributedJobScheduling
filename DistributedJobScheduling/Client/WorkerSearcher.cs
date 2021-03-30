@@ -1,3 +1,5 @@
+using System.Threading.Tasks;
+using System.Threading;
 using System;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
@@ -15,6 +17,7 @@ namespace DistributedJobScheduling.Client
         private ClientStore _store;
         public event Action<Node> WorkerFound;
         private bool _found;
+        private CancellationTokenSource _cancelMulticast;
 
         public WorkerSearcher(ClientStore clientStore) : this (
             DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
@@ -34,6 +37,7 @@ namespace DistributedJobScheduling.Client
         public void Start()
         {
             _logger.Log(Tag.WorkerSearcher, "Searching for an available worker");
+            _cancelMulticast = new CancellationTokenSource();
             
             if (_store.IsWorkerPresent)
             {
@@ -47,6 +51,13 @@ namespace DistributedJobScheduling.Client
                 _logger.Log(Tag.WorkerSearcher, $"No worker stored, started multicast search");
                 _shouter.Start();
                 _shouter.SendMulticast(new WorkerAvaiableRequest()).Wait();
+
+                Task.Delay(TimeSpan.FromSeconds(10), _cancelMulticast.Token).
+                ContinueWith(t => 
+                { 
+                    if (!t.IsCanceled)
+                        _shouter.SendMulticast(new WorkerAvaiableRequest()).Wait();
+                });
             }
         }
 
@@ -60,6 +71,7 @@ namespace DistributedJobScheduling.Client
         {
             if (!_found && message is WorkerAvaiableResponse)
             {
+                _cancelMulticast?.Cancel();
                 _logger.Log(Tag.WorkerSearcher, $"Worker found: {node.ToString()}");
                 _store.StoreWorker(node);
                 WorkerFound?.Invoke(node);

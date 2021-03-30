@@ -5,33 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "COORDINATOR DEBUG",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceFolder}/DistributedJobScheduling/bin/Debug/netcoreapp3.1/DistributedJobScheduling.dll",
-            "args": [
-                "0",
-                "coordinator"
-            ],
-            "cwd": "${workspaceFolder}/DistributedJobScheduling",
-            "console": "internalConsole",
-            "stopAtEntry": false
-        },
-        {
-            "name": "NODE DEBUG",
-            "type": "coreclr",
-            "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceFolder}/DistributedJobScheduling/bin/Debug/netcoreapp3.1/DistributedJobScheduling.dll",
-            "args": [
-                "1"
-            ],
-            "cwd": "${workspaceFolder}/DistributedJobScheduling",
-            "console": "internalConsole",
-            "stopAtEntry": false
-        },
-        {
             "name": ".NET Core Attach",
             "type": "coreclr",
             "request": "attach",
@@ -51,6 +24,15 @@
             "type": "docker",
             "request": "launch",
             "preLaunchTask": "docker-run: debug",
+            "netCore": {
+                "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj"
+            }
+        },
+        {
+            "name": "Docker Client",
+            "type": "docker",
+            "request": "launch",
+            "preLaunchTask": "docker-run: debugcl",
             "netCore": {
                 "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj"
             }

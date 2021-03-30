@@ -66,14 +66,13 @@ namespace DistributedJobScheduling.JobAssignment
             if (IsMessageCorrect(node, message))
             {
                 if (message is ExecutionRequest executionRequest) OnExecutionRequestArrived(node, executionRequest);
-                if (message is ExecutionResponse executionResponse) OnExecutionResponseArrived(node, executionResponse);
                 if (message is ExecutionAck executionAck) OnExecutionAckArrived(node, executionAck);
                 if (message is InsertionRequest insertionRequest) OnInsertionRequestArrived(node, insertionRequest);
                 if (message is InsertionResponse insertionResponse) OnInsertionResponseArrived(node, insertionResponse);
                 if (message is DistributedStorageUpdate distributedStorageUpdate) OnDistributedStorageUpdateArrived(node, distributedStorageUpdate);
             }
 
-            _logger.Warning(Tag.JobManager, $"Received message {message} is not correct so it will be discarded");
+            _logger.Warning(Tag.JobManager, $"Received message {message} is not correct so it is discarded");
         }        
 
         private void Send(Node node, Message message)
@@ -94,15 +93,6 @@ namespace DistributedJobScheduling.JobAssignment
             _unconfirmedRequestIds.Add(node, requestID);
             Send(node, new ExecutionResponse(message, requestID));
             _logger.Log(Tag.JobManager, $"Response sent with a proposal request id ({requestID})");
-        }
-
-        // On client side
-        private void OnExecutionResponseArrived(Node node, ExecutionResponse message)
-        {
-            // todo store id
-            _logger.Log(Tag.JobManager, $"Request id stored");
-            Send(node, new ExecutionAck(message, message.RequestID));
-            _logger.Log(Tag.JobManager, $"Request id confirmed and sent back");
         }
 
         private void OnExecutionAckArrived(Node node, ExecutionAck message)

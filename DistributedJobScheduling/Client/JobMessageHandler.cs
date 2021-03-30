@@ -31,6 +31,7 @@ namespace DistributedJobScheduling.Client
         {
             _store = store;
             _logger = logger;
+            _serializer = serializer;
             var now = DateTime.Now;
             _id = now.Millisecond + now.Second << 4 + now.Minute << 8; // funzione a caso per generare un numero pseudo-univoco
         }
@@ -71,6 +72,7 @@ namespace DistributedJobScheduling.Client
                     ack.SenderID = _id;
                     ack.ReceiverID = node.ID.Value;
                     _speaker.Send(ack);
+                    this.Stop();
                 }
             }
             else

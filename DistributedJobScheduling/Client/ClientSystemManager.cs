@@ -1,3 +1,4 @@
+using System;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
@@ -21,7 +22,7 @@ namespace DistributedJobScheduling.Client
         #region Paths
 
         private const string ROOT = "./AppDataClient/";
-        private string JOBS_PATH = $"{ROOT}/jobs.json";
+        private string STORAGE_PATH = $"{ROOT}/storage.json";
 
         #endregion
 
@@ -34,9 +35,9 @@ namespace DistributedJobScheduling.Client
 
         protected override bool CreateConfiguration(IConfigurationService configurationService, string[] args)
         {
-            bool client = args.Length > 0 && args[0].Trim().ToLower() == "client";
+            bool client = (args.Length > 0 && args[0].Trim().ToLower() == "client") || Environment.GetEnvironmentVariable("CLIENT") == "true";
             configurationService.SetValue<bool>("client", client);
-            return true;
+            return client;
         }
 
         protected override void CreateSubsystems()
@@ -44,12 +45,16 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<ISerializer, JsonSerializer>(new JsonSerializer());
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
+            RegisterSubSystem<IStore<Storage>, FileStore<Storage>>(new FileStore<Storage>(STORAGE_PATH));
             
             ClientStore store = new ClientStore();
-            WorkerSearcher workerSearcher = new WorkerSearcher(store);
-            _messageHandler = new JobMessageHandler(store);
+            RegisterSubSystem<ClientStore>(store);
 
+            WorkerSearcher workerSearcher = new WorkerSearcher(store);
             workerSearcher.WorkerFound += CreateAndRequestAssignment;
+            RegisterSubSystem<WorkerSearcher>(workerSearcher);
+
+            _messageHandler = new JobMessageHandler(store);
         }
 
         private void CreateAndRequestAssignment(Node worker)

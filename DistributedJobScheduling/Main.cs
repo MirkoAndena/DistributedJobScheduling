@@ -24,6 +24,8 @@ namespace DistributedJobScheduling
 
         private static bool IsClient(string[] args)
         {
+            if (Environment.GetEnvironmentVariable("CLIENT") == "true")
+                return true;
             if (args.Length > 0)
                 return args[0].Trim().ToLower() == "client";
             return false;

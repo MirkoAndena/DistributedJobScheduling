@@ -106,6 +106,22 @@
         },
         {
             "type": "docker-run",
+            "label": "docker-run: debugcl",
+            "dependsOn": [
+                "docker-build: debug"
+            ],
+            "dockerRun": {
+                "env": {
+                    "CLIENT": "true"
+                }
+            },
+            "netCore": {
+                "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj",
+                "enableDebugging": true
+            }
+        },
+        {
+            "type": "docker-run",
             "label": "docker-run: release",
             "dependsOn": [
                 "docker-build: release"
