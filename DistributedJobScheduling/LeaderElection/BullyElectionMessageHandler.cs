@@ -51,6 +51,7 @@ namespace DistributedJobScheduling.LeaderElection
 
         private void OnViewChanged()
         {
+            _logger.Log(Tag.LeaderElection, $"View changed with Coordinator {_groupManager.View.Coordinator?.ID.Value}");
             if (_groupManager.View.Coordinator == null)
                 OnCoordinatorDeathReported();
         }

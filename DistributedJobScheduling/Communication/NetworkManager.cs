@@ -74,6 +74,7 @@ namespace DistributedJobScheduling.Communication
             }
 
             speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
+            speaker.Stopped += OnSpeakerStopped;
             _speakers.Add(node, speaker);
             speaker.Start();
         }
@@ -85,6 +86,12 @@ namespace DistributedJobScheduling.Communication
 
             _logger.Log(Tag.Communication, $"Received message of type {message.GetType()} from {node.ToString()}");
             OnMessageReceived?.Invoke(node, message);
+        }
+
+        private void OnSpeakerStopped(Node remote)
+        {
+            _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
+            _speakers.Remove(remote);
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)

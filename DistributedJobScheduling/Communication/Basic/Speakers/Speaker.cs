@@ -30,6 +30,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         protected Node _remote;
 
         public event Action<Node, Message> MessageReceived;
+        public event Action<Node> Stopped;
 
         protected ILogger _logger;
 
@@ -62,6 +63,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 _globalReceiveToken.Cancel();
                 _client.Close();
                 _logger.Log(Tag.CommunicationBasic, $"Closed connection to {_remote}");
+                Stopped?.Invoke(_remote);
             }
         }
 
