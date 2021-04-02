@@ -112,7 +112,8 @@
             ],
             "dockerRun": {
                 "env": {
-                    "CLIENT": "true"
+                    "CLIENT": "true",
+                    "WORKER": "172.17.0.2"
                 }
             },
             "netCore": {

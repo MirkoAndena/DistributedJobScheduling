@@ -38,11 +38,19 @@ namespace DistributedJobScheduling.Client
             bool client = (args.Length > 0 && args[0].Trim().ToLower() == "client") || Environment.GetEnvironmentVariable("CLIENT") == "true";
         
             // Read worker ip
-            bool correctIp = args.Length > 1 && NetworkUtils.IsAnIp(args[1]);
+            string envIp = Environment.GetEnvironmentVariable("WORKER");
+            string ip = null;
+
+            if (args.Length > 1)
+                ip = args[1];
+            else if (envIp != null)
+                ip = envIp;
+
+            bool correctIp = ip != null && NetworkUtils.IsAnIp(ip);
             if (!correctIp) throw new Exception("worker (remote) ip not valid");
 
             configurationService.SetValue<bool>("client", client);
-            configurationService.SetValue<string>("worker", args[1]);
+            configurationService.SetValue<string>("worker", ip);
         }
 
         protected override void CreateSubsystems()
