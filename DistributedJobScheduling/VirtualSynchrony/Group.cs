@@ -2,6 +2,7 @@ using System.Net;
 using System.Collections.Generic;
 using System;
 using DistributedJobScheduling.Communication.Basic;
+using System.Threading.Tasks;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -42,7 +43,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             {
                 Others.Add(node);
             }
-            ViewChanged?.Invoke();
+            Task.Run(() => ViewChanged?.Invoke());
         }
 
         public void UpdateCoordinator(Node node)
@@ -51,7 +52,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             {
                 Coordinator = node;
             }
-            ViewChanged?.Invoke();
+            Task.Run(() => ViewChanged?.Invoke());
         }
 
         public void Update(HashSet<Node> newView, Node newCoordinator)
@@ -61,7 +62,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 Others = newView;
                 Coordinator = newCoordinator;
             }
-            ViewChanged?.Invoke();
+            Task.Run(() => ViewChanged?.Invoke());
         }
 
         public void Remove(Node node)
@@ -72,7 +73,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     Coordinator = null;
                 Others.Remove(node);
             }
-            ViewChanged?.Invoke();
+
+            Task.Run(() => ViewChanged?.Invoke());
         }
 
         public bool Contains(Node node)
