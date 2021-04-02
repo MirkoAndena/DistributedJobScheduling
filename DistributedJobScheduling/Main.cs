@@ -23,6 +23,9 @@ namespace DistributedJobScheduling
                 Console.WriteLine(e.Message);
                 Console.ResetColor();
             }
+
+            if (system is ClientSystemManager clientSystem)
+                Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => clientSystem.CreateAndRequestAssignment());
             
             await system.Run();
         }

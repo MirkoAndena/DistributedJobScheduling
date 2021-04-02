@@ -66,7 +66,7 @@ namespace DistributedJobScheduling.Client
             _messageHandler = new JobMessageHandler(store);
         }
 
-        private void CreateAndRequestAssignment()
+        public void CreateAndRequestAssignment()
         {
             Job job = new TimeoutJob(5);
             _messageHandler.SubmitJob(job);
