@@ -125,7 +125,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 if(terminator == -1)
                     _logger.Fatal(Tag.CommunicationBasic, $"No terminator in message {Encoding.UTF8.GetString(byteStream)}", new Exception("No terminator in message"));
                 detectedMessages.Add(_serializer.Deserialize<T>(byteStream[lastTerminator..terminator]));
-                lastTerminator = terminator;
+                lastTerminator = terminator + 1;
             } while(terminator < byteStream.Length - 1);
             return detectedMessages;
         }
