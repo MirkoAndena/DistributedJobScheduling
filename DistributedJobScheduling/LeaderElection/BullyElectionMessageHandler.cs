@@ -59,7 +59,7 @@ namespace DistributedJobScheduling.LeaderElection
         private void OnCoordinatorDeathReported()
         {
             Node coordinator = _groupManager.View.Coordinator;
-            _logger.Log(Tag.LeaderElection, $"Coordinator {coordinator.ID.Value} is dead, starting election");
+            _logger.Log(Tag.LeaderElection, $"Coordinator {coordinator?.ID} is dead, starting election");
             _candidate.Run(coordinator);
         }
 

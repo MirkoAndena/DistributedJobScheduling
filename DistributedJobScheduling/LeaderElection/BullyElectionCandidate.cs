@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.LeaderElection
         public void Run(Node died = null)
         {
             _cancellationTokenSource = new CancellationTokenSource();
-            List<Node> nodesWithIdHigherThanMe = NodesWithId(id => id > _group.View.Me.ID.Value && died != null && id != died.ID.Value);
+            List<Node> nodesWithIdHigherThanMe = NodesWithId(id => id > _group.View.Me.ID.Value && (died == null || id != died.ID.Value));
             SendElect?.Invoke(nodesWithIdHigherThanMe);
             Task.Delay(TimeSpan.FromSeconds(timeout), _cancellationTokenSource.Token).ContinueWith(t => 
             {
@@ -56,7 +56,7 @@ namespace DistributedJobScheduling.LeaderElection
 
         private void SendImTheLeaderNow(Node died)
         {
-            List<Node> nodesWithIdLowerThanMe = NodesWithId(id => id < _group.View.Me.ID.Value && died != null && id != died.ID.Value);
+            List<Node> nodesWithIdLowerThanMe = NodesWithId(id => id < _group.View.Me.ID.Value && (died == null || id != died.ID.Value));
             SendCoords?.Invoke(nodesWithIdLowerThanMe);
         }
 
