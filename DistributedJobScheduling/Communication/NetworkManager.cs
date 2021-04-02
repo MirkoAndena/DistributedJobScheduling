@@ -11,6 +11,8 @@ using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.Serialization;
+using DistributedJobScheduling.JobAssignment;
+using DistributedJobScheduling.Client;
 
 namespace DistributedJobScheduling.Communication
 {
@@ -44,7 +46,8 @@ namespace DistributedJobScheduling.Communication
             _speakers = new Dictionary<Node, Speaker>();
 
             Topics = new GenericTopicOutlet(this,
-                new VirtualSynchronyTopicPublisher()
+                new VirtualSynchronyTopicPublisher(),
+                new JobClientPublisher()
             );
 
             _shouter = new Shouter(_serializer);

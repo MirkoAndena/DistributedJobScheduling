@@ -88,7 +88,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _sendComplenentionMap = new Dictionary<TemporaryMessage, TaskCompletionSource<bool>>();
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
             Topics = new GenericTopicOutlet(this, 
-                     new JobPublisher(),
+                     new JobGroupPublisher(),
                      new KeepAlivePublisher(),
                      new BullyElectionPublisher());
             JoinRequestTimeout = joinRequestTimeout;

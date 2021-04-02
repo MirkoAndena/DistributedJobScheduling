@@ -5,14 +5,11 @@ using DistributedJobScheduling.Communication.Topics;
 
 namespace DistributedJobScheduling.JobAssignment
 {
-    public class JobPublisher : BaseTopicPublisher
+    public class JobGroupPublisher : BaseTopicPublisher
     {
         private HashSet<Type> _topics = new HashSet<Type>
         {
             typeof(AssignmentMessage),
-            typeof(ExecutionRequest),
-            typeof(ExecutionResponse),
-            typeof(ExecutionAck),
             typeof(InsertionRequest),
             typeof(InsertionResponse),
             typeof(DistributedStorageUpdate)

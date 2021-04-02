@@ -40,7 +40,7 @@ namespace DistributedJobScheduling.JobAssignment
 
         public void Init()
         {
-            var jobPublisher = _groupManager.Topics.GetPublisher<JobPublisher>();
+            var jobPublisher = _groupManager.Topics.GetPublisher<JobGroupPublisher>();
             jobPublisher.RegisterForMessage(typeof(ExecutionRequest), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionResponse), OnMessageReceived);
             jobPublisher.RegisterForMessage(typeof(ExecutionAck), OnMessageReceived);

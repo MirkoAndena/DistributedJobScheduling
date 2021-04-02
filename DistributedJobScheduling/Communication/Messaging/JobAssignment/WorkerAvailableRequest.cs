@@ -8,10 +8,10 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// Client to multicast, search for someone to submit a job
     /// </summary>
     [Serializable]
-    public class WorkerAvaiableRequest : Message
+    public class WorkerAvailableRequest : Message
     {
         [JsonConstructor]
-        public WorkerAvaiableRequest() : base()
+        public WorkerAvailableRequest() : base()
         {
 
         }
@@ -22,9 +22,9 @@ namespace DistributedJobScheduling.Communication.Messaging
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
     [Serializable]
-    public class WorkerAvaiableResponse : Message
+    public class WorkerAvailableResponse : Message
     {
-        public WorkerAvaiableResponse(WorkerAvaiableRequest request) : base(request)
+        public WorkerAvailableResponse(WorkerAvailableRequest request) : base(request)
         {
 
         }

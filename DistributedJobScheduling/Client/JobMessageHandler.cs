@@ -10,6 +10,7 @@ using static DistributedJobScheduling.Communication.Basic.Node;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Configuration;
 
 namespace DistributedJobScheduling.Client
 {
@@ -21,24 +22,31 @@ namespace DistributedJobScheduling.Client
         private ClientStore _store;
         private int _id;
         private Message _previousMessage;
+        private INodeRegistry _nodeRegistry;
+        private IConfigurationService _configuration;
 
         public JobMessageHandler(ClientStore store) : this (
             store,
             DependencyInjection.DependencyManager.Get<ILogger>(),
-            DependencyInjection.DependencyManager.Get<ISerializer>()) { }
+            DependencyInjection.DependencyManager.Get<ISerializer>(),
+            DependencyInjection.DependencyManager.Get<INodeRegistry>(),
+            DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
 
-        public JobMessageHandler(ClientStore store, ILogger logger, ISerializer serializer)
+        public JobMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, INodeRegistry nodeRegistry, IConfigurationService configuration)
         {
             _store = store;
             _logger = logger;
             _serializer = serializer;
+            _nodeRegistry = nodeRegistry;
+            _configuration = configuration;
             var now = DateTime.Now;
             _id = now.Millisecond + now.Second << 4 + now.Minute << 8; // funzione a caso per generare un numero pseudo-univoco
         }
 
 
-        public void SubmitJob(Node node, Job job)
+        public void SubmitJob(Job job)
         {
+            Node node = _nodeRegistry.GetOrCreate(ip: _configuration.GetValue<string>("worker"));
             _speaker = new BoldSpeaker(node, _serializer);
             _speaker.Start();
             _speaker.Connect(30).Wait();

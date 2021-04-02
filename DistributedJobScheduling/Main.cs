@@ -13,10 +13,15 @@ namespace DistributedJobScheduling
         {
             SystemLifeCycle system = IsClient(args) ? (SystemLifeCycle)new ClientSystemManager() : (SystemLifeCycle)new SystemManager();
 
-            if (!system.CreateConfiguration(args))
+            try
             {
-                Console.WriteLine("ID not specified on launch");
-                return;
+                system.CreateConfiguration(args);
+            }
+            catch (Exception e)
+            {
+                Console.BackgroundColor = ConsoleColor.Red;
+                Console.WriteLine(e.Message);
+                Console.ResetColor();
             }
             
             await system.Run();

@@ -23,4 +23,8 @@ public static class NetworkUtils
             }
         }
     }
+
+    public static bool IsAnIp(string ip) {
+        return IPAddress.TryParse(ip, out _);
+    }
 }

@@ -19,13 +19,13 @@ namespace DistributedJobScheduling.LifeCycle
             _terminationSemaphore = new SemaphoreSlim(0, 1);
         }
 
-        protected abstract bool CreateConfiguration(IConfigurationService configurationService, string[] args);
+        protected abstract void CreateConfiguration(IConfigurationService configurationService, string[] args);
 
-        public bool CreateConfiguration(string[] args)
+        public void CreateConfiguration(string[] args)
         {
             var configurationService = DependencyManager.Get<IConfigurationService>();
             if (configurationService == null) throw new Exception("IConfigurationService must be created in the constructor");
-            return CreateConfiguration(configurationService, args);
+            CreateConfiguration(configurationService, args);
         }
 
         public async Task Run()

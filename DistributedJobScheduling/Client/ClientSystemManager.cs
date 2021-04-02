@@ -33,11 +33,16 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<IConfigurationService, DictConfigService>(new DictConfigService());
         }
 
-        protected override bool CreateConfiguration(IConfigurationService configurationService, string[] args)
+        protected override void CreateConfiguration(IConfigurationService configurationService, string[] args)
         {
             bool client = (args.Length > 0 && args[0].Trim().ToLower() == "client") || Environment.GetEnvironmentVariable("CLIENT") == "true";
+        
+            // Read worker ip
+            bool correctIp = args.Length > 1 && NetworkUtils.IsAnIp(args[1]);
+            if (!correctIp) throw new Exception("worker (remote) ip not valid");
+
             configurationService.SetValue<bool>("client", client);
-            return client;
+            configurationService.SetValue<string>("worker", args[1]);
         }
 
         protected override void CreateSubsystems()
@@ -50,17 +55,13 @@ namespace DistributedJobScheduling.Client
             ClientStore store = new ClientStore();
             RegisterSubSystem<ClientStore>(store);
 
-            WorkerSearcher workerSearcher = new WorkerSearcher(store);
-            workerSearcher.WorkerFound += CreateAndRequestAssignment;
-            RegisterSubSystem<WorkerSearcher>(workerSearcher);
-
             _messageHandler = new JobMessageHandler(store);
         }
 
-        private void CreateAndRequestAssignment(Node worker)
+        private void CreateAndRequestAssignment()
         {
             Job job = new TimeoutJob(5);
-            _messageHandler.SubmitJob(worker, job);
+            _messageHandler.SubmitJob(job);
         }
     }
 }
