@@ -121,7 +121,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             int terminator = byteStream.Length;
             int lastTerminator = 0;
             do {
-                terminator = Array.IndexOf(byteStream[lastTerminator..], (byte)'\0');
+                terminator = Array.IndexOf(byteStream[lastTerminator..], (byte)'\0') + lastTerminator;
+                if(terminator == -1)
+                    _logger.Fatal(Tag.CommunicationBasic, $"No terminator in message {Encoding.UTF8.GetString(byteStream)}", new Exception("No terminator in message"));
                 detectedMessages.Add(_serializer.Deserialize<T>(byteStream[lastTerminator..terminator]));
                 lastTerminator = terminator;
             } while(terminator < byteStream.Length - 1);
@@ -136,7 +138,10 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 {
                     List<Message> response = await Receive<Message>();
                     if(response != null)
+                    {
+                        _logger.Log(Tag.CommunicationBasic, $"Routing {response.Count} messages from {_remote}");
                         response.ForEach(message => MessageReceived?.Invoke(_remote, message));
+                    }
                 }
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 
