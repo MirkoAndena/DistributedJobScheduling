@@ -40,13 +40,19 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
-        public void Stop() => _cancellationTokenSource?.Cancel();
+        public void Stop()
+        {
+            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
+            jobPublisher.UnregisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
+            _cancellationTokenSource?.Cancel();
+        }
 
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
             _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
             _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
             Stop();
+            Init();
             Start();
         }
 

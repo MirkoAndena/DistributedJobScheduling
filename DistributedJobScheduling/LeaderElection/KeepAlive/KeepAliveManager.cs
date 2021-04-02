@@ -28,12 +28,19 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             if (group.View.ImCoordinator)
             {
                 _keepAlive = new CoordinatorKeepAlive(group, logger);
-                ((CoordinatorKeepAlive)_keepAlive).NodesDied += nodes => NodesDied?.Invoke(nodes);
+                ((CoordinatorKeepAlive)_keepAlive).NodesDied += nodes => 
+                {
+                    NodesDied?.Invoke(nodes);
+                    group.NotifyViewChanged(new HashSet<Node>(nodes), ViewChangeMessage.ViewChangeOperation.Left);
+                };
             }
             else
             {
                 _keepAlive = new WorkersKeepAlive(group, logger);
-                ((WorkersKeepAlive)_keepAlive).CoordinatorDied += () => CoordinatorDied?.Invoke();
+                ((WorkersKeepAlive)_keepAlive).CoordinatorDied += () => {
+                    group.NotifyViewChanged(new HashSet<Node>(new [] { group.View.Coordinator} ), ViewChangeMessage.ViewChangeOperation.Left);
+                    CoordinatorDied?.Invoke();
+                };
             }
 
             group.View.ViewChanged += Restart;

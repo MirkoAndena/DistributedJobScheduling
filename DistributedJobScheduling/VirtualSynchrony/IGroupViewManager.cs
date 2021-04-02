@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using DistributedJobScheduling.Communication;
+using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -11,5 +14,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
     public interface IGroupViewManager : ICommunicationManager
     {
         Group View { get; }
+        void NotifyViewChanged(HashSet<Node> nodes, ViewChangeMessage.ViewChangeOperation operation);
     }
 }

@@ -111,7 +111,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             await CheckViewChanges();
 
-            _logger.Log(Tag.VirtualSynchrony, $"Start send {message.GetType().Name}");
+            _logger.Log(Tag.VirtualSynchrony, $"Start send {message.GetType().Name} to {node}");
 
             //Checks that the node is in the view
             if(!View.Contains(node))
@@ -478,6 +478,19 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     _joinRequestCancellation.Cancel();
+            }
+        }
+
+        public void NotifyViewChanged(HashSet<Node> nodes, ViewChangeMessage.ViewChangeOperation operation)
+        {
+            //TODO: Handle multiple nodes in viewchange
+            if(View.Contains(nodes))
+            {
+                HandleViewChange(View.Me, new ViewChangeMessage.ViewChange()
+                                {
+                                    Node = nodes.First(),
+                                    Operation = operation
+                                });
             }
         }
 

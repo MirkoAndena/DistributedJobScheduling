@@ -43,16 +43,25 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _logger.Log(Tag.KeepAlive, "Starting coordinator keep alive service...");
             _cancellationTokenSource = new CancellationTokenSource();
-            _ticks.Clear();
-            _groupManager.View.Others.ForEach(node => _ticks.Add(node, false));
-
+            ResetTicks();
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
             Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
-        public void Stop() => _cancellationTokenSource?.Cancel();
+        public void Stop() 
+        {
+            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
+            jobPublisher.UnregisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
+            _cancellationTokenSource?.Cancel();
+        }
+
+        private void ResetTicks()
+        {
+            _ticks.Clear();
+            _groupManager.View.Others.ForEach(node => _ticks.Add(node, false));
+        }
 
         private void SendKeepAliveToNodes()
         {
@@ -86,6 +95,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 if (!element.Value)
                     deaths.Add(element.Key);
             });
+            ResetTicks();
 
             if (deaths.Count > 0)
             {

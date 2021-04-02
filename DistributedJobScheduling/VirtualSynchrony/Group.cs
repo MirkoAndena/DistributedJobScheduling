@@ -82,5 +82,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 return node == Me || Others.Contains(node);
             }
         }
+
+        public bool Contains(HashSet<Node> nodes)
+        {
+            HashSet<Node> toCheck = new HashSet<Node>(nodes);
+            toCheck.Remove(Me);
+            lock(this)
+            {
+                return toCheck.IsSubsetOf(Others);
+            }
+        }
     }
 }
