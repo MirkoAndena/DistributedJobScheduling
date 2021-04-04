@@ -12,7 +12,7 @@ namespace DistributedJobScheduling.LeaderElection
     public class BullyElectionCandidate
     {
         // If no-one responds to ELECT for {timeout} seconds ...
-        const int timeout = 5;
+        private int timeout = KeepAlive.CoordinatorKeepAlive.SendTimeout * 3;
         private IGroupViewManager _group; 
         private CancellationTokenSource _cancellationTokenSource;
         public Action<List<Node>> SendElect, SendCoords;
@@ -26,21 +26,21 @@ namespace DistributedJobScheduling.LeaderElection
             _logger = logger;
         }
 
-        public void Run(Node died = null)
+        public void Run()
         {
             _cancellationTokenSource = new CancellationTokenSource();
-            List<Node> nodesWithIdHigherThanMe = NodesWithId(id => id > _group.View.Me.ID.Value && (died == null || id != died.ID.Value));
+            List<Node> nodesWithIdHigherThanMe = NodesWithId(id => id > _group.View.Me.ID.Value);
             SendElect?.Invoke(nodesWithIdHigherThanMe);
             Task.Delay(TimeSpan.FromSeconds(timeout), _cancellationTokenSource.Token).ContinueWith(t => 
             {
                 if (t.IsCompleted)
                 {
                     _logger.Log(Tag.LeaderElection, "Response window closed with no refuse, i'm the leader");
-                    SendImTheLeaderNow(died);
+                    SendImTheLeaderNow();
                 }
                 else
                     _logger.Log(Tag.LeaderElection, "Election stopped because someone refuse");
-            });
+            }, _cancellationTokenSource.Token);
         }
 
         private List<Node> NodesWithId(Predicate<int> idCondition)
@@ -54,10 +54,11 @@ namespace DistributedJobScheduling.LeaderElection
             return nodes;
         }
 
-        private void SendImTheLeaderNow(Node died)
+        private void SendImTheLeaderNow()
         {
-            List<Node> nodesWithIdLowerThanMe = NodesWithId(id => id < _group.View.Me.ID.Value && (died == null || id != died.ID.Value));
+            List<Node> nodesWithIdLowerThanMe = NodesWithId(id => id < _group.View.Me.ID.Value);
             SendCoords?.Invoke(nodesWithIdLowerThanMe);
+            _logger.Log(Tag.LeaderElection, "Sent to others i'm the leader");
         }
 
         public void CancelElection() => _cancellationTokenSource?.Cancel();

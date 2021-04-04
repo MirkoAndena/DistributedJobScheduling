@@ -43,7 +43,22 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 };
             }
 
-            group.View.ViewChanged += Restart;
+            group.View.ViewChanged += () => OnViewChanged(group.View.Coordinator);
+        }
+
+        private void OnViewChanged(Node coordinator)
+        {
+            if (coordinator != null)
+            {
+                // Group has coordinator so keep-alive can start
+                ((IInitializable)_keepAlive).Init();
+                _keepAlive.Start();
+            }
+            else
+            {
+                // Coordinator has crashed so keep-alive suspended
+                _keepAlive.Stop();
+            }
         }
 
         private void Restart()
