@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -26,6 +27,13 @@ namespace DistributedJobScheduling.LifeCycle
             var configurationService = DependencyManager.Get<IConfigurationService>();
             if (configurationService == null) throw new Exception("IConfigurationService must be created in the constructor");
             CreateConfiguration(configurationService, args);
+            
+            lock(Console.Out)
+            {
+                Console.BackgroundColor = ConsoleColor.Green;
+                Console.WriteLine(configurationService.ToString());
+                Console.ResetColor();
+            }
         }
 
         public async Task Run()

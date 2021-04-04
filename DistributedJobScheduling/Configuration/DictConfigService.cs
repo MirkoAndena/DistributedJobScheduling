@@ -1,5 +1,7 @@
+using System.Text;
 using System;
 using System.Collections.Generic;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.Configuration
 {
@@ -28,6 +30,13 @@ namespace DistributedJobScheduling.Configuration
                 return (T)_values[key];
                 
             throw new Exception($"{key} is not of type {typeof(T)}");
+        }
+
+        public override string ToString()
+        {
+            StringBuilder stringBuilder = new StringBuilder();
+            _values.ForEach(value => stringBuilder.Append($"{value.Key}: {value.Value.ToString()}, "));
+            return stringBuilder.ToString().Trim(new char[] { ' ', ','});
         }
     }
 }

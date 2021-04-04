@@ -19,9 +19,12 @@ namespace DistributedJobScheduling
             }
             catch (Exception e)
             {
-                Console.BackgroundColor = ConsoleColor.Red;
-                Console.WriteLine(e.Message);
-                Console.ResetColor();
+                lock(Console.Out)
+                {
+                    Console.BackgroundColor = ConsoleColor.Red;
+                    Console.WriteLine(e.Message);
+                    Console.ResetColor();
+                }
             }
 
             if (system is ClientSystemManager clientSystem)
