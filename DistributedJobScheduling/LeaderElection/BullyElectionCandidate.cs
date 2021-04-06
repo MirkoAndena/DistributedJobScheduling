@@ -33,7 +33,7 @@ namespace DistributedJobScheduling.LeaderElection
             SendElect?.Invoke(nodesWithIdHigherThanMe);
             Task.Delay(TimeSpan.FromSeconds(timeout), _cancellationTokenSource.Token).ContinueWith(t => 
             {
-                if (t.IsCompleted)
+                if (!t.IsCanceled)
                 {
                     _logger.Log(Tag.LeaderElection, "Response window closed with no refuse, i'm the leader");
                     SendImTheLeaderNow();

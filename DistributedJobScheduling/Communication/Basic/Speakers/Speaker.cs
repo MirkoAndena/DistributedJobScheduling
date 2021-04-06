@@ -104,7 +104,11 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     }
                 }
                 else
+                {
+                    _logger.Log(Tag.CommunicationBasic, $"Speaker closed with remote {_remote}");
+                    this.Stop();
                     return null;
+                }
             }
             catch (Exception e)
             {

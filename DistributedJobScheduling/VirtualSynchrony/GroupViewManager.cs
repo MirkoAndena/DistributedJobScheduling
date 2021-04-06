@@ -286,7 +286,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             var flushMessage = message as FlushMessage;
             flushMessage.BindToRegistry(_nodeRegistry);
 
-            if(View.Contains(node))
+            if(View.Contains(node) && (flushMessage.RelatedChangeOperation == ViewChangeMessage.ViewChangeOperation.Joined || View.Contains(flushMessage.RelatedChangeNode)))
             {
                 _logger.Log(Tag.VirtualSynchrony, $"Received flush message from {node.ID} for change {flushMessage.RelatedChangeNode}{flushMessage.RelatedChangeOperation}");
 
@@ -317,7 +317,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             var viewChangeMessage = message as ViewChangeMessage;
             viewChangeMessage.BindToRegistry(_nodeRegistry);
 
-            if(View.Contains(node))
+            if(View.Contains(node) && (viewChangeMessage.Change.Operation == ViewChangeMessage.ViewChangeOperation.Joined || View.Contains(viewChangeMessage.Change.Node)))
                 HandleViewChange(node, viewChangeMessage.Change);
         }
 
@@ -330,7 +330,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
             //FIXME: These locks on View are probably just bad rapresentation of a view, they should all be included in the view object
             viewChangeMessage.BindToRegistry(_nodeRegistry);
             ViewChangeMessage.ViewChange pendingViewChange = null;
-            bool notifyChaning = false;
 
             lock(View)
             {
@@ -340,7 +339,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     _viewChangeInProgress = new TaskCompletionSource<bool>();
                     _pendingViewChange = viewChangeMessage;
-                    notifyChaning = true;
+                    ViewChanging?.Invoke();
 
                     if(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left)
                     {
@@ -376,9 +375,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             if(pendingViewChange != null)
                 HandleFlushCondition();
-
-            if(notifyChaning)
-                ViewChanging?.Invoke();
         }
 
         //If we are not waiting any more messages from alive nodes we need to consolidate messages
