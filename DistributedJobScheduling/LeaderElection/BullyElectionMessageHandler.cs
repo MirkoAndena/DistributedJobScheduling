@@ -12,7 +12,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.LeaderElection
 {
-    public class BullyElectionMessageHandler : IInitializable, IStartable
+    public class BullyElectionMessageHandler : IInitializable
     {
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
@@ -29,38 +29,41 @@ namespace DistributedJobScheduling.LeaderElection
 
         public void Init()
         {
-            var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
-            jobPublisher.RegisterForMessage(typeof(ElectMessage), OnElectMessageArrived);
-            jobPublisher.RegisterForMessage(typeof(CoordMessage), OnCoordMessageArrived);
-        }
-
-        public void Start()
-        {
-            _candidate.SendElect += SendElectMessages;
-            _candidate.SendCoords += SendCoordMessages;
             _groupManager.View.ViewChanged += OnViewChanged;
         }
 
-        public void Stop()
+        private void Start()
         {
+            var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
+            jobPublisher.RegisterForMessage(typeof(ElectMessage), OnElectMessageArrived);
+            jobPublisher.RegisterForMessage(typeof(CoordMessage), OnCoordMessageArrived);
+            _candidate.SendElect += SendElectMessages;
+            _candidate.SendCoords += SendCoordMessages;
+        }
+
+        private void Stop()
+        {
+            var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
+            jobPublisher.UnregisterForMessage(typeof(ElectMessage), OnElectMessageArrived);
+            jobPublisher.UnregisterForMessage(typeof(CoordMessage), OnCoordMessageArrived);
             _candidate.CancelElection();
             _candidate.SendElect -= SendElectMessages;
             _candidate.SendCoords -= SendCoordMessages;
-            _groupManager.View.ViewChanged -= OnViewChanged;
         }
 
         private void OnViewChanged()
         {
-            _logger.Log(Tag.LeaderElection, $"View changed with Coordinator {_groupManager.View.Coordinator?.ID.Value}");
             if (_groupManager.View.Coordinator == null)
+            {
+                Start();
                 OnCoordinatorDeathReported();
+            }
         }
 
         private void OnCoordinatorDeathReported()
         {
-            Node coordinator = _groupManager.View.Coordinator;
-            _logger.Log(Tag.LeaderElection, $"Coordinator {coordinator?.ID} is dead, starting election");
-            _candidate.Run(coordinator);
+            _logger.Log(Tag.LeaderElection, $"Coordinator is dead, starting election");
+            _candidate.Run();
         }
 
         private void SendElectMessages(List<Node> nodes)
@@ -98,6 +101,7 @@ namespace DistributedJobScheduling.LeaderElection
             CoordMessage arrived = (CoordMessage)message;
             _groupManager.View.UpdateCoordinator(arrived.Coordinator);
             _logger.Log(Tag.LeaderElection, $"Received COORD from {node.ID.Value}, updated");
+            Stop();
         }
     }
 }
