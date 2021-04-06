@@ -10,7 +10,8 @@ namespace DistributedJobScheduling.LeaderElection
         private HashSet<Type> _topics = new HashSet<Type>
         {
             typeof(ElectMessage),
-            typeof(CoordMessage)
+            typeof(CoordMessage),
+            typeof(CancelMessage)
         };
         public override HashSet<Type> TopicMessageTypes => _topics;
     }

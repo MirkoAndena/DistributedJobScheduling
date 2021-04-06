@@ -37,6 +37,7 @@ namespace DistributedJobScheduling.LeaderElection
             var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
             jobPublisher.RegisterForMessage(typeof(ElectMessage), OnElectMessageArrived);
             jobPublisher.RegisterForMessage(typeof(CoordMessage), OnCoordMessageArrived);
+            jobPublisher.RegisterForMessage(typeof(CancelMessage), OnCancelMessageArrived);
             _candidate.SendElect += SendElectMessages;
             _candidate.SendCoords += SendCoordMessages;
         }
@@ -46,6 +47,7 @@ namespace DistributedJobScheduling.LeaderElection
             var jobPublisher = _groupManager.Topics.GetPublisher<BullyElectionPublisher>();
             jobPublisher.UnregisterForMessage(typeof(ElectMessage), OnElectMessageArrived);
             jobPublisher.UnregisterForMessage(typeof(CoordMessage), OnCoordMessageArrived);
+            jobPublisher.UnregisterForMessage(typeof(CancelMessage), OnCancelMessageArrived);
             _candidate.CancelElection();
             _candidate.SendElect -= SendElectMessages;
             _candidate.SendCoords -= SendCoordMessages;
@@ -80,6 +82,7 @@ namespace DistributedJobScheduling.LeaderElection
             {
                 _groupManager.Send(node, new CoordMessage(_groupManager.View.Me)).Wait();
             });
+            _groupManager.View.UpdateCoordinator(_groupManager.View.Me);
         }
 
         private void OnElectMessageArrived(Node node, Message message)
@@ -90,6 +93,7 @@ namespace DistributedJobScheduling.LeaderElection
             if (myID > arrived.ID)
             {
                 _logger.Log(Tag.LeaderElection, $"Received ELECT from {node.ID.Value}, my id ({myID}) is greater so i start a new election");
+                _groupManager.Send(node, new CancelMessage());
                 _candidate.Run();
             }
             else
@@ -102,6 +106,12 @@ namespace DistributedJobScheduling.LeaderElection
             _groupManager.View.UpdateCoordinator(arrived.Coordinator);
             _logger.Log(Tag.LeaderElection, $"Received COORD from {node.ID.Value}, updated");
             Stop();
+        }
+
+        private void OnCancelMessageArrived(Node node, Message message)
+        {
+            _logger.Log(Tag.LeaderElection, "Election cancelled");
+            _candidate.CancelElection();
         }
     }
 }

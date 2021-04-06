@@ -13,7 +13,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
-    public class CoordinatorKeepAlive : IStartable, IInitializable
+    public class CoordinatorKeepAlive : IStartable
     {
         // Seconds delay of coordintator to send keepAlive message
         public static int SendTimeout = 5;
@@ -32,16 +32,14 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _logger = logger;
             _ticks = new Dictionary<Node, bool>();
         }
-
-        public void Init()
-        {
-            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
-            jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
-        }
         
         public void Start()
         {
             _logger.Log(Tag.KeepAlive, "Starting coordinator keep alive service...");
+            
+            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
+            jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
+
             _cancellationTokenSource = new CancellationTokenSource();
             ResetTicks();
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
@@ -54,6 +52,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
             jobPublisher.UnregisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
+
             _cancellationTokenSource?.Cancel();
         }
 

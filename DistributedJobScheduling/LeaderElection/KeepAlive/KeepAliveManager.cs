@@ -18,6 +18,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         public Action<List<Node>> NodesDied;
 
         private IStartable _keepAlive;
+        private ILogger _logger;
+        private IGroupViewManager _group;
 
         public KeepAliveManager() : this (
             DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
@@ -25,48 +27,63 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         public KeepAliveManager(IGroupViewManager group, ILogger logger)
         {
-            if (group.View.ImCoordinator)
-            {
-                _keepAlive = new CoordinatorKeepAlive(group, logger);
-                ((CoordinatorKeepAlive)_keepAlive).NodesDied += nodes => 
-                {
-                    NodesDied?.Invoke(nodes);
-                    group.NotifyViewChanged(new HashSet<Node>(nodes), ViewChangeMessage.ViewChangeOperation.Left);
-                };
-            }
-            else
-            {
-                _keepAlive = new WorkersKeepAlive(group, logger);
-                ((WorkersKeepAlive)_keepAlive).CoordinatorDied += () => {
-                    group.NotifyViewChanged(new HashSet<Node>(new [] { group.View.Coordinator} ), ViewChangeMessage.ViewChangeOperation.Left);
-                    CoordinatorDied?.Invoke();
-                };
-            }
-
+            _logger = logger;
+            _group = group;
             group.View.ViewChanged += () => OnViewChanged(group.View.Coordinator);
             group.ViewChanging += Stop;
         }
 
         private void OnViewChanged(Node coordinator)
         {
+            Stop();
+
             if (coordinator != null)
             {
                 // Group has coordinator so keep-alive can start
-                ((IInitializable)_keepAlive).Init();
-                _keepAlive.Start();
+                _logger.Log(Tag.KeepAlive, "View changed with coordinator alive");
+
+                // Unregister from previous events
+                if (_keepAlive is CoordinatorKeepAlive coordinatorKeepAlive)
+                    coordinatorKeepAlive.NodesDied -= OnNodesDied;    
+                if (_keepAlive is WorkersKeepAlive workersKeepAlive)
+                    workersKeepAlive.CoordinatorDied -= OnCoordinatorDied;
+
+                // Create and start proper keep-alive handler
+                if (_group.View.ImCoordinator) StartCoordinatorKeepAlive();
+                else StartWorkerKeepAlive();
             }
             else
             {
                 // Coordinator has crashed so keep-alive suspended
+                _logger.Log(Tag.KeepAlive, "View changed with coordinator died");
                 _keepAlive.Stop();
             }
         }
 
-        private void Restart()
+        private void StartCoordinatorKeepAlive()
         {
-            _keepAlive.Stop();
-            ((IInitializable)_keepAlive).Init();
+            _keepAlive = new CoordinatorKeepAlive(_group, _logger);
+            ((CoordinatorKeepAlive)_keepAlive).NodesDied += OnNodesDied;
             _keepAlive.Start();
+        }
+
+        private void OnNodesDied(List<Node> nodes) 
+        {
+            NodesDied?.Invoke(nodes);
+            _group.NotifyViewChanged(new HashSet<Node>(nodes), ViewChangeMessage.ViewChangeOperation.Left);
+        }
+
+        private void StartWorkerKeepAlive()
+        {
+            _keepAlive = new WorkersKeepAlive(_group, _logger);
+            ((WorkersKeepAlive)_keepAlive).CoordinatorDied += OnCoordinatorDied;
+            _keepAlive.Start();
+        }
+
+        private void OnCoordinatorDied()
+        {
+            _group.NotifyViewChanged(new HashSet<Node>(new [] { _group.View.Coordinator} ), ViewChangeMessage.ViewChangeOperation.Left);
+            CoordinatorDied?.Invoke();
         }
 
         public void Start()
@@ -74,6 +91,10 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             // First start is not needed
         }
 
-        public void Stop() => _keepAlive.Stop();
+        public void Stop()
+        {
+            if (_keepAlive != null) 
+                _keepAlive.Stop();
+        } 
     }
 }

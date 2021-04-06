@@ -4,6 +4,7 @@ using DistributedJobScheduling.Configuration;
 using System.Threading.Tasks;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Client;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling
 {
@@ -27,6 +28,8 @@ namespace DistributedJobScheduling
                 }
             }
 
+            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
+
             if (system is ClientSystemManager clientSystem)
                 Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => clientSystem.CreateAndRequestAssignment());
             
@@ -40,6 +43,13 @@ namespace DistributedJobScheduling
             if (args.Length > 0)
                 return args[0].Trim().ToLower() == "client";
             return false;
+        }
+
+        static void UnhandledExceptionBehavior(object sender, UnhandledExceptionEventArgs args)
+        {
+            Exception e = (Exception) args.ExceptionObject;
+            var logger = DependencyInjection.DependencyManager.Get<ILogger>();
+            logger.Fatal(Tag.UnHandled, e.Message, e);
         }
     }
 }

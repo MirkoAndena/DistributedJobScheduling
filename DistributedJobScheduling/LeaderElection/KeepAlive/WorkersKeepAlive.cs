@@ -13,7 +13,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
-    public class WorkersKeepAlive : IStartable, IInitializable
+    public class WorkersKeepAlive : IStartable
     {
         private int ReceiveTimeout = CoordinatorKeepAlive.SendTimeout * 2;
         public Action CoordinatorDied;
@@ -26,15 +26,12 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _groupManager = group;
             _logger = logger;
         }
-
-        public void Init()
-        {
-            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
-            jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
-        }
         
         public void Start()
         {
+            var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
+            jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
+
             _cancellationTokenSource = new CancellationTokenSource();
             Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
@@ -44,6 +41,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
             jobPublisher.UnregisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
+
             _cancellationTokenSource?.Cancel();
         }
 
@@ -52,7 +50,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
             _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
             Stop();
-            Init();
             Start();
         }
 
