@@ -27,6 +27,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public int JoinRequestTimeout { get; set; } = 5000;
         private class MulticastNotDeliveredException : Exception {}
         private class NotDeliveredException : Exception {}
+        private class KickedFromViewException : Exception {
+            public KickedFromViewException() : base("Consolidated view without this node") {}
+        }
 
         public Group View { get; private set; }
         public event Action ViewChanging;
@@ -395,6 +398,16 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     if(_flushedNodes.SetEquals(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left ? _newGroupView : View.Others))
                     {
                         _logger.Log(Tag.VirtualSynchrony, $"All nodes have flushed their messages, consolidating view change");
+
+                        
+
+                        //Check for errors
+                        if(_pendingViewChange.Node == View.Me)
+                        {
+                            var kickedException = new KickedFromViewException();
+                            _logger.Fatal(Tag.VirtualSynchrony, kickedException.Message, kickedException);
+                        }
+
                         //Enstablish new View
                         Node coordinator = View.ImCoordinator || _newGroupView.Contains(View.Coordinator) ? View.Coordinator : null;
                         View.Update(_newGroupView, coordinator);
