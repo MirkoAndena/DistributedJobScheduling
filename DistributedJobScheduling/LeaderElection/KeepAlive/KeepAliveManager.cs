@@ -44,6 +44,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             }
 
             group.View.ViewChanged += () => OnViewChanged(group.View.Coordinator);
+            group.ViewChanging += Stop;
         }
 
         private void OnViewChanged(Node coordinator)

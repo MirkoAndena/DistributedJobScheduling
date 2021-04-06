@@ -29,6 +29,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private class NotDeliveredException : Exception {}
 
         public Group View { get; private set; }
+        public event Action ViewChanging;
 
         public ITopicOutlet Topics { get; private set; }
 
@@ -329,6 +330,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
             //FIXME: These locks on View are probably just bad rapresentation of a view, they should all be included in the view object
             viewChangeMessage.BindToRegistry(_nodeRegistry);
             ViewChangeMessage.ViewChange pendingViewChange = null;
+            bool notifyChaning = false;
+
             lock(View)
             {
                 _logger.Log(Tag.VirtualSynchrony, $"Handling view change {viewChangeMessage.Node} {viewChangeMessage.Operation} detected by {initiator.ID}");
@@ -337,6 +340,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     _viewChangeInProgress = new TaskCompletionSource<bool>();
                     _pendingViewChange = viewChangeMessage;
+                    notifyChaning = true;
 
                     if(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left)
                     {
@@ -366,11 +370,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 //If we got a new viewchange that isn't the same as the one already received
                 //FATAL: Double View Change
                 _viewChangeInProgress.SetResult(false);
-                throw new Exception("FATAL: ViewChange during view change");
+                Exception ex = new Exception("FATAL: ViewChange during view change");
+                _logger.Fatal(Tag.VirtualSynchrony, ex.Message, ex);
             }
 
             if(pendingViewChange != null)
                 HandleFlushCondition();
+
+            if(notifyChaning)
+                ViewChanging?.Invoke();
         }
 
         //If we are not waiting any more messages from alive nodes we need to consolidate messages

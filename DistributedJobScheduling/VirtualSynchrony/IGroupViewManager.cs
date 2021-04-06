@@ -14,6 +14,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
     public interface IGroupViewManager : ICommunicationManager
     {
         Group View { get; }
+        event Action ViewChanging;
         void NotifyViewChanged(HashSet<Node> nodes, ViewChangeMessage.ViewChangeOperation operation);
     }
 }
