@@ -14,11 +14,13 @@ namespace DistributedJobScheduling.Communication.Messaging
     public class ViewSyncResponse : Message
     {
         public List<Node> ViewNodes { get; private set; }
+        public int ViewId { get; private set; }
 
         [JsonConstructor]
-        public ViewSyncResponse(List<Node> viewNodes) : base() 
+        public ViewSyncResponse(List<Node> viewNodes, int viewId) : base() 
         {
             ViewNodes = viewNodes;
+            ViewId = viewId;
         }
         
         public override void BindToRegistry(Node.INodeRegistry registry)

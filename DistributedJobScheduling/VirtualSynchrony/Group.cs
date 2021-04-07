@@ -13,6 +13,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         /// </summary>
         public event Action ViewChanged;
         public event Action<Node> MemberDied;
+        public int ViewId { get; private set; }
         public Node Me { get; private set; }
         public Node Coordinator  { get; private set; }
         public HashSet<Node> Others  { get; private set; }
@@ -28,22 +29,23 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
         }
 
-        public Group(Node me, bool coordinator = false) 
+        public Group(Node me, bool coordinator = false, HashSet<Node> others = null, int id = 0) : this(me, coordinator ? me : null, others, id) { }
+        public Group(Node me, Node coordinator, HashSet<Node> others = null, int id = 0)
         {
             Me = me;
-
-            if (coordinator)
-                Coordinator = Me;
-
-            Others = new HashSet<Node>();
+            ViewId = id;
+            Coordinator = coordinator;
+            Others = others != null ? new HashSet<Node>(others) : new HashSet<Node>();
         }
 
-        public void Add(Node node)
+        public void Add(Node node, int? id = null)
         {
             lock(this)
             {
                 Others.Add(node);
                 node.Died += MemberDied;
+
+                if(id.HasValue) ViewId = id.Value;
             }
             Task.Run(() => ViewChanged?.Invoke());
         }
@@ -57,7 +59,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             Task.Run(() => ViewChanged?.Invoke());
         }
 
-        public void Update(HashSet<Node> newView, Node newCoordinator)
+        public void Update(HashSet<Node> newView, Node newCoordinator, int? id = null)
         {
             lock(this)
             {
@@ -70,6 +72,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     node.Died += OnMemberDeath;
 
                 Coordinator = newCoordinator;
+
+                if(id.HasValue) ViewId = id.Value;
             }
             Task.Run(() => ViewChanged?.Invoke());
         }
@@ -79,7 +83,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             MemberDied?.Invoke(node);
         }
 
-        public void Remove(Node node)
+        public void Remove(Node node,  int? id = null)
         {
             lock(this)
             {
@@ -87,6 +91,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     Coordinator = null;
                 node.Died -= OnMemberDeath;
                 Others.Remove(node);
+
+                if(id.HasValue) ViewId = id.Value;
             }
 
             Task.Run(() => ViewChanged?.Invoke());
@@ -109,5 +115,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 return toCheck.IsSubsetOf(Others);
             }
         }
+    
+        /// <summary>
+        /// Copies the current view state in a new object
+        /// </summary>
+        public Group Diverge() => new Group(Me, Coordinator, Others, ViewId);
     }
 }

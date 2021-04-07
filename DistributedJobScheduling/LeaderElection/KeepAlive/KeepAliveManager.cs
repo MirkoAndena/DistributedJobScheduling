@@ -70,7 +70,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private void OnNodesDied(List<Node> nodes) 
         {
             NodesDied?.Invoke(nodes);
-            _group.NotifyViewChanged(new HashSet<Node>(nodes), ViewChangeMessage.ViewChangeOperation.Left);
+            _group.NotifyViewChanged(new HashSet<Node>(nodes), ViewChangeOperation.Left);
         }
 
         private void StartWorkerKeepAlive()
@@ -82,7 +82,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnCoordinatorDied()
         {
-            _group.NotifyViewChanged(new HashSet<Node>(new [] { _group.View.Coordinator} ), ViewChangeMessage.ViewChangeOperation.Left);
+            _group.NotifyViewChanged(new HashSet<Node>(new [] { _group.View.Coordinator} ), ViewChangeOperation.Left);
             CoordinatorDied?.Invoke();
         }
 

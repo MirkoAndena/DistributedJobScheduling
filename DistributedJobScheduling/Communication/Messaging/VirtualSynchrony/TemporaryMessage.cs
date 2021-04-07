@@ -6,13 +6,13 @@ namespace DistributedJobScheduling.Communication.Messaging
 {
     [JsonObject(MemberSerialization.Fields)]
     [Serializable]
-    public class TemporaryMessage : Message
+    public class TemporaryMessage : ViewMessage
     {
         public bool IsMulticast { get; private set; }
         public Message UnstablePayload { get; private set; }
 
         //We don't need the timestamper
-        public TemporaryMessage(bool isMulticast, Message unstablePayload) : base()
+        public TemporaryMessage(bool isMulticast, Message unstablePayload, int viewId) : base(viewId)
         {
             IsMulticast = isMulticast;
             UnstablePayload = unstablePayload;

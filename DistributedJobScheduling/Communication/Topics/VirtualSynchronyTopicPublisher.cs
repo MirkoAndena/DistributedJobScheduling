@@ -11,7 +11,6 @@ namespace DistributedJobScheduling.Communication.Topics
         {
             typeof(TemporaryMessage),
             typeof(TemporaryAckMessage),
-            typeof(ViewChangeMessage),
             typeof(FlushMessage),
             typeof(ViewJoinRequest),
             typeof(ViewSyncResponse),

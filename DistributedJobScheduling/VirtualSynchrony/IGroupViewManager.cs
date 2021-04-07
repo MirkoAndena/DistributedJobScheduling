@@ -15,6 +15,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
     {
         Group View { get; }
         event Action ViewChanging;
-        void NotifyViewChanged(HashSet<Node> nodes, ViewChangeMessage.ViewChangeOperation operation);
+        void NotifyViewChanged(HashSet<Node> nodes, ViewChangeOperation operation);
     }
 }

@@ -6,13 +6,13 @@ namespace DistributedJobScheduling.Communication.Messaging
 {
     [JsonObject(MemberSerialization.Fields)]
     [Serializable]
-    public class FlushMessage : Message 
+    public class FlushMessage : ViewMessage 
     {
-        public ViewChangeMessage.ViewChangeOperation RelatedChangeOperation { get; private set; }
+        public ViewChangeOperation RelatedChangeOperation { get; private set; }
         public Node RelatedChangeNode { get; private set; }
         
         [JsonConstructor]
-        public FlushMessage(Node relatedChangeNode, ViewChangeMessage.ViewChangeOperation relatedChangeOperation) : base() 
+        public FlushMessage(Node relatedChangeNode, ViewChangeOperation relatedChangeOperation, int viewId) : base(viewId) 
         {
             RelatedChangeNode = relatedChangeNode;
             RelatedChangeOperation = relatedChangeOperation;
