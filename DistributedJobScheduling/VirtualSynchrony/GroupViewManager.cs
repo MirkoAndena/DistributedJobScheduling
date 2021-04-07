@@ -15,6 +15,7 @@ using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LeaderElection;
+using DistributedJobScheduling.Queues;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -41,6 +42,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private ILogger _logger;
         private Node.INodeRegistry _nodeRegistry;
         private ITopicPublisher _virtualSynchronyTopic;
+
+        private CancellationTokenSource _senderCancellationTokenSource;
+        private Task _messageSender;
+        private AsyncGenericQueue<(Node, Message)> _sendQueue;
+        private Dictionary<Message, TaskCompletionSource<bool>> _messageSendStateMap;
+        private Queue<(Node, Message)> _onHoldMessages;
 
         
         #region Messaging Variables
@@ -91,6 +98,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _sentTemporaryMessages = new HashSet<TemporaryMessage>();
             _sendComplenentionMap = new Dictionary<TemporaryMessage, TaskCompletionSource<bool>>();
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
+
+            _sendQueue = new AsyncGenericQueue<(Node, Message)>();
+            _messageSendStateMap = new Dictionary<Message, TaskCompletionSource<bool>>();
+
             Topics = new GenericTopicOutlet(this, 
                      new JobGroupPublisher(),
                      new KeepAlivePublisher(),
@@ -101,43 +112,121 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         public event Action<Node, Message> OnMessageReceived;
 
-        private async Task CheckViewChanges()
+        /// <summary>
+        /// This task waits for enqueued messages and sends them appropriatly
+        /// </summary>
+        /// <returns></returns>
+        private async Task MessageRouter(CancellationToken cancellationToken)
         {
-            if(_viewChangeInProgress != null)
+            try
             {
-                _logger.Warning(Tag.VirtualSynchrony, "View change in progress, need to await before sending messages");
-                if(!await _viewChangeInProgress.Task)
-                    throw new MulticastNotDeliveredException(); //FATAL, TODO: Fatal exceptions?
+                while(!cancellationToken.IsCancellationRequested)
+                {
+                    var messageToSend = await _sendQueue.Dequeue();
+
+                    if(messageToSend != default)
+                    {
+                        Node node = messageToSend.Item1;
+                        Message message = messageToSend.Item2;
+
+                        try
+                        {
+                            _logger.Log(Tag.VirtualSynchrony, $"Routing {message.GetType().Name} to {(node?.ToString() ?? "MULTICAST")}");
+                            if(node != null) //Unicast
+                            {
+                                if(View.Contains(node))
+                                    await _communicationManager.Send(node, message.ApplyStamp(_messageTimeStamper));
+                                else
+                                    _logger.Warning(Tag.VirtualSynchrony, $"Message sender has a message for {node} in queue which isn't in the view anymore!");
+                            }
+                            else //Multicast
+                            {
+                                await _communicationManager.SendMulticast(message.ApplyStamp(_messageTimeStamper));
+                            }
+                            
+                            //Notify Send Completion
+                            _logger.Log(Tag.VirtualSynchrony, $"Routed message {message.GetType().Name}({message.TimeStamp}) to {(node?.ToString() ?? "MULTICAST")}");
+                            _messageSendStateMap[message].SetResult(true);
+                        }
+                        catch(Exception ex)
+                        {
+                            _logger.Error(Tag.VirtualSynchrony, ex);
+                            _messageSendStateMap[message].SetResult(false);
+                        }
+                        finally
+                        {
+                            _messageSendStateMap.Remove(message);
+                        }
+                    }
+                }
+            }
+            catch {}
+            finally
+            {
+                _logger.Log(Tag.VirtualSynchrony, "Message router token got cancelled, stopping send task...");
             }
         }
 
-        public async Task Send(Node node, Message message, int timeout = 30)
+        public async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, int timeout)
         {
-            await CheckViewChanges();
-
-            _logger.Log(Tag.VirtualSynchrony, $"Start send {message.GetType().Name} to {node}");
-
             //Checks that the node is in the view
-            if(!View.Contains(node))
+            if(node == null || !View.Contains(node))
             {
                 NotDeliveredException sendException = new NotDeliveredException();
                 _logger.Error(Tag.VirtualSynchrony, $"Tried to send message to node {node.ID} which isn't in view!", sendException);
                 throw sendException;
             }
 
-            TemporaryMessage tempMessage = new TemporaryMessage(false, message);
-            await _communicationManager.Send(node, tempMessage.ApplyStamp(_messageTimeStamper), timeout);
+            TemporaryMessage tempMessage = new TemporaryMessage(node == null, message);
+            TaskCompletionSource<bool> sendCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _messageSendStateMap[tempMessage] = sendCompletionSource;
+            var sendMessageElement = (node, tempMessage);
+
+            lock(View)
+            {
+                if(_pendingViewChange != null)
+                {
+                    _logger.Log(Tag.VirtualSynchrony, $"View change in progress, holding message {message.GetType().Name} to {node?.ToString() ?? "MULTICAST"}");
+                    _onHoldMessages.Enqueue(sendMessageElement);
+                }
+                else
+                    _sendQueue.Enqueue(sendMessageElement);
+            }
+
+            CancellationTokenSource cts = new CancellationTokenSource();
+            await Task.WhenAny(sendCompletionSource.Task,
+                               Task.Delay(TimeSpan.FromSeconds(timeout), cts.Token));
+            cts.Cancel();
+            
+            if(!sendCompletionSource.Task.IsCompleted || !sendCompletionSource.Task.Result)
+            {
+                NotDeliveredException sendException = new NotDeliveredException();
+                _logger.Error(Tag.VirtualSynchrony, $"Delivery of message {tempMessage.TimeStamp} to {node.ID} failed or timedout!", sendException);
+                throw sendException;
+            }
+
+            return tempMessage;
+        }
+
+        public async Task Send(Node node, Message message, int timeout = 1)
+        {
+            try
+            {
+                _logger.Log(Tag.VirtualSynchrony, $"Queuing send {message.GetType().Name} to {node}");
+                await EnqueueMessageAndWaitSend(node, message, timeout);
+                _logger.Log(Tag.VirtualSynchrony, $"Sent {message.GetType().Name}({message.TimeStamp}) to {node}");
+            }
+            catch
+            {
+                throw;
+            }
         }
 
         public async Task SendMulticast(Message message)
         {
-            await CheckViewChanges();
-
-            _logger.Log(Tag.VirtualSynchrony, $"Start send multicast {message.GetType().Name}");
-            TemporaryMessage tempMessage = new TemporaryMessage(true, message);
-            TaskCompletionSource<bool> sendTask;
-            
-            await _communicationManager.SendMulticast(tempMessage.ApplyStamp(_messageTimeStamper));
+            _logger.Log(Tag.VirtualSynchrony, $"Queuing send multicast {message.GetType().Name}");
+            TaskCompletionSource<bool> consolidateTask;
+            var tempMessage = await EnqueueMessageAndWaitSend(null, message, 30);
 
             _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network");
             var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp.Value);
@@ -145,13 +234,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
             {
                 _confirmationQueue.Add(messageKey, tempMessage);
                 _sentTemporaryMessages.Add(tempMessage);
-                _sendComplenentionMap.Add(tempMessage, (sendTask = new TaskCompletionSource<bool>(false)));
+                _sendComplenentionMap.Add(tempMessage, (consolidateTask = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously)));
                 ProcessAcknowledge(messageKey, View.Me);
             }
 
             _logger.Log(Tag.VirtualSynchrony, $"Waiting for other acks...");
             //True if every node in the view acknowledged the message
-            if(!await sendTask.Task)
+            if(!await consolidateTask.Task)
                 throw new MulticastNotDeliveredException();
         }
 
@@ -279,7 +368,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     //If receiver notify reception
                     Node sender = _nodeRegistry.GetNode(message.SenderID.Value);
-                    OnMessageReceived?.Invoke(sender, message.UnstablePayload);
+                    Task.Run(() => OnMessageReceived?.Invoke(sender, message.UnstablePayload));
                 }  
             }
         }
@@ -332,7 +421,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             //FIXME: These locks on View are probably just bad rapresentation of a view, they should all be included in the view object
             viewChangeMessage.BindToRegistry(_nodeRegistry);
-            ViewChangeMessage.ViewChange pendingViewChange = null;
 
             lock(View)
             {
@@ -340,9 +428,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 //Assume no view change while changing view
                 if(_viewChangeInProgress == null)
                 {
-                    _viewChangeInProgress = new TaskCompletionSource<bool>();
+                    _viewChangeInProgress = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     _pendingViewChange = viewChangeMessage;
                     ViewChanging?.Invoke();
+
+                    //Stop all messaging
+                    _onHoldMessages = new Queue<(Node, Message)>();
 
                     if(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left)
                     {
@@ -363,21 +454,21 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         _newGroupView.Add(viewChangeMessage.Node);
                     else
                         _newGroupView.Remove(viewChangeMessage.Node);
+                        
+
+                    if(_viewChangeInProgress != null && (initiator == View.Me || initiator != viewChangeMessage.Node) && !_pendingViewChange.IsSame(viewChangeMessage))
+                    {
+                        //If we got a new viewchange that isn't the same as the one already received
+                        //FATAL: Double View Change
+                        _viewChangeInProgress.SetResult(false);
+                        Exception ex = new Exception("FATAL: ViewChange during view change");
+                        _logger.Fatal(Tag.VirtualSynchrony, ex.Message, ex);
+                    }
+
+                    if(_viewChangeInProgress != null)
+                        HandleFlushCondition();
                 }
-                pendingViewChange = _pendingViewChange;
             }
-
-            if(pendingViewChange != null && (initiator == View.Me || initiator != viewChangeMessage.Node) && !pendingViewChange.IsSame(viewChangeMessage))
-            {
-                //If we got a new viewchange that isn't the same as the one already received
-                //FATAL: Double View Change
-                _viewChangeInProgress.SetResult(false);
-                Exception ex = new Exception("FATAL: ViewChange during view change");
-                _logger.Fatal(Tag.VirtualSynchrony, ex.Message, ex);
-            }
-
-            if(pendingViewChange != null)
-                HandleFlushCondition();
         }
 
         //If we are not waiting any more messages from alive nodes we need to consolidate messages
@@ -390,19 +481,17 @@ namespace DistributedJobScheduling.VirtualSynchrony
         }
         private void HandleFlushCondition()
         {
-            if(FlushCondition())
+            lock (View)
             {
-                AttemptSendFlushMessage();
-                lock(View)
+                if (FlushCondition())
                 {
-                    if(_flushedNodes.SetEquals(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left ? _newGroupView : View.Others))
+                    AttemptSendFlushMessage();
+                    if (_flushedNodes.SetEquals(_pendingViewChange.Operation == ViewChangeMessage.ViewChangeOperation.Left ? _newGroupView : View.Others))
                     {
                         _logger.Log(Tag.VirtualSynchrony, $"All nodes have flushed their messages, consolidating view change");
 
-                        
-
                         //Check for errors
-                        if(_pendingViewChange.Node == View.Me)
+                        if (_pendingViewChange.Node == View.Me)
                         {
                             var kickedException = new KickedFromViewException();
                             _logger.Fatal(Tag.VirtualSynchrony, kickedException.Message, kickedException);
@@ -421,12 +510,16 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         _newGroupView = null;
 
                         //Check if it needs to sync to the new node
-                        if(_currentJoinRequest != null)
+                        if (_currentJoinRequest != null)
                         {
                             _logger.Log(Tag.VirtualSynchrony, $"Need to sync view with joined node");
                             _communicationManager.Send(_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList()).ApplyStamp(_messageTimeStamper)).Wait();
                             _currentJoinRequest = null;
                         }
+
+                        //Unlock Message Queue
+                        _sendQueue.EnqueueRange(_onHoldMessages);
+                        _onHoldMessages = null;
 
                         //Unlock group communication
                         viewChangeTask.SetResult(true);
@@ -531,6 +624,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _virtualSynchronyTopic.RegisterForMessage(typeof(NotInViewMessage), OnNotInViewReceived);
             _virtualSynchronyTopic.RegisterForMessage(typeof(TeardownMessage), OnTeardownReceived);
 
+            //Start Sender
+            _senderCancellationTokenSource = new CancellationTokenSource();
+            _messageSender = MessageRouter(_senderCancellationTokenSource.Token);
+
             _logger.Log(Tag.VirtualSynchrony, "Registered for VS messages");
             _joinRequestCancellation = new CancellationTokenSource();
             //Start group join if we are not in a Group
@@ -560,7 +657,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 _logger.Log(Tag.VirtualSynchrony, "Coordinator detected, finished startup sequence.");
         }
 
-        public void Stop()
+        public async void Stop()
         {
             _logger.Log(Tag.VirtualSynchrony, "Stopping node, sending view change message");
 
@@ -573,6 +670,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             Node = View.Me, 
                             Operation = ViewChangeMessage.ViewChangeOperation.Left
                         });
+
+            if(_viewChangeInProgress != null) await _viewChangeInProgress.Task;
+            _senderCancellationTokenSource.Cancel();
         }
     }
 }
