@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.VirtualSynchrony;
 
@@ -16,6 +17,7 @@ namespace DistributedJobScheduling.Tests
         public ITopicOutlet Topics => null;
 
         public event Action<Node, Message> OnMessageReceived;
+        public event Action ViewChanging;
 
         public FakeGroupViewManager(Group group)
         {
@@ -29,6 +31,11 @@ namespace DistributedJobScheduling.Tests
         }
 
         public Task SendMulticast(Message message)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void NotifyViewChanged(HashSet<Node> nodes, ViewChangeMessage.ViewChangeOperation operation)
         {
             throw new NotImplementedException();
         }

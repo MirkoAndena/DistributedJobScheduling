@@ -32,7 +32,7 @@ namespace DistributedJobScheduling.Communication.Messaging.Ordering
             lock(_waitingQueue)
             {
                 if(!_waitingQueue.ContainsKey(message.TimeStamp.Value))
-                    _waitingQueue.Add(message.TimeStamp.Value, new TaskCompletionSource<bool>());
+                    _waitingQueue.Add(message.TimeStamp.Value, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
                 waitSendTask = _waitingQueue[message.TimeStamp.Value];
                 lastObserved = _lastObserved;
                 shouldWait = _lastObserved.HasValue && message.TimeStamp.Value > _lastObserved+1;

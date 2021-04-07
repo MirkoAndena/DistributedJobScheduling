@@ -25,6 +25,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
     //FIXME: Resource Locks? Messages are asynchronous, some blocks should have mutual exclusion
     public class GroupViewManager : IGroupViewManager, IStartable
     {
+        private const int DEFAULT_SEND_TIMEOUT = 1;
+
         public int JoinRequestTimeout { get; set; } = 5000;
         private class MulticastNotDeliveredException : Exception {}
         private class NotDeliveredException : Exception {}
@@ -108,6 +110,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                      new BullyElectionPublisher());
             JoinRequestTimeout = joinRequestTimeout;
             View = coldStartView ?? new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), coordinator: configurationService.GetValue<bool>("coordinator", false));
+            View.MemberDied += (node) => { NotifyViewChanged(new HashSet<Node>(new [] {node}), ViewChangeMessage.ViewChangeOperation.Left); };
         }
 
         public event Action<Node, Message> OnMessageReceived;
@@ -146,16 +149,20 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             
                             //Notify Send Completion
                             _logger.Log(Tag.VirtualSynchrony, $"Routed message {message.GetType().Name}({message.TimeStamp}) to {(node?.ToString() ?? "MULTICAST")}");
-                            _messageSendStateMap[message].SetResult(true);
+                            
+                            if(_messageSendStateMap.ContainsKey(message))
+                                _messageSendStateMap[message].SetResult(true);
                         }
                         catch(Exception ex)
                         {
                             _logger.Error(Tag.VirtualSynchrony, ex);
-                            _messageSendStateMap[message].SetResult(false);
+                            if(_messageSendStateMap.ContainsKey(message))
+                                _messageSendStateMap[message].SetResult(false);
                         }
                         finally
                         {
-                            _messageSendStateMap.Remove(message);
+                            if(_messageSendStateMap.ContainsKey(message))
+                                _messageSendStateMap.Remove(message);
                         }
                     }
                 }
@@ -167,7 +174,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
         }
 
-        public async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, int timeout)
+        private (TemporaryMessage, TaskCompletionSource<bool>) EnqueueMessage(Node node, Message message)
         {
             //Checks that the node is in the view
             if(node == null || !View.Contains(node))
@@ -193,22 +200,29 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _sendQueue.Enqueue(sendMessageElement);
             }
 
+            return (tempMessage, sendCompletionSource);
+        }
+
+        private async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
+        {
+            var sendMessageTask = EnqueueMessage(node, message);
+
             CancellationTokenSource cts = new CancellationTokenSource();
-            await Task.WhenAny(sendCompletionSource.Task,
+            await Task.WhenAny(sendMessageTask.Item2.Task,
                                Task.Delay(TimeSpan.FromSeconds(timeout), cts.Token));
             cts.Cancel();
             
-            if(!sendCompletionSource.Task.IsCompleted || !sendCompletionSource.Task.Result)
+            if(!sendMessageTask.Item2.Task.IsCompleted || !sendMessageTask.Item2.Task.Result)
             {
                 NotDeliveredException sendException = new NotDeliveredException();
-                _logger.Error(Tag.VirtualSynchrony, $"Delivery of message {tempMessage.TimeStamp} to {node.ID} failed or timedout!", sendException);
+                _logger.Error(Tag.VirtualSynchrony, $"Delivery of message {sendMessageTask.Item1.TimeStamp} to {node.ID} failed or timedout!", sendException);
                 throw sendException;
             }
 
-            return tempMessage;
+            return sendMessageTask.Item1;
         }
 
-        public async Task Send(Node node, Message message, int timeout = 1)
+        public async Task Send(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
         {
             try
             {
@@ -264,12 +278,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 if(tempMessage.IsMulticast)
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"Sending ack for received message {messageKey}");
-                    _communicationManager.SendMulticast(new TemporaryAckMessage(tempMessage).ApplyStamp(_messageTimeStamper)).Wait();
+                    _sendQueue.Enqueue((null, new TemporaryAckMessage(tempMessage)));
                     _logger.Log(Tag.VirtualSynchrony, $"Correctly sent ack for {messageKey}");
                 }
             }
             else
-                _communicationManager.Send(node, new NotInViewMessage(View.Count).ApplyStamp(_messageTimeStamper)).Wait();
+                _communicationManager.Send(node, new NotInViewMessage(View.Count)).Wait();
         }
 
         private void OnTemporaryAckReceived(Node node, Message message)
@@ -294,13 +308,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
             if(notInViewMessage.MyViewSize > myViewSize)
             {
                 //We need to fault!
-                Message teardownMessage = new TeardownMessage().ApplyStamp(_messageTimeStamper);
+                Message teardownMessage = new TeardownMessage();
                 _communicationManager.SendMulticast(teardownMessage).Wait();
                 OnTeardownReceived(View.Me, teardownMessage);
             }
 
             if(notInViewMessage.MyViewSize < myViewSize) //The other view needs to fault
-                _communicationManager.Send(node, new NotInViewMessage(myViewSize).ApplyStamp(_messageTimeStamper)).Wait();
+                _communicationManager.Send(node, new NotInViewMessage(myViewSize)).Wait();
         }
 
         private void OnTeardownReceived(Node node, Message message)
@@ -513,7 +527,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         if (_currentJoinRequest != null)
                         {
                             _logger.Log(Tag.VirtualSynchrony, $"Need to sync view with joined node");
-                            _communicationManager.Send(_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList()).ApplyStamp(_messageTimeStamper)).Wait();
+                            _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList())));
                             _currentJoinRequest = null;
                         }
 
@@ -537,7 +551,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange.Operation} of {_pendingViewChange.Node}!");
                     flushMessage = new FlushMessage(_pendingViewChange.Node, _pendingViewChange.Operation);
                 }
-                _communicationManager.SendMulticast(flushMessage.ApplyStamp(_messageTimeStamper)).Wait();
+                _sendQueue.Enqueue((null, flushMessage));
                 _flushed = true;
             }
         }
@@ -639,7 +653,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     {
                         _logger.Warning(Tag.VirtualSynchrony, "View join request timedout, trying to join...");
-                        await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me).ApplyStamp(_messageTimeStamper));
+                        await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me));
                         
                         try
                         {
