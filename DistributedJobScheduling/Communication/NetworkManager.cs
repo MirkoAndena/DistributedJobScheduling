@@ -95,14 +95,27 @@ namespace DistributedJobScheduling.Communication
         {
             _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
             _speakers.Remove(remote);
+            remote.NotifyDeath();
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)
         {
-            Speaker speaker = await GetSpeakerTo(node, timeout);
-            message.SenderID = _me.ID;
-            message.ReceiverID = node.ID;
-            await _sendOrdering.OrderedExecute(message, () => speaker.Send(message));
+            try
+            {
+                Speaker speaker = await GetSpeakerTo(node, timeout);
+                message.SenderID = _me.ID;
+                message.ReceiverID = node.ID;
+                await _sendOrdering.OrderedExecute(message, () => speaker.Send(message));
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+                if(message != null && message.TimeStamp.HasValue)
+                    _sendOrdering.Observe(message);
+            }
         }
 
         private async Task<Speaker> GetSpeakerTo(Node node, int timeout)
@@ -124,8 +137,20 @@ namespace DistributedJobScheduling.Communication
 
         public async Task SendMulticast(Message message)
         {
-            message.SenderID = _me.ID;
-            await _sendOrdering.OrderedExecute(message, () => _shouter.SendMulticast(message));
+            try
+            {
+                message.SenderID = _me.ID;
+                await _sendOrdering.OrderedExecute(message, () => _shouter.SendMulticast(message));
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+                if(message != null && message.TimeStamp.HasValue)
+                    _sendOrdering.Observe(message);
+            }
         }
 
         public void Start()

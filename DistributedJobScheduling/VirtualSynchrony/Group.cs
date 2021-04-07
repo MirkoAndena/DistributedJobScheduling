@@ -12,6 +12,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         /// Event notified when the current group view changes
         /// </summary>
         public event Action ViewChanged;
+        public event Action<Node> MemberDied;
         public Node Me { get; private set; }
         public Node Coordinator  { get; private set; }
         public HashSet<Node> Others  { get; private set; }
@@ -42,6 +43,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             lock(this)
             {
                 Others.Add(node);
+                node.Died += MemberDied;
             }
             Task.Run(() => ViewChanged?.Invoke());
         }
@@ -59,10 +61,22 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             lock(this)
             {
+                foreach (var node in Others)
+                    node.Died -= OnMemberDeath;
+
                 Others = newView;
+
+                foreach (var node in Others)
+                    node.Died += OnMemberDeath;
+
                 Coordinator = newCoordinator;
             }
             Task.Run(() => ViewChanged?.Invoke());
+        }
+
+        private void OnMemberDeath(Node node)
+        {
+            MemberDied?.Invoke(node);
         }
 
         public void Remove(Node node)
@@ -71,6 +85,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             {
                 if (Coordinator == node)
                     Coordinator = null;
+                node.Died -= OnMemberDeath;
                 Others.Remove(node);
             }
 

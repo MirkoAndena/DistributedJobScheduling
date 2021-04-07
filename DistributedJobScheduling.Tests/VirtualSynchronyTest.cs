@@ -66,7 +66,7 @@ namespace DistributedJobScheduling.Tests
             });
 
             nodes.ForEach(node => {
-                TaskCompletionSource<bool> waitForNodeViewChange = new TaskCompletionSource<bool>();
+                TaskCompletionSource<bool> waitForNodeViewChange = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 
                 node.Communication.OnMessageReceived += (Node sender, Message msg) => {
                     messages[node.Node.ID.Value][sender.ID.Value].Add(msg);
@@ -131,7 +131,7 @@ namespace DistributedJobScheduling.Tests
             List<Task> waitForNodes = new List<Task>();
 
             nodes.ForEach(node => {
-                TaskCompletionSource<bool> waitForNodeViewChange = new TaskCompletionSource<bool>();
+                TaskCompletionSource<bool> waitForNodeViewChange = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 
                 node.Group.View.ViewChanged += () => {
                     if(node.Group.View.Others.Count == nodes.Length && node.Group.View.Coordinator == node.Registry.GetOrCreate(coordinator.Node))
@@ -204,7 +204,7 @@ namespace DistributedJobScheduling.Tests
 
             nodes.ForEach(node => {
                 consolidatedMessages.Add(node.Node.ID.Value, new HashSet<IdMessage>());
-                TaskCompletionSource<bool> waitForMessages = new TaskCompletionSource<bool>();
+                TaskCompletionSource<bool> waitForMessages = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 node.Group.OnMessageReceived += (sender, message) => {
                     if(message is IdMessage consolidatedMessage)
                     {
