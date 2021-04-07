@@ -13,6 +13,7 @@ namespace DistributedJobScheduling.Logging
         LeaderElection,
         KeepAlive,
         WorkerSearcher,
-        UnHandled
+        UnHandled,
+        ClientJobMessaging
     }
 }

@@ -8,12 +8,14 @@ using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.LifeCycle;
+using DistributedJobScheduling.Communication;
 
 namespace DistributedJobScheduling.JobAssignment
 {
     public class JobMessageHandler : IInitializable
     {
         private IGroupViewManager _groupManager;
+        private ICommunicationManager _communicationManager;
         private TranslationTable _translationTable;
         private JobManager _jobStorage;
         private ILogger _logger;
@@ -23,29 +25,34 @@ namespace DistributedJobScheduling.JobAssignment
 
         public JobMessageHandler(JobManager jobStorage, TranslationTable translationTable) : 
         this(DependencyManager.Get<IGroupViewManager>(),
+            DependencyManager.Get<ICommunicationManager>(),
             translationTable, jobStorage,
             DependencyManager.Get<ILogger>()) {}
         public JobMessageHandler(IGroupViewManager groupManager,
-                          TranslationTable translationTable, 
-                          JobManager jobStorage,
-                          ILogger logger)
+            ICommunicationManager communicationManager,
+            TranslationTable translationTable, 
+            JobManager jobStorage,
+            ILogger logger)
         {
             _logger = logger;
             _translationTable = translationTable;
             _jobStorage = jobStorage;
             _groupManager = groupManager;
+            _communicationManager = communicationManager;
             _unconfirmedRequestIds = new Dictionary<Node, int>();
             _lastMessageSent = new Dictionary<Node, Message>();
         }
 
         public void Init()
         {
-            var jobPublisher = _groupManager.Topics.GetPublisher<JobGroupPublisher>();
-            jobPublisher.RegisterForMessage(typeof(ExecutionRequest), OnMessageReceived);
-            jobPublisher.RegisterForMessage(typeof(ExecutionResponse), OnMessageReceived);
-            jobPublisher.RegisterForMessage(typeof(ExecutionAck), OnMessageReceived);
-            jobPublisher.RegisterForMessage(typeof(InsertionRequest), OnMessageReceived);
-            jobPublisher.RegisterForMessage(typeof(InsertionResponse), OnMessageReceived);
+            var groupPublisher = _groupManager.Topics.GetPublisher<JobGroupPublisher>();
+            groupPublisher.RegisterForMessage(typeof(InsertionRequest), OnMessageReceived);
+            groupPublisher.RegisterForMessage(typeof(InsertionResponse), OnMessageReceived);
+
+            var clientPublisher = _communicationManager.Topics.GetPublisher<JobClientPublisher>();
+            clientPublisher.RegisterForMessage(typeof(ExecutionRequest), OnMessageReceived);
+            clientPublisher.RegisterForMessage(typeof(ExecutionResponse), OnMessageReceived);
+            clientPublisher.RegisterForMessage(typeof(ExecutionAck), OnMessageReceived);
         }
 
         private bool IsMessageCorrect(Node node, Message received)
@@ -57,7 +64,7 @@ namespace DistributedJobScheduling.JobAssignment
                 return received.IsTheExpectedMessage(lastSent);
             }
 
-            _logger.Warning(Tag.JobManager, $"No message correctness checked because no message sent to node {node}");
+            _logger.Warning(Tag.JobManager, $"No message correctness checked because no previous message sent to node {node}");
             return true;
         }
 
@@ -75,10 +82,10 @@ namespace DistributedJobScheduling.JobAssignment
             _logger.Warning(Tag.JobManager, $"Received message {message} is not correct so it is discarded");
         }        
 
-        private void Send(Node node, Message message)
+        private void Send(ICommunicationManager communicationManager, Node node, Message message)
         {
             _lastMessageSent.Add(node, message);
-            _groupManager.Send(node, message).Wait();
+            communicationManager.Send(node, message).Wait();
         }
         
         private void SendMulticast(Message message)
@@ -91,7 +98,7 @@ namespace DistributedJobScheduling.JobAssignment
             _logger.Log(Tag.JobManager, $"Request for an execution arrived from client {node}");
             int requestID = _translationTable.Add(message.Job);
             _unconfirmedRequestIds.Add(node, requestID);
-            Send(node, new ExecutionResponse(message, requestID));
+            Send(_communicationManager, node, new ExecutionResponse(message, requestID));
             _logger.Log(Tag.JobManager, $"Response sent with a proposal request id ({requestID})");
         }
 
@@ -109,7 +116,7 @@ namespace DistributedJobScheduling.JobAssignment
 
                 // Request to coordinator for an insertion
                 Job job = _translationTable.Get(requestID);
-                Send(_groupManager.View.Coordinator, new InsertionRequest(job, requestID));
+                Send(_groupManager, _groupManager.View.Coordinator, new InsertionRequest(job, requestID));
                 _logger.Log(Tag.JobManager, $"Insertion request to coordinator for job with request id {requestID}");
             }
             else
@@ -123,7 +130,7 @@ namespace DistributedJobScheduling.JobAssignment
             _logger.Log(Tag.JobManager, $"Job added to storage and assigned");
             SendMulticast(new DistributedStorageUpdate(message.Job));
             _logger.Log(Tag.JobManager, $"Multicast sent for storage sync");
-            Send(node, new InsertionResponse(message, message.Job.ID.Value, message.RequestID));
+            Send(_groupManager, node, new InsertionResponse(message, message.Job.ID.Value, message.RequestID));
             _logger.Log(Tag.JobManager, $"Sent back to {node} the assigned id for the inserted job");
         }
 

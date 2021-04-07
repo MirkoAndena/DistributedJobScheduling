@@ -27,6 +27,11 @@ namespace DistributedJobScheduling.Client
         public Node Worker;
 
         public List<ClientJob> Jobs;
+
+        public Storage() {
+            Worker = null;
+            Jobs = new List<ClientJob>();
+        }
     }
 
     public class ClientStore : IInitializable

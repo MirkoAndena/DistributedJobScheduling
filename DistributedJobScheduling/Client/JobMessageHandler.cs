@@ -48,13 +48,16 @@ namespace DistributedJobScheduling.Client
         {
             Node node = _nodeRegistry.GetOrCreate(ip: _configuration.GetValue<string>("worker"));
             _speaker = new BoldSpeaker(node, _serializer);
-            _speaker.Start();
             _speaker.Connect(30).Wait();
+            _speaker.Start();
             _speaker.MessageReceived += OnMessageReceived;
 
             Message message = new ExecutionRequest(job);
+
+            // Initially remote node hasn't an ID but is updated in future
             message.SenderID = _id;
-            message.ReceiverID = node.ID.Value;
+            if (node.ID.HasValue)
+                message.ReceiverID = node.ID.Value;
 
             _previousMessage = message;
             _speaker.Send(message);
@@ -72,9 +75,16 @@ namespace DistributedJobScheduling.Client
             {
                 if (message is ExecutionResponse response)
                 {
+                    // Update remote node info
+                    if (!node.ID.HasValue && response.SenderID.HasValue)
+                    {
+                        _nodeRegistry.UpdateNodeID(node, response.SenderID.Value);
+                        _logger.Log(Tag.ClientJobMessaging, $"Updated remote node ID {node.ToString()}");
+                    }
+
                     var job = new ClientJob(response.RequestID);
                     _store.StoreClientJob(job);
-                    _logger.Log(Tag.Communication, $"Stored request id ({job.ID})");
+                    _logger.Log(Tag.ClientJobMessaging, $"Stored request id ({job.ID})");
                     
                     Message ack = new ExecutionAck(response, job.ID);
                     ack.SenderID = _id;
@@ -84,7 +94,7 @@ namespace DistributedJobScheduling.Client
                 }
             }
             else
-                _logger.Warning(Tag.Communication, "Received message was rejected");
+                _logger.Warning(Tag.ClientJobMessaging, "Received message was rejected");
         }
     }
 }
