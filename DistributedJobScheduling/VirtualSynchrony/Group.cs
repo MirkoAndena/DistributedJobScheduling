@@ -13,7 +13,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         /// </summary>
         public event Action ViewChanged;
         public event Action<Node> MemberDied;
-        public int ViewId { get; private set; }
+        public int? ViewId { get; private set; }
         public Node Me { get; private set; }
         public Node Coordinator  { get; private set; }
         public HashSet<Node> Others  { get; private set; }
@@ -29,8 +29,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
         }
 
-        public Group(Node me, bool coordinator = false, HashSet<Node> others = null, int id = 0) : this(me, coordinator ? me : null, others, id) { }
-        public Group(Node me, Node coordinator, HashSet<Node> others = null, int id = 0)
+        public Group(Node me, bool coordinator = false, HashSet<Node> others = null, int? id = 0) : this(me, coordinator ? me : null, others, id) { }
+        public Group(Node me, Node coordinator, HashSet<Node> others = null, int? id = 0)
         {
             Me = me;
             ViewId = id;

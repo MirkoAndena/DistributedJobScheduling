@@ -125,7 +125,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             lock(View)
             {
-                if(message.ViewId > View.ViewId) //Future Message
+                //TODO: Maybe a better way than record all messages since start?
+                if(!View.ViewId.HasValue || message.ViewId > View.ViewId) //Future Message
                 {
                     lock(_futureMessagesQueue)
                     {
@@ -213,7 +214,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             TaskCompletionSource<bool> sendCompletionSource;
             lock(View)
             {
-                tempMessage = new TemporaryMessage(node == null, message, View.ViewId);
+                tempMessage = new TemporaryMessage(node == null, message, View.ViewId.Value);
                 sendCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _messageSendStateMap[tempMessage] = sendCompletionSource;
                 var sendMessageElement = (node, tempMessage);
@@ -296,6 +297,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             //Only care about messages from nodes in my current group view
             if (View.Contains(node))
             {
+
                 _logger.Log(Tag.VirtualSynchrony, $"Received temporary message from {node.ID} with timestamp {message.TimeStamp}");
                 var messageKey = (node.ID.Value, tempMessage.TimeStamp.Value);
 
@@ -556,7 +558,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         if (_currentJoinRequest != null)
                         {
                             _logger.Log(Tag.VirtualSynchrony, $"Need to sync view with joined node");
-                            _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId)));
+                            _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value)));
                             _currentJoinRequest = null;
                         }
 
@@ -581,7 +583,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 lock(View)
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange.Operation} of {_pendingViewChange.Node}!");
-                    flushMessage = new FlushMessage(_pendingViewChange.Node, _pendingViewChange.Operation, View.ViewId);
+                    flushMessage = new FlushMessage(_pendingViewChange.Node, _pendingViewChange.Operation, View.ViewId.Value);
                 }
                 _sendQueue.Enqueue((null, flushMessage));
                 _flushed = true;
@@ -594,9 +596,11 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             lock(_futureMessagesQueue)
             {
-                messageToRouterAgain = _futureMessagesQueue;
+                messageToRouterAgain = new Queue<(Node, ViewMessage)>(_futureMessagesQueue);
                 _futureMessagesQueue.Clear();
             }
+
+            _logger.Log(Tag.VirtualSynchrony, $"Replaying { messageToRouterAgain?.Count } messages after view change");
 
             messageToRouterAgain.ForEach((futureMessage) => {
                 _virtualSynchronyTopic.RouteMessage(futureMessage.Item2.GetType(), futureMessage.Item1, futureMessage.Item2);
@@ -646,6 +650,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     _joinRequestCancellation.Cancel();
+
+                //In case some messages were received before the viewsync
+                Task.Run(ProcessFutureMessages);
             }
         }
 
