@@ -17,6 +17,7 @@ namespace DistributedJobScheduling.LeaderElection
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
         private IGroupViewManager _groupManager;
+        private bool _electionInProgress;
 
         public BullyElectionMessageHandler() : this (DependencyInjection.DependencyManager.Get<ILogger>(),
                                                     DependencyInjection.DependencyManager.Get<IGroupViewManager>()) {}
@@ -30,6 +31,7 @@ namespace DistributedJobScheduling.LeaderElection
         public void Init()
         {
             _groupManager.View.ViewChanged += OnViewChanged;
+            _groupManager.ViewChanging += Stop;
         }
 
         private void Start()
@@ -57,6 +59,7 @@ namespace DistributedJobScheduling.LeaderElection
         {
             if (_groupManager.View.Coordinator == null)
             {
+                _electionInProgress = false;
                 Start();
                 OnCoordinatorDeathReported();
             }
@@ -70,6 +73,7 @@ namespace DistributedJobScheduling.LeaderElection
 
         private void SendElectMessages(List<Node> nodes)
         {
+            _electionInProgress = true;
             nodes.ForEach(node => 
             {
                 _groupManager.Send(node, new ElectMessage(_groupManager.View.Me.ID.Value)).Wait();
@@ -78,6 +82,7 @@ namespace DistributedJobScheduling.LeaderElection
 
         private void SendCoordMessages(List<Node> nodes)
         {
+            _electionInProgress = false;
             nodes.ForEach(node => 
             {
                 _groupManager.Send(node, new CoordMessage(_groupManager.View.Me)).Wait();
@@ -94,15 +99,20 @@ namespace DistributedJobScheduling.LeaderElection
             {
                 _logger.Log(Tag.LeaderElection, $"Received ELECT from {node.ID.Value}, my id ({myID}) is greater so i start a new election");
                 _groupManager.Send(node, new CancelMessage());
-                _candidate.Run();
+                
+                if (!_electionInProgress)
+                    _candidate.Run();
             }
             else
                 _logger.Log(Tag.LeaderElection, $"Received ELECT from {node.ID.Value}, OK");
+                
+            _electionInProgress = true;
         }
 
         private void OnCoordMessageArrived(Node node, Message message)
         {
             CoordMessage arrived = (CoordMessage)message;
+            _electionInProgress = false;
             _groupManager.View.UpdateCoordinator(arrived.Coordinator);
             _logger.Log(Tag.LeaderElection, $"Received COORD from {node.ID.Value}, updated");
             Stop();
