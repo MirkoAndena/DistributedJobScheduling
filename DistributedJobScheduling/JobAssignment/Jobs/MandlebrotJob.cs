@@ -35,6 +35,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
     [Serializable]
     public class MandlebrotJob : Job
     {
+        private const double MAX_EXTENT = 2.0;
         private Rectangle _rect;
         private int _totalWidth;
         private int _totalHeight;
@@ -50,30 +51,34 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
         public override async Task<IJobResult> Run()
         {
-            int iter = 0;
             var result = new MandlebrotResult(_rect.Width, _rect.Height);
-            var xRange = Enumerable.Range(_rect.X, _rect.X + _rect.Width);
-            var yRange = Enumerable.Range(_rect.Y, _rect.Y + _rect.Height);
+            var xRange = Enumerable.Range(_rect.X, _rect.Width);
+            var yRange = Enumerable.Range(_rect.Y, _rect.Height);
             
             var allCoordinates = from x in xRange
                                  from y in yRange
                                  select new {x,y};
 
-            var mandlebrotTasks = allCoordinates.Select(async (coords) => await Task.Run(() =>
+            await Task.Run(() => Parallel.ForEach(allCoordinates, (coords) =>
             {
-                double _x = (double)coords.x / (double)_totalWidth;
-                double _y = (double)coords.y / (double)_totalHeight;
+                const double maxNorm = MAX_EXTENT * MAX_EXTENT;
+                double scale = 2 * MAX_EXTENT / Math.Min(_totalWidth, _totalHeight);
+                double x = (coords.x - (double)_totalWidth / 2) * scale;
+                double y = ((double)_totalHeight / 2 - coords.y) * scale;
+                
                 Complex z = new Complex(0, 0);
-                Complex alpha = new Complex(_x , _y);
-                while( Complex.Abs(z)<4 && iter < _maxIterations ) {
-                        z = Complex.Pow(z,2) + alpha;
-                        iter++;
+                Complex alpha = new Complex(x , y);
+
+                int iter = 0;
+                while(Complex.Abs(z)<maxNorm && iter < _maxIterations ) {
+                    z = Complex.Pow(z,2) + alpha;
+                    iter++;
                 }
-                double value = (double)iter / (double)_maxIterations;
-                result.Value[coords.x, coords.y] = value;
+
+                double value =  iter < _maxIterations ? 0 : (double)iter / (double)_maxIterations;
+                result.Value[coords.x - _rect.X, coords.y - _rect.Y] = value;
                 result.TryUpdateMax(value);
             }));
-            await Task.WhenAll(mandlebrotTasks);
 
             return result;
         }
