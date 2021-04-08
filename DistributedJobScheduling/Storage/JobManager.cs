@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -72,6 +73,16 @@ namespace DistributedJobScheduling.Storage
                 _secureStorage.ValuesChanged.Invoke();
                 _logger.Log(Tag.JobStorage, $"Job {job} logically removed");
             }
+        }
+
+        public Job GetJobByID(int? jobID) 
+        {
+            foreach (Job job in _secureStorage.Value.List)
+            {
+                if (job.ID.HasValue && jobID.HasValue && job.ID.Value == jobID.Value)
+                    return job;
+            }
+            return null;
         }
 
         public void InsertAndAssign(Job job)

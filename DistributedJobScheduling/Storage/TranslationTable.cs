@@ -19,7 +19,6 @@ namespace DistributedJobScheduling.Storage
 
     public class Table
     {
-        // Key: requestID, Job, bool: confirmed by client
         public Dictionary<int, TableItem> Dictionary; 
 
         public Table() { Dictionary = new Dictionary<int, TableItem>(); }
@@ -56,7 +55,12 @@ namespace DistributedJobScheduling.Storage
             return id;
         }
 
-        public Job Get(int localID) => _secureStorage.Value.Dictionary[localID].Job;
+        public Job Get(int localID) 
+        {
+            if (_secureStorage.Value.Dictionary.ContainsKey(localID))
+                return _secureStorage.Value.Dictionary[localID]?.Job;
+            return null;
+        }
 
         public void SetConfirmed(int localID)
         {

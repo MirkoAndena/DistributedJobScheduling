@@ -20,12 +20,15 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
         public int? ID { get; set; }
         public int? Node { get; set; }
 
+        public IJobResult Result { get; set; }
+
         // ? The constructor will be called only by the client??
         protected Job()
         {
             Status = JobStatus.PENDING;
             ID = null;
             Node = null;
+            Result = null;
         }
 
         public abstract Task<IJobResult> Run();

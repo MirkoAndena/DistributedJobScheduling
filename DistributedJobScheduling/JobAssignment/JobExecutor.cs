@@ -16,7 +16,6 @@ namespace DistributedJobScheduling.JobAssignment
         private ILogger _logger;
         private JobManager _storage;
         private SemaphoreSlim _semaphore;
-        public Action<Job, IJobResult> OnJobCompleted;
 
         public JobExecutor(JobManager storage) : this (storage, DependencyInjection.DependencyManager.Get<ILogger>()) {}
         public JobExecutor(JobManager storage, ILogger logger)
@@ -53,10 +52,10 @@ namespace DistributedJobScheduling.JobAssignment
             
             IJobResult result = await RunJob(current);
             if (result == null) return;
+            else current.Result = result;
             
             _logger.Log(Tag.JobExecutor, $"Job {current} has been executed");
             UpdateStatus(current, JobStatus.COMPLETED);
-            OnJobCompleted?.Invoke(current, result);
         }
 
         private void UpdateStatus(Job job, JobStatus status)

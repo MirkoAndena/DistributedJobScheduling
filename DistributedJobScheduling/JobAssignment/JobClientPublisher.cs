@@ -12,6 +12,8 @@ namespace DistributedJobScheduling.JobAssignment
             typeof(ExecutionRequest),
             typeof(ExecutionResponse),
             typeof(ExecutionAck),
+            typeof(ResultRequest),
+            typeof(ResultResponse)
         };
         public override HashSet<Type> TopicMessageTypes => _topics;
     }

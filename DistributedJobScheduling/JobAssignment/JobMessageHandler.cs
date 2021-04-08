@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging;
@@ -51,8 +52,8 @@ namespace DistributedJobScheduling.JobAssignment
 
             var clientPublisher = _communicationManager.Topics.GetPublisher<JobClientPublisher>();
             clientPublisher.RegisterForMessage(typeof(ExecutionRequest), OnMessageReceived);
-            clientPublisher.RegisterForMessage(typeof(ExecutionResponse), OnMessageReceived);
             clientPublisher.RegisterForMessage(typeof(ExecutionAck), OnMessageReceived);
+            clientPublisher.RegisterForMessage(typeof(ResultRequest), OnMessageReceived);
         }
 
         private bool IsMessageCorrect(Node node, Message received)
@@ -77,6 +78,7 @@ namespace DistributedJobScheduling.JobAssignment
                 if (message is InsertionRequest insertionRequest) OnInsertionRequestArrived(node, insertionRequest);
                 if (message is InsertionResponse insertionResponse) OnInsertionResponseArrived(node, insertionResponse);
                 if (message is DistributedStorageUpdate distributedStorageUpdate) OnDistributedStorageUpdateArrived(node, distributedStorageUpdate);
+                if (message is ResultRequest resultRequest) OnResultRequestArrived(node, resultRequest);
             }
 
             _logger.Warning(Tag.JobManager, $"Received message {message} is not correct so it is discarded");
@@ -151,6 +153,27 @@ namespace DistributedJobScheduling.JobAssignment
             }
             else
                 _logger.Warning(Tag.JobManager, $"Arrived job is malformed (id or owner null)");
+        }
+
+        private void OnResultRequestArrived(Node node, ResultRequest message)
+        {
+            _logger.Log(Tag.JobManager, $"Job result request arrived");
+            Job fakeJob = _translationTable.Get(message.RequestID);
+            if (fakeJob == null) 
+            {
+                _logger.Warning(Tag.JobManager, $"Job requested (id: {message.RequestID}) doesn't exists");
+                return;
+            }
+
+            Job job = _jobStorage.GetJobByID(fakeJob.ID);
+            if (job == null) 
+            {
+                _logger.Warning(Tag.JobManager, $"No job with {fakeJob.ID} is present");
+                return;
+            }
+
+            _communicationManager.Send(node, new ResultResponse(job));
+            _jobStorage.SetJobDeliveredToClient(job); // TODO: Serve una conferma di ricezione dal client? (ack)
         }
     }
 }
