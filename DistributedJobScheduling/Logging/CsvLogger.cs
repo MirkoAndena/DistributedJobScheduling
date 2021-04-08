@@ -60,7 +60,7 @@ namespace DistributedJobScheduling.Logging
             if(e != null)
             {
                 string exceptionPath = $"{_directory}/{DateTime.Now.ToString("ddMMyyHHmmssfff")}.txt";
-                File.WriteAllText(exceptionPath, e.StackTrace);
+                File.WriteAllText(exceptionPath, e.Message + Environment.NewLine + e.StackTrace);
             }
         }
 
