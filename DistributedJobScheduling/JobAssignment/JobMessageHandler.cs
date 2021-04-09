@@ -172,8 +172,10 @@ namespace DistributedJobScheduling.JobAssignment
                 return;
             }
 
-            _communicationManager.Send(node, new ResultResponse(job));
-            _jobStorage.SetJobDeliveredToClient(job); // TODO: Serve una conferma di ricezione dal client? (ack)
+            _communicationManager.Send(node, new ResultResponse(job, fakeJob.ID.Value));
+            
+            if (job.Status == JobStatus.COMPLETED)
+                _jobStorage.SetJobDeliveredToClient(job); // TODO: Serve una conferma di ricezione dal client? (ack)
         }
     }
 }

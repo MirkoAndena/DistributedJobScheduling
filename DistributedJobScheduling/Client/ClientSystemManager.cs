@@ -1,3 +1,4 @@
+using System.Security.Principal;
 using System;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
@@ -26,7 +27,8 @@ namespace DistributedJobScheduling.Client
 
         #endregion
 
-        private JobMessageHandler _messageHandler;
+        private JobInsertionMessageHandler _messageHandler;
+        private JobResultMessageHandler _jobResultHandler;
 
         public ClientSystemManager()
         {
@@ -49,6 +51,10 @@ namespace DistributedJobScheduling.Client
             bool correctIp = ip != null && NetworkUtils.IsAnIp(ip);
             if (!correctIp) throw new Exception("worker (remote) ip not valid");
 
+            var now = DateTime.Now;
+            var id = now.Millisecond + now.Second << 4 + now.Minute << 8; // funzione a caso per generare un numero pseudo-univoco
+
+            configurationService.SetValue<int>("id", id);
             configurationService.SetValue<bool>("client", client);
             configurationService.SetValue<string>("worker", ip);
         }
@@ -63,13 +69,24 @@ namespace DistributedJobScheduling.Client
             ClientStore store = new ClientStore();
             RegisterSubSystem<ClientStore>(store);
 
-            _messageHandler = new JobMessageHandler(store);
+            _messageHandler = new JobInsertionMessageHandler(store);
+            _jobResultHandler = new JobResultMessageHandler(store);
+            Main();
         }
 
-        public void CreateAndRequestAssignment()
+        private void Main()
         {
-            Job job = new TimeoutJob(5);
-            _messageHandler.SubmitJob(job);
+            while (true)
+            {
+                Console.Write(">");
+                string command = Console.ReadLine().Trim().ToLower();
+
+                if (command == "submit")
+                    _messageHandler.SubmitJob(new TimeoutJob(5));
+
+                if (command == "request")
+                    _jobResultHandler.RequestAllStoredJobs();
+            }
         }
     }
 }

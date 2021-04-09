@@ -8,6 +8,7 @@ using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.JobAssignment.Jobs;
+using System;
 
 namespace DistributedJobScheduling.Client
 {
@@ -65,6 +66,27 @@ namespace DistributedJobScheduling.Client
         {
             _store.Value.Jobs.Add(job);
             _store.ValuesChanged?.Invoke();
+        }
+
+        public void UpdateClientJobResult(int jobId, IJobResult result)
+        {
+            foreach (ClientJob job in _store.Value.Jobs)
+                if (job.ID == jobId)
+                {
+                    job.Result = result;
+                    _store.ValuesChanged?.Invoke();
+                }
+        }
+
+        public List<ClientJob> ClientJobs(Predicate<IJobResult> predicate)
+        {
+            List<ClientJob> jobs = new List<ClientJob>();
+            _store.Value.Jobs.ForEach<ClientJob>(job => 
+            {
+                if (predicate.Invoke(job.Result))
+                    jobs.Add(job);
+            });
+            return jobs;
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using System.Globalization;
 using System;
 using System.Runtime.Serialization;
@@ -14,37 +15,41 @@ using DistributedJobScheduling.Configuration;
 
 namespace DistributedJobScheduling.Client
 {
-    public class JobMessageHandler
+    public class JobResultMessageHandler
     {
         private BoldSpeaker _speaker;
         private ILogger _logger;
         private ISerializer _serializer;
         private ClientStore _store;
-        private int _id;
         private Message _previousMessage;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
 
-        public JobMessageHandler(ClientStore store) : this (
+        public JobResultMessageHandler(ClientStore store) : this (
             store,
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<ISerializer>(),
             DependencyInjection.DependencyManager.Get<INodeRegistry>(),
             DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
 
-        public JobMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, INodeRegistry nodeRegistry, IConfigurationService configuration)
+        public JobResultMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, INodeRegistry nodeRegistry, IConfigurationService configuration)
         {
             _store = store;
             _logger = logger;
             _serializer = serializer;
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
-            var now = DateTime.Now;
-            _id = now.Millisecond + now.Second << 4 + now.Minute << 8; // funzione a caso per generare un numero pseudo-univoco
         }
 
+        public void RequestAllStoredJobs()
+        {
+            _store.ClientJobs(result => result == null).ForEach(job => 
+            {
+                RequestJob(job);
+            });
+        }
 
-        public void SubmitJob(Job job)
+        public void RequestJob(ClientJob job)
         {
             Node node = _nodeRegistry.GetOrCreate(ip: _configuration.GetValue<string>("worker"));
             _speaker = new BoldSpeaker(node, _serializer);
@@ -52,12 +57,10 @@ namespace DistributedJobScheduling.Client
             _speaker.Start();
             _speaker.MessageReceived += OnMessageReceived;
 
-            Message message = new ExecutionRequest(job);
+            Message message = new ResultRequest(job.ID);
 
-            // Initially remote node hasn't an ID but is updated in future
-            message.SenderID = _id;
-            if (node.ID.HasValue)
-                message.ReceiverID = node.ID.Value;
+            message.SenderID = _configuration.GetValue<int>("id");
+            message.ReceiverID = node.ID.Value;
 
             _previousMessage = message;
             _speaker.Send(message);
@@ -73,24 +76,14 @@ namespace DistributedJobScheduling.Client
         {
             if (message.IsTheExpectedMessage(_previousMessage))
             {
-                if (message is ExecutionResponse response)
+                if (message is ResultResponse response)
                 {
-                    // Update remote node info
-                    if (!node.ID.HasValue && response.SenderID.HasValue)
+                    _logger.Log(Tag.ClientJobMessaging, $"Job requested is {response.Status}");
+                    if (response.Status == JobStatus.COMPLETED)
                     {
-                        _nodeRegistry.UpdateNodeID(node, response.SenderID.Value);
-                        _logger.Log(Tag.ClientJobMessaging, $"Updated remote node ID {node.ToString()}");
+                        _store.UpdateClientJobResult(response.ClientJobId, response.Result);
+                        _logger.Log(Tag.ClientJobMessaging, $"Job result updated into storage");
                     }
-
-                    var job = new ClientJob(response.RequestID);
-                    _store.StoreClientJob(job);
-                    _logger.Log(Tag.ClientJobMessaging, $"Stored request id ({job.ID})");
-                    
-                    Message ack = new ExecutionAck(response, job.ID);
-                    ack.SenderID = _id;
-                    ack.ReceiverID = node.ID.Value;
-                    _speaker.Send(ack);
-                    this.Stop();
                 }
             }
             else

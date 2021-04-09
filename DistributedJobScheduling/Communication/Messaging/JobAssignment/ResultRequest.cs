@@ -29,11 +29,13 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     {
         public IJobResult Result;
         public JobStatus Status;
+        public int ClientJobId;
 
-        public ResultResponse(Job job) : base()
+        public ResultResponse(Job job, int clientJobId) : base()
         {
             Result = job.Result;
             Status = job.Status;
+            ClientJobId = clientJobId;
         }
     }
 }

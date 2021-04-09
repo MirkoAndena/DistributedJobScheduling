@@ -30,9 +30,6 @@ namespace DistributedJobScheduling
             }
 
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
-
-            if (system is ClientSystemManager clientSystem)
-                Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => clientSystem.CreateAndRequestAssignment());
             
             await system.Run();
         }
