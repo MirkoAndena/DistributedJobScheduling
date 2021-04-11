@@ -30,7 +30,7 @@ namespace DistributedJobScheduling.LifeCycle
             
             lock(Console.Out)
             {
-                Console.BackgroundColor = ConsoleColor.Green;
+                Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine(configurationService.ToString());
                 Console.ResetColor();
             }
@@ -51,7 +51,12 @@ namespace DistributedJobScheduling.LifeCycle
             await _terminationSemaphore.WaitAsync();
         } 
 
-        public void Init() => CreateSubsystems();
+        public void Init()
+        {
+            Console.Write("Building subsystems...");
+            CreateSubsystems();
+            Console.WriteLine("Done");
+        }
 
         protected abstract void CreateSubsystems(); 
         
@@ -69,33 +74,55 @@ namespace DistributedJobScheduling.LifeCycle
 
         public void InitSubSystems()
         {
+            int count = 0;
+            Console.WriteLine($"Initializing...");
             _subSystems.ForEach(subsystem => 
             {
                 if (subsystem is IInitializable initializable)
+                {
                     initializable.Init();
+                    count++;
+                }
             });
+            Console.WriteLine($"{count} subsystems initialized");
         } 
 
         public void Start()
         {
+            int count = 0;
+            Console.WriteLine($"Starting...");
             _subSystems.ForEach(subsystem => 
             {
                 if (subsystem is IStartable startable)
+                {
                     startable.Start();
+                    count++;
+                }
             });
+            Console.WriteLine($"{count} subsystems started");
+            OnSystemStarted();
         } 
+
+        protected virtual void OnSystemStarted() { }
 
         public void Stop()
         {
+            int count = 0;
+            Console.WriteLine($"Stopping...");
             _subSystems.ForEach(subsystem => 
             {
                 if (subsystem is IStartable startable)
+                {
                     startable.Stop();
+                    count++;
+                }
             });
+            Console.WriteLine($"{count} subsystems stopped");
         } 
 
         private void Destroy()
         {
+            Console.WriteLine("System in shutdown");
             Environment.Exit(0);
         }
     }

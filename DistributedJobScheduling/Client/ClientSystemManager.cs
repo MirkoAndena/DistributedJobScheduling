@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Security.Principal;
 using System;
 using DistributedJobScheduling.Communication;
@@ -71,22 +72,14 @@ namespace DistributedJobScheduling.Client
 
             _messageHandler = new JobInsertionMessageHandler(store);
             _jobResultHandler = new JobResultMessageHandler(store);
-            Main();
         }
+
+        protected override void OnSystemStarted() => Main();
 
         private void Main()
         {
-            while (true)
-            {
-                Console.Write(">");
-                string command = Console.ReadLine().Trim().ToLower();
-
-                if (command == "submit")
-                    _messageHandler.SubmitJob(new TimeoutJob(5));
-
-                if (command == "request")
-                    _jobResultHandler.RequestAllStoredJobs();
-            }
+            Task.Delay(TimeSpan.FromSeconds(2)).ContinueWith(t => _messageHandler.SubmitJob(new TimeoutJob(5)));
+            Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => _jobResultHandler.RequestAllStoredJobs());
         }
     }
 }
