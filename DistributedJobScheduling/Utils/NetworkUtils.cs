@@ -14,7 +14,7 @@ public static class NetworkUtils
 
     public static async Task ConnectAsync(this TcpClient tcpClient, string host, int port, CancellationToken cancellationToken) 
     {
-        using (cancellationToken.Register(() => tcpClient.Close())) {
+        using (cancellationToken.Register(cancellationToken.ThrowIfCancellationRequested)) {
             try {
                 cancellationToken.ThrowIfCancellationRequested();
                 await tcpClient.ConnectAsync(host, port).ConfigureAwait(false);

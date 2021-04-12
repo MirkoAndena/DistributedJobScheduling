@@ -30,9 +30,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 _logger.Log(Tag.CommunicationBasic, $"Connected to {_remote}");
                 _stream = _client.GetStream();
             }
-            catch (OperationCanceledException)
+            catch (Exception ex)
             {
-                _logger.Warning(Tag.CommunicationBasic, $"Connection to {_remote} failed because of timeout");
+                _logger.Warning(Tag.CommunicationBasic, $"Connection to {_remote} failed because of timeout", ex);
                 this.Stop();
             }
         }
