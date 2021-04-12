@@ -14,7 +14,7 @@ using DistributedJobScheduling.Configuration;
 
 namespace DistributedJobScheduling.Client
 {
-    public class JobInsertionMessageHandler
+    public class JobInsertionMessageHandler : IStartable
     {
         private BoldSpeaker _speaker;
         private ILogger _logger;
@@ -51,12 +51,6 @@ namespace DistributedJobScheduling.Client
             _speaker.MessageReceived += OnMessageReceived;
 
             Message message = new ExecutionRequest(job);
-
-            // Initially remote node hasn't an ID but is updated in future
-            message.SenderID = _configuration.GetValue<int>("id");
-            if (node.ID.HasValue)
-                message.ReceiverID = node.ID.Value;
-
             _previousMessage = message;
             _speaker.Send(message);
         }
@@ -73,27 +67,22 @@ namespace DistributedJobScheduling.Client
             {
                 if (message is ExecutionResponse response)
                 {
-                    // Update remote node info
-                    if (!node.ID.HasValue && response.SenderID.HasValue)
-                    {
-                        _nodeRegistry.UpdateNodeID(node, response.SenderID.Value);
-                        _logger.Log(Tag.ClientJobMessaging, $"Updated remote node ID {node.ToString()}");
-                    }
-
                     var job = new ClientJob(response.RequestID);
                     _store.StoreClientJob(job);
                     _logger.Log(Tag.ClientJobMessaging, $"Stored request id ({job.ID})");
                     
                     Message ack = new ExecutionAck(response, job.ID);
-                    ack.SenderID = _configuration.GetValue<int>("id");
-                    ack.ReceiverID = node.ID.Value;
                     _speaker.Send(ack);
-                    this.Stop();
                     _logger.Log(Tag.ClientJobMessaging, $"Job successfully assigned to network, RequestID: {job.ID}");
                 }
             }
             else
                 _logger.Warning(Tag.ClientJobMessaging, "Received message was rejected");
+        }
+
+        public void Start()
+        {
+            // Nothing
         }
     }
 }

@@ -15,7 +15,7 @@ using DistributedJobScheduling.Configuration;
 
 namespace DistributedJobScheduling.Client
 {
-    public class JobResultMessageHandler
+    public class JobResultMessageHandler : IStartable
     {
         private BoldSpeaker _speaker;
         private ILogger _logger;
@@ -58,12 +58,13 @@ namespace DistributedJobScheduling.Client
             _speaker.MessageReceived += OnMessageReceived;
 
             Message message = new ResultRequest(job.ID);
-
-            message.SenderID = _configuration.GetValue<int>("id");
-            message.ReceiverID = node.ID.Value;
-
             _previousMessage = message;
             _speaker.Send(message);
+        }
+
+        public void Start()
+        {
+            // Nothing
         }
 
         public void Stop()

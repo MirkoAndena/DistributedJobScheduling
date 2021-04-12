@@ -71,7 +71,9 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<ClientStore>(store);
 
             _messageHandler = new JobInsertionMessageHandler(store);
+            RegisterSubSystem<JobInsertionMessageHandler>(_messageHandler);
             _jobResultHandler = new JobResultMessageHandler(store);
+            RegisterSubSystem<JobResultMessageHandler>(_jobResultHandler);
         }
 
         protected override void OnSystemStarted() => Main();
@@ -80,6 +82,7 @@ namespace DistributedJobScheduling.Client
         {
             Task.Delay(TimeSpan.FromSeconds(2)).ContinueWith(t => _messageHandler.SubmitJob(new TimeoutJob(5)));
             Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => _jobResultHandler.RequestAllStoredJobs());
+            Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(t => Stop());
         }
     }
 }

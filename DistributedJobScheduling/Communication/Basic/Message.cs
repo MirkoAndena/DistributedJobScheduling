@@ -37,7 +37,10 @@ namespace DistributedJobScheduling.Communication.Basic
         {
             bool idCheck = _isResponseOf == previous._messageID;
             bool nodeCheckEnabled = this.NodesInfoPresent && previous.NodesInfoPresent;
-            return idCheck && nodeCheckEnabled ? SenderID.Value == previous.ReceiverID.Value && ReceiverID.Value == previous.SenderID.Value : true;
+            if (nodeCheckEnabled)
+                return idCheck && SenderID.Value == previous.ReceiverID.Value && ReceiverID.Value == previous.SenderID.Value;
+            else
+                return idCheck;
         }
 
         /// <summary>
