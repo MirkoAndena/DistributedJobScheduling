@@ -65,6 +65,7 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<ISerializer, JsonSerializer>(new JsonSerializer());
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
+            RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
             RegisterSubSystem<IStore<Storage>, FileStore<Storage>>(new FileStore<Storage>(STORAGE_PATH));
             
             ClientStore store = new ClientStore();

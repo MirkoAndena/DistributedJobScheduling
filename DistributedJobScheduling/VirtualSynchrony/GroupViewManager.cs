@@ -106,7 +106,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _sendQueue = new AsyncGenericQueue<(Node, Message)>();
             _messageSendStateMap = new Dictionary<Message, TaskCompletionSource<bool>>();
 
-            Topics = new GenericTopicOutlet(this, 
+            Topics = new GenericTopicOutlet(this, logger,
                      new JobGroupPublisher(),
                      new KeepAlivePublisher(),
                      new BullyElectionPublisher());
@@ -203,7 +203,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private (TemporaryMessage, TaskCompletionSource<bool>) EnqueueMessage(Node node, Message message)
         {
             //Checks that the node is in the view
-            if(node == null || !View.Contains(node))
+            if(node != null && !View.Contains(node))
             {
                 NotDeliveredException sendException = new NotDeliveredException();
                 _logger.Error(Tag.VirtualSynchrony, $"Tried to send message to node {node.ID} which isn't in view!", sendException);
@@ -557,6 +557,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         //Check if it needs to sync to the new node
                         if (_currentJoinRequest != null)
                         {
+                            _currentJoinRequest.BindToRegistry(_nodeRegistry);
                             _logger.Log(Tag.VirtualSynchrony, $"Need to sync view with joined node");
                             _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value)));
                             _currentJoinRequest = null;

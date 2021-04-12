@@ -22,7 +22,7 @@ namespace DistributedJobScheduling.Tests.Communication
             _me = node;
 
             _sendOrdering = new FIFOMessageOrdering(logger);
-            Topics = new GenericTopicOutlet(this,
+            Topics = new GenericTopicOutlet(this, logger,
                 new VirtualSynchronyTopicPublisher()
             );
         }

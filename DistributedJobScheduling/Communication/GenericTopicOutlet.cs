@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Extensions;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Communication
 {
@@ -11,8 +12,9 @@ namespace DistributedJobScheduling.Communication
     public class GenericTopicOutlet : ITopicOutlet
     {
         private Dictionary<Type, ITopicPublisher> _topics;
+        private ILogger _logger;
 
-        public GenericTopicOutlet(ICommunicationManager communicationManger, params ITopicPublisher[] topics)
+        public GenericTopicOutlet(ICommunicationManager communicationManger, ILogger logger, params ITopicPublisher[] topics)
         {
             _topics = new Dictionary<Type, ITopicPublisher>();
             topics.ForEach(RegisterPublisher);
@@ -36,8 +38,16 @@ namespace DistributedJobScheduling.Communication
 
         public void PublishMessage(Node node, Message message)
         {
-            Type messageType = message.GetType();
-            _topics.Values.ForEach(t => t.RouteMessage(messageType, node, message));
+            try
+            {
+                Type messageType = message.GetType();
+                _topics.Values.ForEach(t => t.RouteMessage(messageType, node, message));
+            }
+            catch(Exception ex)
+            {
+                _logger.Error(Tag.UnHandled, ex);
+                throw;
+            }
         }
     }
 }

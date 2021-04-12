@@ -9,6 +9,7 @@ using System.Threading.Tasks.Dataflow;
 using DistributedJobScheduling.Communication.Basic;
 using System.Threading.Channels;
 using DistributedJobScheduling.Extensions;
+using DistributedJobScheduling.Queues;
 
 namespace DistributedJobScheduling.Tests.Communication
 {
@@ -28,25 +29,25 @@ namespace DistributedJobScheduling.Tests.Communication
             private StubNetworkBus _networkBus;
             private CancellationTokenSource _cancellationTokenSource;
 
-            private Channel<Message> _forwardQueue;
-            private Channel<Message> _backwardsQueue;
+            private AsyncGenericQueue<Message> _forwardQueue;
+            private AsyncGenericQueue<Message>  _backwardsQueue;
 
             public StubLink(Node a, Node b, StubNetworkBus networkBus)
             {
                 _a = a;
                 _b = b;
                 _networkBus = networkBus;
-                _forwardQueue = Channel.CreateUnbounded<Message>();
-                _backwardsQueue = Channel.CreateUnbounded<Message>();
+                _forwardQueue = new AsyncGenericQueue<Message>();
+                _backwardsQueue = new AsyncGenericQueue<Message>();
             }
 
             public void Enqueue(string fromIP, Message message)
             {
                 Console.WriteLine($"ATTEMPT\t({_a.ID} -> {_b.ID}): {message.ToString()}");
                 if(_a.IP == fromIP)
-                    _forwardQueue.Writer.WriteAsync(message).AsTask().Wait();
+                    _forwardQueue.Enqueue(message);
                 else
-                    _backwardsQueue.Writer.WriteAsync(message).AsTask().Wait();
+                    _backwardsQueue.Enqueue(message);
 
                 Console.WriteLine($"WROTE\t({_a.ID} -> {_b.ID}): {message.ToString()}");
             }
@@ -64,12 +65,15 @@ namespace DistributedJobScheduling.Tests.Communication
                     throw new Exception("Link collapsed!");
             }
 
-            private async Task ProcessChannel(Node from, Node to, Channel<Message> channel, CancellationToken cancellationToken)
+            private async Task ProcessChannel(Node from, Node to, AsyncGenericQueue<Message> queue, CancellationToken cancellationToken)
             {
                 try
                 {
-                    await foreach (Message message in channel.Reader.ReadAllAsync(cancellationToken))
+                    while(!cancellationToken.IsCancellationRequested)
+                    {
+                        Message message = await queue.Dequeue();
                         _networkBus.FinalizeSendTo(from, to, message);
+                    }
                 }
                 catch {}
             }
@@ -78,9 +82,7 @@ namespace DistributedJobScheduling.Tests.Communication
             {
                 _cancellationTokenSource?.Cancel();
                 _cancellationTokenSource = null;
-                _forwardQueue?.Writer.Complete();
                 _forwardQueue = null;
-                _backwardsQueue?.Writer.Complete();
                 _backwardsQueue = null;
             }
         }
@@ -190,7 +192,7 @@ namespace DistributedJobScheduling.Tests.Communication
             }
             Console.WriteLine($"{from} done lock for {message.TimeStamp} {message}");
 
-            //await Task.Delay(1);
+            await Task.Yield();
 
             //Emulate latency and out of order receive
             nodesToSendTo.ForEach(x => {

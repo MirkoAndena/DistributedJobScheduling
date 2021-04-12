@@ -66,7 +66,8 @@ namespace DistributedJobScheduling.Queues
         /// Async if there are no elements in the queue
         /// </summary>
         /// <returns>Returns element if we can dequeue an element, default(T) if we can't dequeue at the moment</returns>
-        public async Task<T> Dequeue()
+        //TODO: Cancellation token?
+        public async Task<T> Dequeue(CancellationToken cancellationToken = default)
         {
             T element = default(T);
             lock(this)

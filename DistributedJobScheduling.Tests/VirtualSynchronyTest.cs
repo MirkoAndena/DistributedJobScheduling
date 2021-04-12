@@ -99,7 +99,7 @@ namespace DistributedJobScheduling.Tests
         {
             using(StubNetworkBus networkBus = new StubNetworkBus(new Random().Next()))
             {
-                FakeNode[] nodes = new FakeNode[5];
+                FakeNode[] nodes = new FakeNode[10];
                 int joinTimeout = 100; //ms
                 int startupTime = 50;
 
@@ -165,8 +165,8 @@ namespace DistributedJobScheduling.Tests
             using(StubNetworkBus networkBus = new StubNetworkBus(new Random().Next()))
             {
                 FakeNode[] nodes = new FakeNode[10];
-                int joinTimeout = 100; //ms
-                int maxTestTime = 2000;
+                int joinTimeout = 0; //ms
+                int maxTestTime = 1000 * nodes.Length;
 
                 for(int i = 0; i < nodes.Length; i++)
                     nodes[i] = new FakeNode(i, i == 0, networkBus, _output, joinTimeout);
