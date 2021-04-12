@@ -106,7 +106,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _sendQueue = new AsyncGenericQueue<(Node, Message)>();
             _messageSendStateMap = new Dictionary<Message, TaskCompletionSource<bool>>();
 
-            Topics = new GenericTopicOutlet(this, 
+            Topics = new GenericTopicOutlet(this, logger,
                      new JobGroupPublisher(),
                      new KeepAlivePublisher(),
                      new BullyElectionPublisher());

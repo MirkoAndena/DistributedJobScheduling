@@ -17,6 +17,7 @@ namespace DistributedJobScheduling.JobAssignment
     {
         private IGroupViewManager _groupManager;
         private ICommunicationManager _communicationManager;
+        private ITimeStamper _timeStamper;
         private TranslationTable _translationTable;
         private JobManager _jobStorage;
         private ILogger _logger;
@@ -27,16 +28,19 @@ namespace DistributedJobScheduling.JobAssignment
         public JobMessageHandler(JobManager jobStorage, TranslationTable translationTable) : 
         this(DependencyManager.Get<IGroupViewManager>(),
             DependencyManager.Get<ICommunicationManager>(),
+            DependencyManager.Get<ITimeStamper>(),
             translationTable, jobStorage,
             DependencyManager.Get<ILogger>()) {}
         public JobMessageHandler(IGroupViewManager groupManager,
             ICommunicationManager communicationManager,
+            ITimeStamper timeStamper,
             TranslationTable translationTable, 
             JobManager jobStorage,
             ILogger logger)
         {
             _logger = logger;
             _translationTable = translationTable;
+            _timeStamper = timeStamper;
             _jobStorage = jobStorage;
             _groupManager = groupManager;
             _communicationManager = communicationManager;
@@ -80,13 +84,15 @@ namespace DistributedJobScheduling.JobAssignment
                 if (message is DistributedStorageUpdate distributedStorageUpdate) OnDistributedStorageUpdateArrived(node, distributedStorageUpdate);
                 if (message is ResultRequest resultRequest) OnResultRequestArrived(node, resultRequest);
             }
-
-            _logger.Warning(Tag.JobManager, $"Received message {message} is not correct so it is discarded");
+            else
+                _logger.Warning(Tag.JobManager, $"Received message {message} is not correct so it is discarded");
         }        
 
         private void Send(ICommunicationManager communicationManager, Node node, Message message)
         {
             _lastMessageSent.Add(node, message);
+            if(communicationManager is NetworkManager)
+                message.ApplyStamp(_timeStamper);
             communicationManager.Send(node, message).Wait();
         }
         

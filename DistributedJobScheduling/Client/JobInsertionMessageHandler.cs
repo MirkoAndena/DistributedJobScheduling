@@ -11,6 +11,7 @@ using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Configuration;
+using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.Client
 {
@@ -19,6 +20,7 @@ namespace DistributedJobScheduling.Client
         private BoldSpeaker _speaker;
         private ILogger _logger;
         private ISerializer _serializer;
+        private ITimeStamper _timeStamper;
         private ClientStore _store;
         private Message _previousMessage;
         private INodeRegistry _nodeRegistry;
@@ -28,14 +30,16 @@ namespace DistributedJobScheduling.Client
             store,
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<ISerializer>(),
+            DependencyInjection.DependencyManager.Get<ITimeStamper>(),
             DependencyInjection.DependencyManager.Get<INodeRegistry>(),
             DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
 
-        public JobInsertionMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, INodeRegistry nodeRegistry, IConfigurationService configuration)
+        public JobInsertionMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
         {
             _store = store;
             _logger = logger;
             _serializer = serializer;
+            _timeStamper = timeStamper;
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
             var now = DateTime.Now;
@@ -52,7 +56,7 @@ namespace DistributedJobScheduling.Client
 
             Message message = new ExecutionRequest(job);
             _previousMessage = message;
-            _speaker.Send(message);
+            _speaker.Send(message.ApplyStamp(_timeStamper));
         }
 
         public void Stop()
@@ -72,7 +76,7 @@ namespace DistributedJobScheduling.Client
                     _logger.Log(Tag.ClientJobMessaging, $"Stored request id ({job.ID})");
                     
                     Message ack = new ExecutionAck(response, job.ID);
-                    _speaker.Send(ack);
+                    _speaker.Send(ack.ApplyStamp(_timeStamper));
                     _logger.Log(Tag.ClientJobMessaging, $"Job successfully assigned to network, RequestID: {job.ID}");
                 }
             }

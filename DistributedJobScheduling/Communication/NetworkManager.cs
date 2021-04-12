@@ -45,7 +45,7 @@ namespace DistributedJobScheduling.Communication
             _sendOrdering = new FIFOMessageOrdering(logger);
             _speakers = new Dictionary<Node, Speaker>();
 
-            Topics = new GenericTopicOutlet(this,
+            Topics = new GenericTopicOutlet(this, logger,
                 new VirtualSynchronyTopicPublisher(),
                 new JobClientPublisher()
             );
