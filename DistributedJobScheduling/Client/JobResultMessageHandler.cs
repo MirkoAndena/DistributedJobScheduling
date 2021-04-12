@@ -63,7 +63,7 @@ namespace DistributedJobScheduling.Client
 
             Message message = new ResultRequest(job.ID);
             _previousMessage = message;
-            _speaker.Send(message);
+            _speaker.Send(message).Wait();
         }
 
         public void Start()

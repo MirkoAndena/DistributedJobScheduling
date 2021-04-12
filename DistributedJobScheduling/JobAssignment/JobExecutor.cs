@@ -14,15 +14,16 @@ namespace DistributedJobScheduling.JobAssignment
     {
         private CancellationTokenSource _cancellationTokenSource;
         private ILogger _logger;
-        private JobManager _storage;
-        private SemaphoreSlim _semaphore;
+        private JobStorage _jobStorage;
 
-        public JobExecutor(JobManager storage) : this (storage, DependencyInjection.DependencyManager.Get<ILogger>()) {}
-        public JobExecutor(JobManager storage, ILogger logger)
+        public JobExecutor(JobStorage jobStorage) : this (
+            jobStorage,
+            DependencyInjection.DependencyManager.Get<ILogger>()) {}
+
+        public JobExecutor(JobStorage jobStorage, ILogger logger)
         {
-            _storage = storage;
+            _jobStorage = jobStorage;
             _logger = logger;
-            _semaphore = new SemaphoreSlim(0, 1);
         }
 
         public void Stop() => _cancellationTokenSource?.Cancel();
@@ -35,8 +36,7 @@ namespace DistributedJobScheduling.JobAssignment
             {
                 while (!_cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    //_logger.Log(Tag.JobExecutor, $"Finding a new job to execute");
-                    Job current = await _storage.FindJobToExecute();
+                    Job current = await _jobStorage.FindJobToExecute();
                     if (current != null)
                         await ExecuteJob(current);
                 }
@@ -61,7 +61,7 @@ namespace DistributedJobScheduling.JobAssignment
         private void UpdateStatus(Job job, JobStatus status)
         {
             job.Status = status;
-            _storage.UpdateJob?.Invoke(job);
+            _jobStorage.UpdateJob(job);
         }
 
         private async Task<IJobResult> RunJob(Job job)

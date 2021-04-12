@@ -12,11 +12,11 @@ namespace DistributedJobScheduling.Tests
     public class JobExecutorTest
     {
         private JobExecutor _executor;
-        private JobManager _store;
+        private JobStorage _store;
 
         public JobExecutorTest(ITestOutputHelper output)
         {
-            (JobManager, JobExecutor) _ = TestElementsFactory.CreateJobManagerAndExecutor(output);
+            (JobStorage, JobExecutor) _ = TestElementsFactory.CreateJobManagerAndExecutor(output);
             _store = _.Item1;
             _executor = _.Item2;
             _store.Init();

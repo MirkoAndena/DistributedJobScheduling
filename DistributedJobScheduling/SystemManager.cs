@@ -2,6 +2,7 @@ using System;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
+using DistributedJobScheduling.DistributedJobUpdate;
 using DistributedJobScheduling.JobAssignment;
 using DistributedJobScheduling.LeaderElection;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
@@ -54,17 +55,18 @@ namespace DistributedJobScheduling
             RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager(jsonSerializer));
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
-            RegisterSubSystem<IStore<Jobs>, FileStore<Jobs>>(new FileStore<Jobs>(JOBS_PATH, jsonSerializer));
-            JobManager jobManager = new JobManager();
-            RegisterSubSystem<JobManager>(jobManager);
+            RegisterSubSystem<IStore<JobCollection>, FileStore<JobCollection>>(new FileStore<JobCollection>(JOBS_PATH, jsonSerializer));
+            JobStorage jobStorage = new JobStorage();
+            RegisterSubSystem<JobStorage>(jobStorage);
             RegisterSubSystem<IStore<Table>, FileStore<Table>>(new FileStore<Table>(TRANSLATIONTABLE_PATH, jsonSerializer));
             TranslationTable translationTable = new TranslationTable();
             RegisterSubSystem<TranslationTable>(translationTable);
 
-            RegisterSubSystem<JobExecutor>(new JobExecutor(jobManager));
-            RegisterSubSystem<JobMessageHandler>(new JobMessageHandler(jobManager, translationTable));
+            RegisterSubSystem<JobExecutor>(new JobExecutor(jobStorage));
+            RegisterSubSystem<JobMessageHandler>(new JobMessageHandler(jobStorage, translationTable));
             RegisterSubSystem<KeepAliveManager>(new KeepAliveManager());
             RegisterSubSystem<BullyElectionMessageHandler>(new BullyElectionMessageHandler());
+            RegisterSubSystem<DistributedJobMessageHandler>(new DistributedJobMessageHandler(jobStorage));
         }
     }
 }

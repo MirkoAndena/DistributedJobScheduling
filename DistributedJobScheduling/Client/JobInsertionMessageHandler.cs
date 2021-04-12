@@ -56,7 +56,7 @@ namespace DistributedJobScheduling.Client
 
             Message message = new ExecutionRequest(job);
             _previousMessage = message;
-            _speaker.Send(message.ApplyStamp(_timeStamper));
+            _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
         }
 
         public void Stop()
@@ -76,7 +76,7 @@ namespace DistributedJobScheduling.Client
                     _logger.Log(Tag.ClientJobMessaging, $"Stored request id ({job.ID})");
                     
                     Message ack = new ExecutionAck(response, job.ID);
-                    _speaker.Send(ack.ApplyStamp(_timeStamper));
+                    _speaker.Send(ack.ApplyStamp(_timeStamper)).Wait();
                     _logger.Log(Tag.ClientJobMessaging, $"Job successfully assigned to network, RequestID: {job.ID}");
                 }
             }

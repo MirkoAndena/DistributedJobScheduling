@@ -8,20 +8,20 @@ namespace DistributedJobScheduling.Tests.Utils
 {
     public static class TestElementsFactory
     {
-        public static (JobManager, JobExecutor) CreateJobManagerAndExecutor(ITestOutputHelper output)
+        public static (JobStorage, JobExecutor) CreateJobManagerAndExecutor(ITestOutputHelper output)
         {
             Group group = CreateStubGroup();
             StubLogger stubLogger = new StubLogger(group.Me, output);
-            JobManager jobManager = new JobManager(new MemoryStore<Jobs>(), stubLogger, new FakeGroupViewManager(group));
+            JobStorage jobManager = new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
             JobExecutor jobExecutor = new JobExecutor(jobManager, stubLogger);
             return (jobManager, jobExecutor);
         }
 
-        public static JobManager CreateJobManager(ITestOutputHelper output)
+        public static JobStorage CreateJobManager(ITestOutputHelper output)
         {
             Group group = CreateStubGroup();
             StubLogger stubLogger = new StubLogger(group.Me, output);
-            return new JobManager(new MemoryStore<Jobs>(), stubLogger, new FakeGroupViewManager(group));
+            return new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
         }
 
         private static Group CreateStubGroup()

@@ -8,20 +8,11 @@ using DistributedJobScheduling.Storage.SecureStorage;
 
 namespace DistributedJobScheduling.Storage
 {
-    public class TableItem
-    {
-        public Job Job;
-        public bool Confirmed;
-
-        public TableItem() { Confirmed = false; }
-        public TableItem(Job job) : this() { Job = job; }
-    }
-
     public class Table
     {
-        public Dictionary<int, TableItem> Dictionary; 
+        public Dictionary<int, int> Dictionary; 
 
-        public Table() { Dictionary = new Dictionary<int, TableItem>(); }
+        public Table() { Dictionary = new Dictionary<int, int>(); }
     }
 
     public class TranslationTable : IInitializable
@@ -43,51 +34,22 @@ namespace DistributedJobScheduling.Storage
         public void Init()
         {
             _secureStorage.Init();
-            DeleteUnconfirmedEntries();
         }
 
-        public int Add(Job job)
+        public int CreateNewIndex => _reusableIndex.NewIndex;
+
+        public void Add(int requestId, int job)
         {
-            int id = _reusableIndex.NewIndex;
-            _secureStorage.Value.Dictionary.Add(id, new TableItem(job));
+            _secureStorage.Value.Dictionary.Add(requestId, job);
             _secureStorage.ValuesChanged.Invoke();
-            _logger.Log(Tag.TranslationTable, $"Added job {job} with local id {id} (not confirmed)");
-            return id;
+            _logger.Log(Tag.TranslationTable, $"Added job {job} with local id {requestId} (not confirmed)");
         }
 
-        public Job Get(int localID) 
+        public int? Get(int localID) 
         {
             if (_secureStorage.Value.Dictionary.ContainsKey(localID))
-                return _secureStorage.Value.Dictionary[localID]?.Job;
+                return _secureStorage.Value.Dictionary[localID];
             return null;
-        }
-
-        public void SetConfirmed(int localID)
-        {
-            _secureStorage.Value.Dictionary[localID].Confirmed = true;
-            _secureStorage.ValuesChanged.Invoke();
-            _logger.Log(Tag.TranslationTable, $"Entry with id {localID} is confirmed");
-        }
-
-        public void SetJobID(int localID, int remoteID)
-        {
-            if (_secureStorage.Value.Dictionary.ContainsKey(localID))
-            {
-                _secureStorage.Value.Dictionary[localID].Job.ID = remoteID;
-                _secureStorage.ValuesChanged.Invoke();
-                _logger.Log(Tag.TranslationTable, $"Setted job id ({remoteID}) from coordinator to entry with id {localID}");
-            }
-        }
-
-        private void DeleteUnconfirmedEntries()
-        {
-            _secureStorage.Value.Dictionary.ForEach(idItemPair => 
-            {
-                if (!idItemPair.Value.Confirmed)
-                    _secureStorage.Value.Dictionary.Remove(idItemPair.Key);
-            });
-            _secureStorage.ValuesChanged.Invoke();
-            _logger.Log(Tag.TranslationTable, "Unconfirmed entries deleted");
         }
     }
 }

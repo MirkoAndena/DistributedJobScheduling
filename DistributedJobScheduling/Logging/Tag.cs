@@ -8,12 +8,14 @@ namespace DistributedJobScheduling.Logging
         SecureStorage,
         JobExecutor,
         JobStorage,
+        JobUtils,
         TranslationTable,
         JobManager,
         LeaderElection,
         KeepAlive,
         WorkerSearcher,
         UnHandled,
-        ClientJobMessaging
+        ClientJobMessaging,
+        DistributedUpdate
     }
 }

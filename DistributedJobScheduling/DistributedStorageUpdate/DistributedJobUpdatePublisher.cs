@@ -3,15 +3,14 @@ using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 using DistributedJobScheduling.Communication.Topics;
 
-namespace DistributedJobScheduling.JobAssignment
+namespace DistributedJobScheduling.DistributedJobUpdate
 {
-    public class JobGroupPublisher : BaseTopicPublisher
+    public class DistributedJobUpdatePublisher : BaseTopicPublisher
     {
         private HashSet<Type> _topics = new HashSet<Type>
         {
-            typeof(AssignmentMessage),
-            typeof(InsertionRequest),
-            typeof(InsertionResponse)
+            typeof(DistributedStorageUpdateRequest),
+            typeof(DistributedStorageUpdate)
         };
         public override HashSet<Type> TopicMessageTypes => _topics;
     }
