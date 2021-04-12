@@ -203,7 +203,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private (TemporaryMessage, TaskCompletionSource<bool>) EnqueueMessage(Node node, Message message)
         {
             //Checks that the node is in the view
-            if(node == null || !View.Contains(node))
+            if(node != null && !View.Contains(node))
             {
                 NotDeliveredException sendException = new NotDeliveredException();
                 _logger.Error(Tag.VirtualSynchrony, $"Tried to send message to node {node.ID} which isn't in view!", sendException);
