@@ -30,10 +30,9 @@ namespace DistributedJobScheduling.Tests
             _store.InsertAndAssign(new TimeoutJob(1));
             _store.InsertAndAssign(new TimeoutJob(1));
             _store.InsertAndAssign(new TimeoutJob(1));
-            _executor.OnJobCompleted += (job, result) => 
+            _store.UpdateJob += job =>
             {
-                Assert.True(((BooleanJobResult)result).Value);
-                executed = true;
+                executed = job.Status == JobStatus.COMPLETED;
             };
             _executor.Start();
             await Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => 

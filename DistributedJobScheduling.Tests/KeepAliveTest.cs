@@ -64,8 +64,6 @@ namespace DistributedJobScheduling.DistributedStorage
                 coordinatorDie = true;
             };
             
-            coordinatorKeepAlive.Init();
-            workersKeepAlive.Init();
             workersKeepAlive.Start();
             coordinatorKeepAlive.Start();
 
