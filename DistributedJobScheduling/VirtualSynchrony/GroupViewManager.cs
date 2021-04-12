@@ -16,6 +16,7 @@ using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LeaderElection;
 using DistributedJobScheduling.Queues;
+using DistributedJobScheduling.DistributedJobUpdate;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -109,7 +110,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
             Topics = new GenericTopicOutlet(this, logger,
                      new JobGroupPublisher(),
                      new KeepAlivePublisher(),
-                     new BullyElectionPublisher());
+                     new BullyElectionPublisher(),
+                     new DistributedJobUpdatePublisher());
             JoinRequestTimeout = joinRequestTimeout;
             View = coldStartView ?? new Group(_nodeRegistry.GetOrCreate(id: configurationService.GetValue<int?>("nodeId", null)), coordinator: configurationService.GetValue<bool>("coordinator", false));
             View.MemberDied += (node) => { NotifyViewChanged(new HashSet<Node>(new [] {node}), ViewChangeOperation.Left); };
