@@ -24,6 +24,8 @@ namespace DistributedJobScheduling.Client
         private Message _previousMessage;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
+        private int _pendingRequests;
+        public event Action ResponsesArrived;
 
         public JobResultMessageHandler(ClientStore store) : this (
             store,
@@ -39,6 +41,7 @@ namespace DistributedJobScheduling.Client
             _serializer = serializer;
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
+            _pendingRequests = 0;
         }
 
         public void RequestAllStoredJobs()
@@ -46,6 +49,7 @@ namespace DistributedJobScheduling.Client
             _store.ClientJobs(result => result == null).ForEach(job => 
             {
                 RequestJob(job);
+                _pendingRequests++;
             });
         }
 
@@ -85,6 +89,9 @@ namespace DistributedJobScheduling.Client
                         _store.UpdateClientJobResult(response.ClientJobId, response.Result);
                         _logger.Log(Tag.ClientJobMessaging, $"Job result updated into storage");
                     }
+
+                    _pendingRequests--;
+                    if (_pendingRequests == 0) ResponsesArrived?.Invoke();
                 }
             }
             else

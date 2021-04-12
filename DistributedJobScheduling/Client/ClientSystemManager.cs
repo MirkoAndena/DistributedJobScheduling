@@ -80,9 +80,9 @@ namespace DistributedJobScheduling.Client
 
         private void Main()
         {
+            _jobResultHandler.ResponsesArrived += Stop;
             Task.Delay(TimeSpan.FromSeconds(2)).ContinueWith(t => _messageHandler.SubmitJob(new TimeoutJob(5)));
             Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => _jobResultHandler.RequestAllStoredJobs());
-            Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(t => Stop());
         }
     }
 }
