@@ -557,6 +557,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         //Check if it needs to sync to the new node
                         if (_currentJoinRequest != null)
                         {
+                            _currentJoinRequest.BindToRegistry(_nodeRegistry);
                             _logger.Log(Tag.VirtualSynchrony, $"Need to sync view with joined node");
                             _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value)));
                             _currentJoinRequest = null;
