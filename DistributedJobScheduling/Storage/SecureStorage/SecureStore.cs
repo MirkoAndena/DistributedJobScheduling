@@ -40,7 +40,7 @@ namespace DistributedJobScheduling.Storage.SecureStorage
         private void Write()
         {
             _store.Write(Value);
-            _logger.Log(Tag.SecureStorage, $"Writed {typeof(T)} to secure storage");
+            _logger.Log(Tag.SecureStorage, $"Wrote {typeof(T)} to secure storage");
         }
     }
 }

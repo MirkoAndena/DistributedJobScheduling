@@ -46,12 +46,9 @@ namespace DistributedJobScheduling.Client
         }
 
 
-        public void SubmitJob(Job job)
+        public void SubmitJob(BoldSpeaker speaker, Job job)
         {
-            Node node = _nodeRegistry.GetOrCreate(ip: _configuration.GetValue<string>("worker"));
-            _speaker = new BoldSpeaker(node, _serializer);
-            _speaker.Connect(30).Wait();
-            _speaker.Start();
+            _speaker = speaker;
             _speaker.MessageReceived += OnMessageReceived;
 
             Message message = new ExecutionRequest(job);
@@ -62,7 +59,6 @@ namespace DistributedJobScheduling.Client
         public void Stop()
         {
             _speaker.MessageReceived -= OnMessageReceived;
-            _speaker.Stop();
         }
 
         private void OnMessageReceived(Node node, Message message)

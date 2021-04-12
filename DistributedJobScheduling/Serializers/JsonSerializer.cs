@@ -11,7 +11,8 @@ namespace DistributedJobScheduling.Serialization
         {
             _settings = new JsonSerializerSettings()
             {
-                TypeNameHandling = TypeNameHandling.All
+                TypeNameHandling = TypeNameHandling.All,
+                Formatting = Formatting.Indented
             };
         }
 

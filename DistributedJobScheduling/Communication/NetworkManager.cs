@@ -93,9 +93,12 @@ namespace DistributedJobScheduling.Communication
 
         private void OnSpeakerStopped(Node remote)
         {
-            _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-            _speakers.Remove(remote);
-            remote.NotifyDeath();
+            if (_speakers.ContainsKey(remote))
+            {
+                _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
+                _speakers.Remove(remote);
+                remote.NotifyDeath();
+            }
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)

@@ -16,6 +16,7 @@ using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.Storage.SecureStorage;
 using DistributedJobScheduling.VirtualSynchrony;
 using static DistributedJobScheduling.Communication.Basic.Node;
+using DistributedJobScheduling.Communication.Basic.Speakers;
 
 namespace DistributedJobScheduling.Client
 {
@@ -81,9 +82,19 @@ namespace DistributedJobScheduling.Client
 
         private void Main()
         {
-            _jobResultHandler.ResponsesArrived += Stop;
-            Task.Delay(TimeSpan.FromSeconds(2)).ContinueWith(t => _messageHandler.SubmitJob(new TimeoutJob(5)));
-            Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => _jobResultHandler.RequestAllStoredJobs());
+            var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
+            var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
+            var serializer = DependencyInjection.DependencyManager.Get<ISerializer>();
+
+            Node node = nodeRegistry.GetOrCreate(ip: configuration.GetValue<string>("worker"));
+            var speaker = new BoldSpeaker(node, serializer);
+            speaker.Connect(30).Wait();
+            speaker.Start();
+
+            _jobResultHandler.ResponsesArrived += () => { speaker.Stop(); Stop(); };
+            Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(t => _messageHandler.SubmitJob(speaker, new TimeoutJob(5)));
+            Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => _jobResultHandler.RequestAllStoredJobs(speaker));
+            //Task.Delay(TimeSpan.FromMinutes(2)).ContinueWith(t => Stop());
         }
     }
 }

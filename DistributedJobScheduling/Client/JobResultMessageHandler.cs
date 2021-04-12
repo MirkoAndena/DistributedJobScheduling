@@ -12,6 +12,7 @@ using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Configuration;
+using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.Client
 {
@@ -21,6 +22,7 @@ namespace DistributedJobScheduling.Client
         private ILogger _logger;
         private ISerializer _serializer;
         private ClientStore _store;
+        private ITimeStamper _timeStamper;
         private Message _previousMessage;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
@@ -31,39 +33,38 @@ namespace DistributedJobScheduling.Client
             store,
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<ISerializer>(),
+            DependencyInjection.DependencyManager.Get<ITimeStamper>(),
             DependencyInjection.DependencyManager.Get<INodeRegistry>(),
             DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
 
-        public JobResultMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, INodeRegistry nodeRegistry, IConfigurationService configuration)
+        public JobResultMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
         {
             _store = store;
             _logger = logger;
             _serializer = serializer;
+            _timeStamper = timeStamper;
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
             _pendingRequests = 0;
         }
 
-        public void RequestAllStoredJobs()
+        public void RequestAllStoredJobs(BoldSpeaker speaker)
         {
             _store.ClientJobs(result => result == null).ForEach(job => 
             {
-                RequestJob(job);
+                RequestJob(speaker, job);
                 _pendingRequests++;
             });
         }
 
-        public void RequestJob(ClientJob job)
+        public void RequestJob(BoldSpeaker speaker, ClientJob job)
         {
-            Node node = _nodeRegistry.GetOrCreate(ip: _configuration.GetValue<string>("worker"));
-            _speaker = new BoldSpeaker(node, _serializer);
-            _speaker.Connect(30).Wait();
-            _speaker.Start();
+            _speaker = speaker;
             _speaker.MessageReceived += OnMessageReceived;
 
             Message message = new ResultRequest(job.ID);
             _previousMessage = message;
-            _speaker.Send(message).Wait();
+            _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
         }
 
         public void Start()
