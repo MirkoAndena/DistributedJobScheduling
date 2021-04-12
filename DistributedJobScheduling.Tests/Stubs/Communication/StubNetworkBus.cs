@@ -192,7 +192,7 @@ namespace DistributedJobScheduling.Tests.Communication
             }
             Console.WriteLine($"{from} done lock for {message.TimeStamp} {message}");
 
-            //await Task.Delay(1);
+            await Task.Yield();
 
             //Emulate latency and out of order receive
             nodesToSendTo.ForEach(x => {
