@@ -122,8 +122,17 @@ namespace DistributedJobScheduling.JobAssignment
                 _logger.Log(Tag.ClientCommunication, $"Request id confirmed, waiting for coordinator assignment");
 
                 // Request to coordinator for an insertion
-                Send(_groupManager, _groupManager.View.Coordinator, new InsertionRequest(job, requestID));
-                _logger.Log(Tag.ClientCommunication, $"Insertion request to coordinator for job with request id {requestID}");
+                if (_groupManager.View.ImCoordinator)
+                {
+                    _jobStorage.InsertAndAssign(job);
+                    _translationTable.Add(requestID, job.ID.Value);
+                    _logger.Log(Tag.ClientCommunication, $"Job stored and added to the translation table");
+                }
+                else
+                {
+                    Send(_groupManager, _groupManager.View.Coordinator, new InsertionRequest(job, requestID));
+                    _logger.Log(Tag.ClientCommunication, $"Insertion requested to coordinator for job with request id {requestID}");
+                }
             }
             else
                 _logger.Warning(Tag.ClientCommunication, $"Client request id {requestID} does not match any request id stored");
