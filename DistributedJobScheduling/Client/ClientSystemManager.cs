@@ -91,7 +91,7 @@ namespace DistributedJobScheduling.Client
             speaker.Connect(30).Wait();
             speaker.Start();
 
-            _jobResultHandler.ResponsesArrived += () => { speaker.Stop(); Stop(); };
+            _jobResultHandler.ResponsesArrived += () => { speaker.Stop(); Shutdown.Invoke(); };
             Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(t => _messageHandler.SubmitJob(speaker, new TimeoutJob(5)));
             Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => _jobResultHandler.RequestAllStoredJobs(speaker));
             //Task.Delay(TimeSpan.FromMinutes(2)).ContinueWith(t => Stop());

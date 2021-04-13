@@ -64,6 +64,9 @@ namespace DistributedJobScheduling.Client
 
         public void StoreClientJob(ClientJob job)
         {
+            // Remove job with same ID
+            _store.Value.Jobs.RemoveAll(current => current.ID == job.ID);
+
             _store.Value.Jobs.Add(job);
             _store.ValuesChanged?.Invoke();
         }
@@ -75,6 +78,7 @@ namespace DistributedJobScheduling.Client
                 {
                     job.Result = result;
                     _store.ValuesChanged?.Invoke();
+                    break;
                 }
         }
 

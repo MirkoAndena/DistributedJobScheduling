@@ -69,7 +69,7 @@ namespace DistributedJobScheduling.JobAssignment
                 return received.IsTheExpectedMessage(lastSent);
             }
 
-            _logger.Warning(Tag.JobManager, $"No message correctness checked because no previous message sent to node {node}");
+            _logger.Warning(Tag.ClientCommunication, $"No message correctness checked because no previous message sent to node {node}");
             return true;
         }
 
@@ -84,7 +84,7 @@ namespace DistributedJobScheduling.JobAssignment
                 if (message is ResultRequest resultRequest) OnResultRequestArrived(node, resultRequest);
             }
             else
-                _logger.Warning(Tag.JobManager, $"Received message {message} is not correct so it is discarded");
+                _logger.Warning(Tag.ClientCommunication, $"Received message {message} is not correct so it is discarded");
         }        
 
         private void Send(ICommunicationManager communicationManager, Node node, Message message)
@@ -102,16 +102,16 @@ namespace DistributedJobScheduling.JobAssignment
 
         private void OnExecutionRequestArrived(Node node, ExecutionRequest message)
         {
-            _logger.Log(Tag.JobManager, $"Request for an execution arrived from client {node}");
+            _logger.Log(Tag.ClientCommunication, $"Request for an execution arrived from client {node}");
             int requestID = _translationTable.CreateNewIndex;
             _unconfirmedRequestIds.Add(node, (requestID, message.Job));
             Send(_communicationManager, node, new ExecutionResponse(message, requestID));
-            _logger.Log(Tag.JobManager, $"Response sent with a proposal request id ({requestID})");
+            _logger.Log(Tag.ClientCommunication, $"Response sent with a proposal request id ({requestID})");
         }
 
         private void OnExecutionAckArrived(Node node, ExecutionAck message)
         {
-            _logger.Log(Tag.JobManager, $"Ack for an execution arrived from client {node} with request id {message.RequestID}");
+            _logger.Log(Tag.ClientCommunication, $"Ack for an execution arrived from client {node} with request id {message.RequestID}");
 
             // Confirm request id
             int requestID = message.RequestID;
@@ -119,49 +119,49 @@ namespace DistributedJobScheduling.JobAssignment
             {
                 Job job = _unconfirmedRequestIds[node].Item2;
                 _unconfirmedRequestIds.Remove(node);
-                _logger.Log(Tag.JobManager, $"Request id confirmed, waiting for coordinator assignment");
+                _logger.Log(Tag.ClientCommunication, $"Request id confirmed, waiting for coordinator assignment");
 
                 // Request to coordinator for an insertion
                 Send(_groupManager, _groupManager.View.Coordinator, new InsertionRequest(job, requestID));
-                _logger.Log(Tag.JobManager, $"Insertion request to coordinator for job with request id {requestID}");
+                _logger.Log(Tag.ClientCommunication, $"Insertion request to coordinator for job with request id {requestID}");
             }
             else
-                _logger.Warning(Tag.JobManager, $"Client request id {requestID} does not match any request id stored");
+                _logger.Warning(Tag.ClientCommunication, $"Client request id {requestID} does not match any request id stored");
         }
 
         private void OnInsertionRequestArrived(Node node, InsertionRequest message)
         {
-            _logger.Log(Tag.JobManager, $"Insertion request arrived from {node}");
+            _logger.Log(Tag.ClientCommunication, $"Insertion request arrived from {node}");
             _jobStorage.InsertAndAssign(message.Job);
-            _logger.Log(Tag.JobManager, $"Job added to storage and assigned");
+            _logger.Log(Tag.ClientCommunication, $"Job added to storage and assigned");
             Send(_groupManager, node, new InsertionResponse(message, message.Job.ID.Value, message.RequestID));
-            _logger.Log(Tag.JobManager, $"Sent back to {node} the assigned id for the inserted job");
+            _logger.Log(Tag.ClientCommunication, $"Sent back to {node} the assigned id for the inserted job");
         }
 
         private void OnInsertionResponseArrived(Node node, InsertionResponse message)
         {
             _translationTable.Add(message.RequestID, message.JobID);
-            _logger.Log(Tag.JobManager, $"Translation added for request {message.RequestID} and job {message.JobID}");
+            _logger.Log(Tag.ClientCommunication, $"Translation added for request {message.RequestID} and job {message.JobID}");
         }
 
         private void OnResultRequestArrived(Node node, ResultRequest message)
         {
-            _logger.Log(Tag.JobManager, $"Job result request arrived");
+            _logger.Log(Tag.ClientCommunication, $"Job result request arrived");
             int? jobID = _translationTable.Get(message.RequestID);
             if (jobID == null) 
             {
-                _logger.Warning(Tag.JobManager, $"Job requested (id: {message.RequestID}) doesn't exists");
+                _logger.Warning(Tag.ClientCommunication, $"Job requested (id: {message.RequestID}) doesn't exists");
                 return;
             }
 
             Job job = _jobStorage.Get(jobID.Value);
             if (job == null) 
             {
-                _logger.Warning(Tag.JobManager, $"No job with {jobID} is present");
+                _logger.Warning(Tag.ClientCommunication, $"No job with {jobID} is present");
                 return;
             }
 
-            _communicationManager.Send(node, new ResultResponse(job, message.RequestID));
+            _communicationManager.Send(node, new ResultResponse(message, job, message.RequestID));
             
             if (job.Status == JobStatus.COMPLETED)
                 _jobStorage.SetJobDeliveredToClient(job); // TODO: Serve una conferma di ricezione dal client? (ack)

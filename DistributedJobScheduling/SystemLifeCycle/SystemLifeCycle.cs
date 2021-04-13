@@ -32,6 +32,7 @@ namespace DistributedJobScheduling.LifeCycle
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine(configurationService.ToString());
+                Console.WriteLine($"Local IP {NetworkUtils.GetLocalIP()}");
                 Console.ResetColor();
             }
         }
