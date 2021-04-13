@@ -23,11 +23,11 @@ namespace DistributedJobScheduling.Client
         private ISerializer _serializer;
         private ClientStore _store;
         private ITimeStamper _timeStamper;
-        private Message _previousMessage;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
         private int _pendingRequests;
         public event Action ResponsesArrived;
+        private bool _registered;
 
         public JobResultMessageHandler(ClientStore store) : this (
             store,
@@ -46,6 +46,7 @@ namespace DistributedJobScheduling.Client
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
             _pendingRequests = 0;
+            _registered = false;
         }
 
         public void RequestAllStoredJobs(BoldSpeaker speaker)
@@ -61,10 +62,13 @@ namespace DistributedJobScheduling.Client
         {
             _logger.Log(Tag.WorkerCommunication, $"Requesting result for {job.ID}");
             _speaker = speaker;
-            _speaker.MessageReceived += OnMessageReceived;
+            if (!_registered)
+            {
+                _speaker.MessageReceived += OnMessageReceived;
+                _registered = true;
+            }
 
             Message message = new ResultRequest(job.ID);
-            _previousMessage = message;
             _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
             _logger.Log(Tag.WorkerCommunication, $"Requested result for job with requestId {job.ID}");
         }
@@ -76,29 +80,27 @@ namespace DistributedJobScheduling.Client
 
         public void Stop()
         {
-            _speaker.MessageReceived -= OnMessageReceived;
-            _speaker.Stop();
+            if (_registered)
+            {
+                _speaker.MessageReceived -= OnMessageReceived;
+                _registered = false;
+            }
         }
 
         private void OnMessageReceived(Node node, Message message)
         {
-            if (message.IsTheExpectedMessage(_previousMessage))
+            if (message is ResultResponse response)
             {
-                if (message is ResultResponse response)
+                _logger.Log(Tag.WorkerCommunication, $"Job requested is {response.Status}");
+                if (response.Status == JobStatus.COMPLETED)
                 {
-                    _logger.Log(Tag.WorkerCommunication, $"Job requested is {response.Status}");
-                    if (response.Status == JobStatus.COMPLETED)
-                    {
-                        _store.UpdateClientJobResult(response.ClientJobId, response.Result);
-                        _logger.Log(Tag.WorkerCommunication, $"Job result updated into storage");
-                    }
-
-                    _pendingRequests--;
-                    if (_pendingRequests == 0) ResponsesArrived?.Invoke();
+                    _store.UpdateClientJobResult(response.ClientJobId, response.Result);
+                    _logger.Log(Tag.WorkerCommunication, $"Job result updated into storage");
                 }
+
+                _pendingRequests--;
+                if (_pendingRequests == 0) ResponsesArrived?.Invoke();
             }
-            else
-                _logger.Warning(Tag.WorkerCommunication, "Received message was rejected");
         }
     }
 }

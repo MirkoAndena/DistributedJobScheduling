@@ -23,7 +23,6 @@ namespace DistributedJobScheduling.JobAssignment
         private ILogger _logger;
         
         private Dictionary<Node, (int, Job)> _unconfirmedRequestIds;
-        private Dictionary<Node, Message> _lastMessageSent;
 
         public JobMessageHandler(TranslationTable translationTable) : 
         this(DependencyManager.Get<IGroupViewManager>(),
@@ -46,7 +45,6 @@ namespace DistributedJobScheduling.JobAssignment
             _groupManager = groupManager;
             _communicationManager = communicationManager;
             _unconfirmedRequestIds = new Dictionary<Node, (int, Job)>();
-            _lastMessageSent = new Dictionary<Node, Message>();
         }
 
         public void Init()
@@ -61,36 +59,17 @@ namespace DistributedJobScheduling.JobAssignment
             clientPublisher.RegisterForMessage(typeof(ResultRequest), OnMessageReceived);
         }
 
-        private bool IsMessageCorrect(Node node, Message received)
-        {
-            if (_lastMessageSent.ContainsKey(node))
-            {
-                Message lastSent = _lastMessageSent[node];
-                _lastMessageSent.Remove(node);
-                return received.IsTheExpectedMessage(lastSent);
-            }
-
-            _logger.Warning(Tag.ClientCommunication, $"No message correctness checked because no previous message sent to node {node}");
-            return true;
-        }
-
         private void OnMessageReceived(Node node, Message message)
         {
-            if (IsMessageCorrect(node, message))
-            {
-                if (message is ExecutionRequest executionRequest) OnExecutionRequestArrived(node, executionRequest);
-                if (message is ExecutionAck executionAck) OnExecutionAckArrived(node, executionAck);
-                if (message is InsertionRequest insertionRequest) OnInsertionRequestArrived(node, insertionRequest);
-                if (message is InsertionResponse insertionResponse) OnInsertionResponseArrived(node, insertionResponse);
-                if (message is ResultRequest resultRequest) OnResultRequestArrived(node, resultRequest);
-            }
-            else
-                _logger.Warning(Tag.ClientCommunication, $"Received message {message} is not correct so it is discarded");
+            if (message is ExecutionRequest executionRequest) OnExecutionRequestArrived(node, executionRequest);
+            if (message is ExecutionAck executionAck) OnExecutionAckArrived(node, executionAck);
+            if (message is InsertionRequest insertionRequest) OnInsertionRequestArrived(node, insertionRequest);
+            if (message is InsertionResponse insertionResponse) OnInsertionResponseArrived(node, insertionResponse);
+            if (message is ResultRequest resultRequest) OnResultRequestArrived(node, resultRequest);
         }        
 
         private void Send(ICommunicationManager communicationManager, Node node, Message message)
         {
-            _lastMessageSent.Add(node, message);
             if(communicationManager is NetworkManager)
                 message.ApplyStamp(_timeStamper);
             communicationManager.Send(node, message).Wait();

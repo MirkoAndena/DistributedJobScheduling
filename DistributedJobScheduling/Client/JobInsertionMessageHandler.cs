@@ -22,9 +22,9 @@ namespace DistributedJobScheduling.Client
         private ISerializer _serializer;
         private ITimeStamper _timeStamper;
         private ClientStore _store;
-        private Message _previousMessage;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
+        private bool _registered;
 
         public JobInsertionMessageHandler(ClientStore store) : this (
             store,
@@ -43,41 +43,44 @@ namespace DistributedJobScheduling.Client
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
             var now = DateTime.Now;
+            _registered = false;
         }
 
 
         public void SubmitJob(BoldSpeaker speaker, Job job)
         {
             _speaker = speaker;
-            _speaker.MessageReceived += OnMessageReceived;
+            if (!_registered) 
+            {
+                _speaker.MessageReceived += OnMessageReceived;
+                _registered =  true;
+            }
 
             Message message = new ExecutionRequest(job);
-            _previousMessage = message;
             _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
         }
 
         public void Stop()
         {
-            _speaker.MessageReceived -= OnMessageReceived;
+            if (_registered)
+            {
+                _speaker.MessageReceived -= OnMessageReceived;
+                _registered = false;
+            }
         }
 
         private void OnMessageReceived(Node node, Message message)
         {
-            if (message.IsTheExpectedMessage(_previousMessage))
+            if (message is ExecutionResponse response)
             {
-                if (message is ExecutionResponse response)
-                {
-                    var job = new ClientJob(response.RequestID);
-                    Message ack = new ExecutionAck(response, job.ID);
-                    _speaker.Send(ack.ApplyStamp(_timeStamper)).Wait();
-                    _logger.Log(Tag.WorkerCommunication, $"Job successfully assigned to network, RequestID: {job.ID}");
-                    
-                    _store.StoreClientJob(job);
-                    _logger.Log(Tag.WorkerCommunication, $"Stored request id ({job.ID})");
-                }
+                var job = new ClientJob(response.RequestID);
+                Message ack = new ExecutionAck(response, job.ID);
+                _speaker.Send(ack.ApplyStamp(_timeStamper)).Wait();
+                _logger.Log(Tag.WorkerCommunication, $"Job successfully assigned to network, RequestID: {job.ID}");
+                
+                _store.StoreClientJob(job);
+                _logger.Log(Tag.WorkerCommunication, $"Stored request id ({job.ID})");
             }
-            else
-                _logger.Warning(Tag.WorkerCommunication, "Received message was rejected");
         }
 
         public void Start()
