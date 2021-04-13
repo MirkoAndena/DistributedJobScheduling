@@ -41,7 +41,7 @@ namespace DistributedJobScheduling.Storage
         public void Add(int requestId, int job)
         {
             _secureStorage.Value.Dictionary.Add(requestId, job);
-            _secureStorage.ValuesChanged.Invoke();
+            _secureStorage.ValuesChanged?.Invoke();
             _logger.Log(Tag.TranslationTable, $"Added job {job} with local id {requestId} (not confirmed)");
         }
 

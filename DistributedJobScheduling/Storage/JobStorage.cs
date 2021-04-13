@@ -94,7 +94,7 @@ namespace DistributedJobScheduling.Storage
             job.ID = _reusableIndex.NewIndex;
 
             _secureStore.Value.List.Add(job);
-            _secureStore.ValuesChanged.Invoke();
+            _secureStore.ValuesChanged?.Invoke();
             JobUpdated?.Invoke(job);
 
             _logger.Log(Tag.JobStorage, $"Job {job} assigned to {job.Node.Value}");
@@ -111,12 +111,10 @@ namespace DistributedJobScheduling.Storage
             }
 
             // Remove job with same ID
-            foreach (Job stored in _secureStore.Value.List)
-                if (stored.ID.HasValue && stored.ID.Value == job.ID.Value)
-                    _secureStore.Value.List.Remove(stored);
-                
+            _secureStore.Value.List.RemoveAll(current => current.ID.HasValue && current.ID.Value == job.ID.Value);
+
             _secureStore.Value.List.Add(job);
-            _secureStore.ValuesChanged.Invoke();
+            _secureStore.ValuesChanged?.Invoke();
             _logger.Log(Tag.JobStorage, $"Job {job} inserted locally");
             UnlockJobExecution();
         }
