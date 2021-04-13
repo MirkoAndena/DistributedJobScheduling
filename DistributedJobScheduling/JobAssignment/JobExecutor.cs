@@ -14,13 +14,13 @@ namespace DistributedJobScheduling.JobAssignment
     {
         private CancellationTokenSource _cancellationTokenSource;
         private ILogger _logger;
-        private JobStorage _jobStorage;
+        private IJobStorage _jobStorage;
 
-        public JobExecutor(JobStorage jobStorage) : this (
-            jobStorage,
+        public JobExecutor() : this (
+            DependencyInjection.DependencyManager.Get<IJobStorage>(),
             DependencyInjection.DependencyManager.Get<ILogger>()) {}
 
-        public JobExecutor(JobStorage jobStorage, ILogger logger)
+        public JobExecutor(IJobStorage jobStorage, ILogger logger)
         {
             _jobStorage = jobStorage;
             _logger = logger;

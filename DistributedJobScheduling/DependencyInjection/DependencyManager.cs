@@ -1,6 +1,8 @@
 using System.Reflection;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+
 namespace DistributedJobScheduling.DependencyInjection
 {
     /// <summary>
@@ -52,5 +54,8 @@ namespace DistributedJobScheduling.DependencyInjection
                 return (T)Activator.CreateInstance(_statefullServiceTypes[serviceType]);
             return default(T);
         }
+
+        public static IEnumerable<IT> Implementing<IT>() => Instance.GetServicesImplementing<IT>();
+        public IEnumerable<IT> GetServicesImplementing<IT>() => _singleInstanceServices.Values.Where(x => x is IT).Select(x => (IT)x);
     }
 }

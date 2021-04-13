@@ -16,17 +16,17 @@ namespace DistributedJobScheduling.DistributedJobUpdate
     public class DistributedJobMessageHandler : IInitializable
     {
         private IGroupViewManager _groupManager;
-        private JobStorage _jobStorage;
+        private IJobStorage _jobStorage;
         private ILogger _logger;
 
-        public DistributedJobMessageHandler(JobStorage jobStorage) : 
+        public DistributedJobMessageHandler() : 
         this(DependencyManager.Get<IGroupViewManager>(),
-            jobStorage,
+            DependencyManager.Get<IJobStorage>(),
             DependencyManager.Get<ILogger>()) {}
 
         public DistributedJobMessageHandler(
             IGroupViewManager groupManager,
-            JobStorage jobStorage,
+            IJobStorage jobStorage,
             ILogger logger)
         {
             _logger = logger;

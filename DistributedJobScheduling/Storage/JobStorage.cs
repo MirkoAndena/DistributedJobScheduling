@@ -10,6 +10,8 @@ using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.Storage.SecureStorage;
 using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.JobAssignment;
+using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 
 namespace DistributedJobScheduling.Storage
 {
@@ -20,7 +22,7 @@ namespace DistributedJobScheduling.Storage
         public JobCollection() { List = new List<Job>(); }
     }
 
-    public class JobStorage : IInitializable
+    public class JobStorage : IJobStorage, IInitializable, IViewStatefull
     {
         private ReusableIndex _reusableIndex;
         private SemaphoreSlim _checkJobSemaphore;
@@ -137,6 +139,16 @@ namespace DistributedJobScheduling.Storage
                     toExecute = job;
             });
             return toExecute;
+        }
+
+        public Message ToSyncMessage()
+        {
+            return new JobSyncMessage();
+        }
+
+        public void OnViewSync(Message syncMessage)
+        {
+            _logger.Log(Tag.JobStorage, "SYNC!");
         }
     }
 }
