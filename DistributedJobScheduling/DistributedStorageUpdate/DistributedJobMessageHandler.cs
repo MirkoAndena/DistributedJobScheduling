@@ -44,8 +44,18 @@ namespace DistributedJobScheduling.DistributedJobUpdate
         
         private void SendDistributedStorageUpdateRequest(Job job)
         {
-            var message = new DistributedStorageUpdateRequest(job);
-            _groupManager.Send(_groupManager.View.Coordinator, message);
+            if (_groupManager.View.ImCoordinator)
+            {
+                _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                var message = new DistributedStorageUpdate(job);
+                _groupManager.SendMulticast(message);
+            }
+            else
+            {
+                _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
+                var message = new DistributedStorageUpdateRequest(job);
+                _groupManager.Send(_groupManager.View.Coordinator, message);
+            }
         }
 
         // Received by coordinator: update and multicast to others
