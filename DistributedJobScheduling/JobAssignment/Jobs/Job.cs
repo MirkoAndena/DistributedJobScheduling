@@ -35,8 +35,9 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
         public override string ToString() 
         {
-            if (ID.HasValue) return ID.Value.ToString();
-            return "[unknown]";
+            string id = ID.HasValue ? ID.Value.ToString() : "unknown";
+            string node = Node.HasValue ? Node.Value.ToString() : "unknown";
+            return $"ID: {id}, NODE: {node}, STATUS: {Status.ToString()}";
         }
     }
 }

@@ -82,7 +82,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
         private void OnDistributedStorageUpdateArrived(Node node, Message receivedMessage)
         {
             DistributedStorageUpdate message = (DistributedStorageUpdate)receivedMessage;
-            _logger.Log(Tag.DistributedUpdate, $"Storage sync message arrived");
+            _logger.Log(Tag.DistributedUpdate, $"Distributed update arrived with content: {message.Job.ToString()}");
             if (message.Job.ID.HasValue && message.Job.Node.HasValue)
                 _jobStorage.InsertOrUpdateJobLocally(message.Job);
             else
