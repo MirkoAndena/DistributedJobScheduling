@@ -29,6 +29,7 @@ namespace DistributedJobScheduling.Storage
         private SecureStore<JobCollection> _secureStore;
         private ILogger _logger;
         private Group _group;
+        private HashSet<Job> _executionSet;
         public event Action<Job> JobUpdated;
 
         public JobStorage() : this (
@@ -48,6 +49,7 @@ namespace DistributedJobScheduling.Storage
         public void Init()
         {
             _secureStore.Init();
+            _executionSet = new HashSet<Job>();
             DeletePendingAndRemovedJobs();
         }
 
@@ -64,6 +66,8 @@ namespace DistributedJobScheduling.Storage
         {   
             if (_secureStore.Value.List.Contains(job))
             {
+                if(job.Status != JobStatus.RUNNING && _executionSet.Contains(job))
+                    _executionSet.Remove(job);
                 _secureStore.ValuesChanged?.Invoke();
                 JobUpdated?.Invoke(job);
             }
@@ -135,20 +139,31 @@ namespace DistributedJobScheduling.Storage
             Job toExecute = null;
             _secureStore.Value.List.ForEach(job => 
             {
-                if (job.Status == JobStatus.PENDING && job.Node == _group.Me.ID)
+                if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
+                {
                     toExecute = job;
+                    _executionSet.Add(toExecute);
+                }
             });
             return toExecute;
         }
 
         public Message ToSyncMessage()
         {
-            return new JobSyncMessage();
+            return new JobSyncMessage(_secureStore.Value.List);
         }
 
         public void OnViewSync(Message syncMessage)
         {
-            _logger.Log(Tag.JobStorage, "SYNC!");
+            _logger.Log(Tag.JobStorage, "Synching jobs with coordinator!");
+            if(syncMessage is JobSyncMessage jobSyncMessage)
+            {
+                _secureStore.Value.List.Clear();
+                _secureStore.Value.List.AddRange(jobSyncMessage.Jobs);
+                _secureStore.ValuesChanged?.Invoke();
+                _logger.Log(Tag.JobStorage, "Job synchronization complete");
+            }
+            UnlockJobExecution();
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using System.Security.Principal;
 using System;
@@ -17,6 +18,8 @@ using DistributedJobScheduling.Storage.SecureStorage;
 using DistributedJobScheduling.VirtualSynchrony;
 using static DistributedJobScheduling.Communication.Basic.Node;
 using DistributedJobScheduling.Communication.Basic.Speakers;
+using System.Drawing;
+using DistributedJobScheduling.DependencyInjection;
 
 namespace DistributedJobScheduling.Client
 {
@@ -31,6 +34,7 @@ namespace DistributedJobScheduling.Client
 
         private JobInsertionMessageHandler _messageHandler;
         private JobResultMessageHandler _jobResultHandler;
+        private ClientStore _store;
 
         public ClientSystemManager()
         {
@@ -69,18 +73,18 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
             RegisterSubSystem<IStore<Storage>, FileStore<Storage>>(new FileStore<Storage>(STORAGE_PATH));
             
-            ClientStore store = new ClientStore();
-            RegisterSubSystem<ClientStore>(store);
+            _store = new ClientStore();
+            RegisterSubSystem<ClientStore>(_store);
 
-            _messageHandler = new JobInsertionMessageHandler(store);
+            _messageHandler = new JobInsertionMessageHandler(_store);
             RegisterSubSystem<JobInsertionMessageHandler>(_messageHandler);
-            _jobResultHandler = new JobResultMessageHandler(store);
+            _jobResultHandler = new JobResultMessageHandler(_store);
             RegisterSubSystem<JobResultMessageHandler>(_jobResultHandler);
         }
 
         protected override void OnSystemStarted() => Main();
 
-        private void Main()
+        private async Task Main()
         {
             var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
@@ -91,9 +95,40 @@ namespace DistributedJobScheduling.Client
             speaker.Connect(30).Wait();
             speaker.Start();
 
-            _jobResultHandler.ResponsesArrived += () => { speaker.Stop(); Shutdown.Invoke(); };
-            Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(t => _messageHandler.SubmitJob(speaker, new TimeoutJob(5)));
-            Task.Delay(TimeSpan.FromSeconds(10)).ContinueWith(t => _jobResultHandler.RequestAllStoredJobs(speaker));
+            int batches = 4;
+            int totalWidth = 1024;
+            int totalHeight = 1024;
+            int iterations = 1000;
+
+            int batchesPerSide = batches / 2;
+            for(int i = 0; i < batchesPerSide; i++)
+            {
+                int horizontalBatchSize = totalWidth / batchesPerSide;
+                int startingX = i * horizontalBatchSize;
+                for(int j = 0; j < batchesPerSide; j++)
+                {
+                    int verticalBatchSize = totalHeight / batchesPerSide;
+                    int startingY = j * verticalBatchSize;
+                    _messageHandler.SubmitJob(speaker, new MandlebrotJob(new Rectangle(startingX, startingY, horizontalBatchSize, verticalBatchSize), totalWidth, totalHeight, iterations));
+                }
+            }
+
+            bool hasFinised = false;
+            _jobResultHandler.ResponsesArrived += () => 
+            {
+                if(_store.ClientJobs(result => result == null).Count > 0)
+                    return;
+                    
+                hasFinised = true;
+                speaker.Stop(); 
+                Shutdown.Invoke(); 
+            };
+
+            while(!hasFinised)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                _jobResultHandler.RequestAllStoredJobs(speaker);
+            }
             //Task.Delay(TimeSpan.FromMinutes(2)).ContinueWith(t => Stop());
         }
     }

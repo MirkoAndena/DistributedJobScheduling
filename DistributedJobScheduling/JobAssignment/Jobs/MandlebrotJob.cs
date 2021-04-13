@@ -3,6 +3,7 @@ using System;
 using System.Numerics;
 using System.Threading.Tasks;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.JobAssignment.Jobs
 {
@@ -33,6 +34,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
     }
 
     [Serializable]
+    [JsonObject(MemberSerialization.Fields)]
     public class MandlebrotJob : Job
     {
         private const double MAX_EXTENT = 2.0;
@@ -41,6 +43,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
         private int _totalHeight;
         private int _maxIterations;
 
+        [JsonConstructor]
         public MandlebrotJob(Rectangle rect, int totalWidth, int totalHeight, int maxIterations) : base ()
         {
             _rect = rect;

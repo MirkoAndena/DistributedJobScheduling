@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.JobAssignment.Jobs
 {
@@ -14,10 +15,12 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
     }
 
     [Serializable]
+    [JsonObject(MemberSerialization.Fields)]
     public class TimeoutJob : Job
     {
         private int _seconds;
 
+        [JsonConstructor]
         public TimeoutJob(int seconds) : base ()
         {
             _seconds = seconds;
