@@ -317,7 +317,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 }
             }
             else
-                _communicationManager.Send(node, new NotInViewMessage(View.Count)).Wait();
+                _communicationManager.Send(node, new NotInViewMessage(View.Count, View.ViewId)).Wait();
         }
 
         private void OnTemporaryAckReceived(Node node, Message message)
@@ -342,16 +342,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
             NotInViewMessage notInViewMessage = message as NotInViewMessage;
 
             int myViewSize = View.Count;
-            if(notInViewMessage.MyViewSize > myViewSize)
+            int? myViewId = View.ViewId;
+            if(notInViewMessage.MyViewId > myViewId || notInViewMessage.MyViewSize > myViewSize)
             {
                 //We need to fault!
                 Message teardownMessage = new TeardownMessage();
                 _communicationManager.SendMulticast(teardownMessage).Wait();
                 OnTeardownReceived(View.Me, teardownMessage);
-            }
-
-            if(notInViewMessage.MyViewSize < myViewSize) //The other view needs to fault
-                _communicationManager.Send(node, new NotInViewMessage(myViewSize)).Wait();
+            } else //The other view needs to fault
+                _communicationManager.Send(node, new NotInViewMessage(myViewSize, myViewId)).Wait();
         }
 
         private void OnTeardownReceived(Node node, Message message)
@@ -542,6 +541,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         {
                             var kickedException = new KickedFromViewException();
                             _logger.Fatal(Tag.VirtualSynchrony, kickedException.Message, kickedException);
+                            return;
                         }
 
                         //Enstablish new View
@@ -728,7 +728,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 _logger.Log(Tag.VirtualSynchrony, "Coordinator detected, finished startup sequence.");
         }
 
-        public async void Stop()
+        public void Stop()
         {
             _logger.Log(Tag.VirtualSynchrony, "Stopping node, sending view change message");
 
@@ -737,8 +737,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             //TODO: A node advertising he is leaving, might want to double check if we assumed it is possible.
             NotifyViewChanged(new HashSet<Node>(new [] { View.Me }), ViewChangeOperation.Left);
-
-            if(_viewChangeInProgress != null) await _viewChangeInProgress.Task;
+            
+            //We can avoid waiting for the process to terminate correctly
             _senderCancellationTokenSource.Cancel();
         }
     }

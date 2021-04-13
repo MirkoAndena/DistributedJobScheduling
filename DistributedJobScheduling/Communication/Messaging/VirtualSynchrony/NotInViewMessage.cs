@@ -17,11 +17,13 @@ namespace DistributedJobScheduling.Communication.Messaging
     public class NotInViewMessage : Message
     {
         public int MyViewSize { get; private set; }
+        public int? MyViewId { get; private set; }
         
         [JsonConstructor]
-        public NotInViewMessage(int myViewSize) : base()
+        public NotInViewMessage(int myViewSize, int? myViewId) : base()
         {
             MyViewSize = myViewSize;
+            MyViewId = myViewId;
         }
     }
 }
