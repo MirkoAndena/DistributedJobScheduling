@@ -70,7 +70,6 @@ namespace DistributedJobScheduling.Client
 
             Message message = new ResultRequest(job.ID);
             _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
-            _logger.Log(Tag.WorkerCommunication, $"Requested result for job with requestId {job.ID}");
         }
 
         public void Start()
@@ -91,7 +90,7 @@ namespace DistributedJobScheduling.Client
         {
             if (message is ResultResponse response)
             {
-                _logger.Log(Tag.WorkerCommunication, $"Job requested is {response.Status}");
+                _logger.Log(Tag.WorkerCommunication, $"Job requested {response.ClientJobId} is {response.Status}");
                 if (response.Status == JobStatus.COMPLETED)
                 {
                     _store.UpdateClientJobResult(response.ClientJobId, response.Result);
@@ -99,7 +98,12 @@ namespace DistributedJobScheduling.Client
                 }
 
                 _pendingRequests--;
-                if (_pendingRequests == 0) ResponsesArrived?.Invoke();
+                _logger.Log(Tag.WorkerCommunication, $"{_pendingRequests} request remains");
+                if (_pendingRequests == 0) 
+                {
+                    ResponsesArrived?.Invoke();
+                    _logger.Log(Tag.WorkerCommunication, $"All jobs are executed and results are returned");
+                }
             }
         }
     }

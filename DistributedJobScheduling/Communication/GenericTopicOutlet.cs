@@ -16,6 +16,7 @@ namespace DistributedJobScheduling.Communication
 
         public GenericTopicOutlet(ICommunicationManager communicationManger, ILogger logger, params ITopicPublisher[] topics)
         {
+            _logger = logger;
             _topics = new Dictionary<Type, ITopicPublisher>();
             topics.ForEach(RegisterPublisher);
             communicationManger.OnMessageReceived += PublishMessage;

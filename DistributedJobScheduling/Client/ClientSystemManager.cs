@@ -116,9 +116,14 @@ namespace DistributedJobScheduling.Client
             bool hasFinised = false;
             _jobResultHandler.ResponsesArrived += () => 
             {
-                if(_store.ClientJobs(result => result == null).Count > 0)
+                int nonFinished = _store.ClientJobs(result => result == null).Count;
+                if(nonFinished > 0)
+                {
+                    Console.WriteLine(nonFinished + " job not finished yet");
                     return;
+                }
                     
+                Console.WriteLine("All responses arrived, shutdown");
                 hasFinised = true;
                 speaker.Stop(); 
                 Shutdown.Invoke(); 
@@ -126,10 +131,9 @@ namespace DistributedJobScheduling.Client
 
             while(!hasFinised)
             {
-                await Task.Delay(TimeSpan.FromSeconds(5));
+                await Task.Delay(TimeSpan.FromSeconds(10));
                 _jobResultHandler.RequestAllStoredJobs(speaker);
             }
-            //Task.Delay(TimeSpan.FromMinutes(2)).ContinueWith(t => Stop());
         }
     }
 }

@@ -38,11 +38,21 @@ namespace DistributedJobScheduling.Storage
 
         public int CreateNewIndex => _reusableIndex.NewIndex;
 
-        public void Add(int requestId, int job)
+        public void StoreIndex(int requestId)
         {
-            _secureStorage.Value.Dictionary.Add(requestId, job);
+            _secureStorage.Value.Dictionary.Add(requestId, -1);
             _secureStorage.ValuesChanged?.Invoke();
-            _logger.Log(Tag.TranslationTable, $"Added job {job} with local id {requestId} (not confirmed)");
+            _logger.Log(Tag.TranslationTable, $"Stored request id {requestId} with no job id");
+        }
+
+        public void Update(int requestId, int job)
+        {
+            if (!_secureStorage.Value.Dictionary.ContainsKey(requestId))
+                throw new System.Exception($"No entry found in translation table with id {requestId}, you have to call StoreIndex");
+
+            _secureStorage.Value.Dictionary[requestId] = job;
+            _secureStorage.ValuesChanged?.Invoke();
+            _logger.Log(Tag.TranslationTable, $"Added job {job} with local id {requestId}");
         }
 
         public int? Get(int localID) 

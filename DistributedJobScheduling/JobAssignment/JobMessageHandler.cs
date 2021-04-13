@@ -22,7 +22,7 @@ namespace DistributedJobScheduling.JobAssignment
         private IJobStorage _jobStorage;
         private ILogger _logger;
         
-        private Dictionary<Node, (int, Job)> _unconfirmedRequestIds;
+        private Dictionary<(Node, int), Job> _unconfirmedRequestIds;
 
         public JobMessageHandler(TranslationTable translationTable) : 
         this(DependencyManager.Get<IGroupViewManager>(),
@@ -44,7 +44,7 @@ namespace DistributedJobScheduling.JobAssignment
             _jobStorage = jobStorage;
             _groupManager = groupManager;
             _communicationManager = communicationManager;
-            _unconfirmedRequestIds = new Dictionary<Node, (int, Job)>();
+            _unconfirmedRequestIds = new Dictionary<(Node, int), Job>();
         }
 
         public void Init()
@@ -84,7 +84,8 @@ namespace DistributedJobScheduling.JobAssignment
         {
             _logger.Log(Tag.ClientCommunication, $"Request for an execution arrived from client {node}");
             int requestID = _translationTable.CreateNewIndex;
-            _unconfirmedRequestIds.Add(node, (requestID, message.Job));
+            _translationTable.StoreIndex(requestID); // I must add the id otherwise the index doesn't increase
+            _unconfirmedRequestIds.Add((node, requestID), message.Job);
             Send(_communicationManager, node, new ExecutionResponse(message, requestID));
             _logger.Log(Tag.ClientCommunication, $"Response sent with a proposal request id ({requestID})");
         }
@@ -95,17 +96,17 @@ namespace DistributedJobScheduling.JobAssignment
 
             // Confirm request id
             int requestID = message.RequestID;
-            if (_unconfirmedRequestIds.ContainsKey(node) && _unconfirmedRequestIds[node].Item1 == requestID)
+            if (_unconfirmedRequestIds.ContainsKey((node, requestID)))
             {
-                Job job = _unconfirmedRequestIds[node].Item2;
-                _unconfirmedRequestIds.Remove(node);
+                Job job = _unconfirmedRequestIds[(node, requestID)];
+                _unconfirmedRequestIds.Remove((node, requestID));
                 _logger.Log(Tag.ClientCommunication, $"Request id confirmed, waiting for coordinator assignment");
 
                 // Request to coordinator for an insertion
                 if (_groupManager.View.ImCoordinator)
                 {
                     _jobStorage.InsertAndAssign(job);
-                    _translationTable.Add(requestID, job.ID.Value);
+                    _translationTable.Update(requestID, job.ID.Value);
                     _logger.Log(Tag.ClientCommunication, $"Job stored and added to the translation table");
                 }
                 else
@@ -129,7 +130,7 @@ namespace DistributedJobScheduling.JobAssignment
 
         private void OnInsertionResponseArrived(Node node, InsertionResponse message)
         {
-            _translationTable.Add(message.RequestID, message.JobID);
+            _translationTable.Update(message.RequestID, message.JobID);
             _logger.Log(Tag.ClientCommunication, $"Translation added for request {message.RequestID} and job {message.JobID}");
         }
 

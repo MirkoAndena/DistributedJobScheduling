@@ -58,6 +58,7 @@ namespace DistributedJobScheduling.Client
 
             Message message = new ExecutionRequest(job);
             _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
+            _logger.Log(Tag.WorkerCommunication, $"Job submit request sent");
         }
 
         public void Stop()
