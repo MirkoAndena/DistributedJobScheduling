@@ -48,39 +48,45 @@ namespace DistributedJobScheduling.DistributedJobUpdate
             {
                 _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
                 var message = new DistributedStorageUpdate(job);
-                _groupManager.SendMulticast(message);
+                _groupManager.SendMulticast(message).Wait();
             }
             else
             {
                 _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
                 var message = new DistributedStorageUpdateRequest(job);
-                _groupManager.Send(_groupManager.View.Coordinator, message);
+                _groupManager.Send(_groupManager.View.Coordinator, message).Wait();
             }
         }
 
         // Received by coordinator: update and multicast to others
         private void OnDistributedStorageUpdateRequestArrived(Node node, Message receivedMessage)
         {
-            DistributedStorageUpdateRequest message = (DistributedStorageUpdateRequest)receivedMessage;
-            _logger.Log(Tag.DistributedUpdate, $"Distributed update request arrived");
-            if (message.Job.ID.HasValue && message.Job.Node.HasValue)
+            if(_groupManager.View.ImCoordinator)
             {
-                _jobStorage.InsertOrUpdateJobLocally(message.Job);
-                _groupManager.SendMulticast(new DistributedStorageUpdate(message.Job));
-                _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                DistributedStorageUpdateRequest message = (DistributedStorageUpdateRequest)receivedMessage;
+                _logger.Log(Tag.DistributedUpdate, $"Distributed update request arrived");
+                if (message.Job.ID.HasValue && message.Job.Node.HasValue)
+                {
+                    _logger.Log(Tag.DistributedUpdate, $"Sending distributed update in multicast");
+                    _groupManager.SendMulticast(new DistributedStorageUpdate(message.Job)).Wait();
+                    _jobStorage.InsertOrUpdateJobLocally(message.Job);
+                    _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                }
+                else
+                    _logger.Warning(Tag.DistributedUpdate, $"Arrived job is malformed (id or owner null)");
             }
             else
-                _logger.Warning(Tag.DistributedUpdate, $"Arrived job is malformed (id or owner null)");
+                _logger.Error(Tag.DistributedUpdate, $"Received distributed update request from {node} while I'm not the coordinator");
         }
 
         private void OnDistributedStorageUpdateArrived(Node node, Message receivedMessage)
         {
             DistributedStorageUpdate message = (DistributedStorageUpdate)receivedMessage;
-            _logger.Log(Tag.JobManager, $"Storage sync message arrived");
+            _logger.Log(Tag.DistributedUpdate, $"Storage sync message arrived");
             if (message.Job.ID.HasValue && message.Job.Node.HasValue)
                 _jobStorage.InsertOrUpdateJobLocally(message.Job);
             else
-                _logger.Warning(Tag.JobManager, $"Arrived job is malformed (id or owner null)");
+                _logger.Warning(Tag.DistributedUpdate, $"Arrived job is malformed (id or owner null)");
         }
     }
 }
