@@ -71,11 +71,14 @@ namespace DistributedJobScheduling.Logging
             if (_consoleWrite) 
             {
                 var type = content.Item2;
-                if (type == LogType.WARNING) Console.ForegroundColor = ConsoleColor.DarkYellow;
-                if (type == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
-                if (type == LogType.FATAL) Console.ForegroundColor = ConsoleColor.Magenta;
-                Console.Write(content);
-                Console.ResetColor();
+                lock(Console.Out)
+                {
+                    if (type == LogType.WARNING) Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    if (type == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
+                    if (type == LogType.FATAL) Console.ForegroundColor = ConsoleColor.Magenta;
+                    Console.Write(content.Item1);
+                    Console.ResetColor();
+                }
             }
 
             var e = content.Item3;
