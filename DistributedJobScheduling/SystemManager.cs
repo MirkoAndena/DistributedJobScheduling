@@ -56,17 +56,16 @@ namespace DistributedJobScheduling
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
             RegisterSubSystem<IStore<JobCollection>, FileStore<JobCollection>>(new FileStore<JobCollection>(JOBS_PATH, jsonSerializer));
-            JobStorage jobStorage = new JobStorage();
-            RegisterSubSystem<JobStorage>(jobStorage);
+            RegisterSubSystem<IJobStorage, JobStorage>(new JobStorage());
             RegisterSubSystem<IStore<Table>, FileStore<Table>>(new FileStore<Table>(TRANSLATIONTABLE_PATH, jsonSerializer));
             TranslationTable translationTable = new TranslationTable();
             RegisterSubSystem<TranslationTable>(translationTable);
 
-            RegisterSubSystem<JobExecutor>(new JobExecutor(jobStorage));
-            RegisterSubSystem<JobMessageHandler>(new JobMessageHandler(jobStorage, translationTable));
+            RegisterSubSystem<JobExecutor>(new JobExecutor());
+            RegisterSubSystem<JobMessageHandler>(new JobMessageHandler(translationTable));
             RegisterSubSystem<KeepAliveManager>(new KeepAliveManager());
             RegisterSubSystem<BullyElectionMessageHandler>(new BullyElectionMessageHandler());
-            RegisterSubSystem<DistributedJobMessageHandler>(new DistributedJobMessageHandler(jobStorage));
+            RegisterSubSystem<DistributedJobMessageHandler>(new DistributedJobMessageHandler());
         }
     }
 }

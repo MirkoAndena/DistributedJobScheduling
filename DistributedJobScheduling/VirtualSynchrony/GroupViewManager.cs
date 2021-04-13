@@ -559,9 +559,19 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         //Check if it needs to sync to the new node
                         if (_currentJoinRequest != null)
                         {
-                            _currentJoinRequest.BindToRegistry(_nodeRegistry);
                             _logger.Log(Tag.VirtualSynchrony, $"Need to sync view with joined node");
-                            _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value)));
+                            _currentJoinRequest.BindToRegistry(_nodeRegistry);
+
+                            _logger.Log(Tag.VirtualSynchrony, $"Querying each view statefull component...");
+
+                            //FIXME: View syncs won't work like this during unit testing
+                            var componentsSyncMessages = new Dictionary<Type, Message>();
+                            DependencyManager.Implementing<IViewStatefull>().ForEach(statefull => 
+                                componentsSyncMessages.Add(statefull.GetType(), statefull.ToSyncMessage())
+                            );
+                            
+                            _logger.Log(Tag.VirtualSynchrony, $"Sending view sync response");
+                            _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value, componentsSyncMessages)));
                             _currentJoinRequest = null;
                         }
 
@@ -653,6 +663,11 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     _joinRequestCancellation.Cancel();
+
+                _logger.Log(Tag.VirtualSynchrony, $"Sync state for statefull components");
+                DependencyManager.Implementing<IViewStatefull>().ForEach(
+                    statefull => statefull.OnViewSync(viewSyncResponse.ViewStates[statefull.GetType()])
+                );
 
                 //In case some messages were received before the viewsync
                 Task.Run(ProcessFutureMessages);

@@ -19,23 +19,24 @@ namespace DistributedJobScheduling.JobAssignment
         private ICommunicationManager _communicationManager;
         private ITimeStamper _timeStamper;
         private TranslationTable _translationTable;
-        private JobStorage _jobStorage;
+        private IJobStorage _jobStorage;
         private ILogger _logger;
         
         private Dictionary<Node, (int, Job)> _unconfirmedRequestIds;
         private Dictionary<Node, Message> _lastMessageSent;
 
-        public JobMessageHandler(JobStorage jobStorage, TranslationTable translationTable) : 
+        public JobMessageHandler(TranslationTable translationTable) : 
         this(DependencyManager.Get<IGroupViewManager>(),
             DependencyManager.Get<ICommunicationManager>(),
             DependencyManager.Get<ITimeStamper>(),
-            translationTable, jobStorage,
+            translationTable,
+            DependencyManager.Get<IJobStorage>(),
             DependencyManager.Get<ILogger>()) {}
         public JobMessageHandler(IGroupViewManager groupManager,
             ICommunicationManager communicationManager,
             ITimeStamper timeStamper,
             TranslationTable translationTable, 
-            JobStorage jobStorage,
+            IJobStorage jobStorage,
             ILogger logger)
         {
             _logger = logger;
