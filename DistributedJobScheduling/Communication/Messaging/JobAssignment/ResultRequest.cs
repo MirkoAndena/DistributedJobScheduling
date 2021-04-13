@@ -31,7 +31,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         public JobStatus Status;
         public int ClientJobId;
 
-        public ResultResponse(Job job, int clientJobId) : base()
+        public ResultResponse(ResultRequest message, Job job, int clientJobId) : base(message)
         {
             Result = job.Result;
             Status = job.Status;

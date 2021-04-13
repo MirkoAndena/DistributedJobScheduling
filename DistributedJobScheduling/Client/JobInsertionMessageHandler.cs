@@ -68,16 +68,16 @@ namespace DistributedJobScheduling.Client
                 if (message is ExecutionResponse response)
                 {
                     var job = new ClientJob(response.RequestID);
-                    _store.StoreClientJob(job);
-                    _logger.Log(Tag.ClientJobMessaging, $"Stored request id ({job.ID})");
-                    
                     Message ack = new ExecutionAck(response, job.ID);
                     _speaker.Send(ack.ApplyStamp(_timeStamper)).Wait();
-                    _logger.Log(Tag.ClientJobMessaging, $"Job successfully assigned to network, RequestID: {job.ID}");
+                    _logger.Log(Tag.WorkerCommunication, $"Job successfully assigned to network, RequestID: {job.ID}");
+                    
+                    _store.StoreClientJob(job);
+                    _logger.Log(Tag.WorkerCommunication, $"Stored request id ({job.ID})");
                 }
             }
             else
-                _logger.Warning(Tag.ClientJobMessaging, "Received message was rejected");
+                _logger.Warning(Tag.WorkerCommunication, "Received message was rejected");
         }
 
         public void Start()

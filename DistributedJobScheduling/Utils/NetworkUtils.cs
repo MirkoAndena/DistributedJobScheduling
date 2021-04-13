@@ -12,6 +12,15 @@ public static class NetworkUtils
         return endpoint.Address.MapToIPv4().ToString();
     }
 
+    public static string GetLocalIP()
+    {
+        var host = Dns.GetHostEntry(Dns.GetHostName());
+        foreach (var ip in host.AddressList)
+            if (ip.AddressFamily == AddressFamily.InterNetwork)
+                return ip.ToString();
+        return "UNKNOWN";
+    }
+
     public static async Task ConnectAsync(this TcpClient tcpClient, string host, int port, CancellationToken cancellationToken) 
     {
         using (cancellationToken.Register(cancellationToken.ThrowIfCancellationRequested)) {

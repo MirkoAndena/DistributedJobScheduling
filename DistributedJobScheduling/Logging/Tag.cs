@@ -15,7 +15,8 @@ namespace DistributedJobScheduling.Logging
         KeepAlive,
         WorkerSearcher,
         UnHandled,
-        ClientJobMessaging,
-        DistributedUpdate
+        WorkerCommunication,
+        DistributedUpdate,
+        ClientCommunication
     }
 }

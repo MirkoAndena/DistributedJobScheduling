@@ -59,12 +59,14 @@ namespace DistributedJobScheduling.Client
 
         public void RequestJob(BoldSpeaker speaker, ClientJob job)
         {
+            _logger.Log(Tag.WorkerCommunication, $"Requesting result for {job.ID}");
             _speaker = speaker;
             _speaker.MessageReceived += OnMessageReceived;
 
             Message message = new ResultRequest(job.ID);
             _previousMessage = message;
             _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
+            _logger.Log(Tag.WorkerCommunication, $"Requested result for job with requestId {job.ID}");
         }
 
         public void Start()
@@ -84,11 +86,11 @@ namespace DistributedJobScheduling.Client
             {
                 if (message is ResultResponse response)
                 {
-                    _logger.Log(Tag.ClientJobMessaging, $"Job requested is {response.Status}");
+                    _logger.Log(Tag.WorkerCommunication, $"Job requested is {response.Status}");
                     if (response.Status == JobStatus.COMPLETED)
                     {
                         _store.UpdateClientJobResult(response.ClientJobId, response.Result);
-                        _logger.Log(Tag.ClientJobMessaging, $"Job result updated into storage");
+                        _logger.Log(Tag.WorkerCommunication, $"Job result updated into storage");
                     }
 
                     _pendingRequests--;
@@ -96,7 +98,7 @@ namespace DistributedJobScheduling.Client
                 }
             }
             else
-                _logger.Warning(Tag.ClientJobMessaging, "Received message was rejected");
+                _logger.Warning(Tag.WorkerCommunication, "Received message was rejected");
         }
     }
 }
