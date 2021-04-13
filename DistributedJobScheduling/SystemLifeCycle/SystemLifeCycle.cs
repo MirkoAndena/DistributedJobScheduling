@@ -75,11 +75,11 @@ namespace DistributedJobScheduling.LifeCycle
         public void InitSubSystems()
         {
             int count = 0;
-            Console.WriteLine($"Initializing...");
             _subSystems.ForEach(subsystem => 
             {
                 if (subsystem is IInitializable initializable)
                 {
+                    Console.WriteLine($"Initializing {subsystem.GetType().Name}");
                     initializable.Init();
                     count++;
                 }
@@ -90,11 +90,11 @@ namespace DistributedJobScheduling.LifeCycle
         public void Start()
         {
             int count = 0;
-            Console.WriteLine($"Starting...");
             _subSystems.ForEach(subsystem => 
             {
                 if (subsystem is IStartable startable)
                 {
+                    Console.WriteLine($"Starting {subsystem.GetType().Name}");
                     startable.Start();
                     count++;
                 }
@@ -108,11 +108,11 @@ namespace DistributedJobScheduling.LifeCycle
         public void Stop()
         {
             int count = 0;
-            Console.WriteLine($"Stopping...");
             _subSystems.ForEach(subsystem => 
             {
                 if (subsystem is IStartable startable)
                 {
+                    Console.WriteLine($"Stopping {subsystem.GetType().Name}");
                     startable.Stop();
                     count++;
                 }
