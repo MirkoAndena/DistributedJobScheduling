@@ -42,9 +42,9 @@ namespace DistributedJobScheduling.Tests
         private int MaxJobPerNode(JobStorage list)
         {
             int max = 0;
-            Dictionary<int, int> occurences = _store.FindNodesOccurrences();
-            foreach (int o in occurences.Values)
-                if (o > max) max = o;
+            //Dictionary<int, int> occurences = _store.FindNodesOccurrences();
+            //foreach (int o in occurences.Values)
+            //    if (o > max) max = o;
             return max;
         }
     }

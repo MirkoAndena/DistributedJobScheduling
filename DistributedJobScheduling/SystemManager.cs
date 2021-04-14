@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.DistributedJobUpdate;
 using DistributedJobScheduling.JobAssignment;
+using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.LeaderElection;
 using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LifeCycle;
@@ -16,6 +18,9 @@ using static DistributedJobScheduling.Communication.Basic.Node;
 
 namespace DistributedJobScheduling
 {
+    using JobCollection = List<Job>;
+    using Table = Dictionary<int, int>;
+    
     public class SystemManager : SystemLifeCycle
     {
         #region Paths

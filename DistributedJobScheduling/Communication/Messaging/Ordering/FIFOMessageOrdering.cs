@@ -26,16 +26,18 @@ namespace DistributedJobScheduling.Communication.Messaging.Ordering
             if(!message.TimeStamp.HasValue)
                 return;
 
-            TaskCompletionSource<bool> waitSendTask;
+            TaskCompletionSource<bool> waitSendTask = null;
             int? lastObserved = null;
             bool shouldWait = false;
             lock(_waitingQueue)
             {
-                if(!_waitingQueue.ContainsKey(message.TimeStamp.Value))
-                    _waitingQueue.Add(message.TimeStamp.Value, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
-                waitSendTask = _waitingQueue[message.TimeStamp.Value];
                 lastObserved = _lastObserved;
                 shouldWait = _lastObserved.HasValue && message.TimeStamp.Value > _lastObserved+1;
+                if(shouldWait && !_waitingQueue.ContainsKey(message.TimeStamp.Value))
+                {
+                    _waitingQueue.Add(message.TimeStamp.Value, new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
+                    waitSendTask = _waitingQueue[message.TimeStamp.Value];
+                }
             }
 
             if(shouldWait)
@@ -52,10 +54,13 @@ namespace DistributedJobScheduling.Communication.Messaging.Ordering
                 
             lock(_waitingQueue)
             {
-                _lastObserved = message.TimeStamp.Value;
-                if(_waitingQueue.ContainsKey(message.TimeStamp.Value + 1))
-                    _waitingQueue[message.TimeStamp.Value + 1].SetResult(true);
-                _waitingQueue.Remove(message.TimeStamp.Value);
+                if(_lastObserved < message.TimeStamp.Value)
+                {
+                    _lastObserved = message.TimeStamp.Value;
+                    if(_waitingQueue.ContainsKey(message.TimeStamp.Value + 1))
+                        _waitingQueue[message.TimeStamp.Value + 1].SetResult(true);
+                    _waitingQueue.Remove(message.TimeStamp.Value);
+                }
             }
         }
 

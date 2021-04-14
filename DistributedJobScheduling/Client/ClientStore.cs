@@ -9,9 +9,10 @@ using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using System;
-
 namespace DistributedJobScheduling.Client
 {
+    using Storage = BlockingListSecureStore<List<ClientJob>, ClientJob>;
+
     public class ClientJob
     {
         public int ID;
@@ -23,69 +24,48 @@ namespace DistributedJobScheduling.Client
         }
     }
 
-    public class Storage
-    {
-        public Node Worker;
-
-        public List<ClientJob> Jobs;
-
-        public Storage() {
-            Worker = null;
-            Jobs = new List<ClientJob>();
-        }
-    }
-
     public class ClientStore : IInitializable
     {
-        private SecureStore<Storage> _store;
+        private Storage _store;
         private ILogger _logger;
 
         public ClientStore() : this(
-            DependencyInjection.DependencyManager.Get<IStore<Storage>>(), 
+            DependencyInjection.DependencyManager.Get<IStore<List<ClientJob>>>(), 
             DependencyInjection.DependencyManager.Get<ILogger>()) { }
 
-        public ClientStore(IStore<Storage> store, ILogger logger)
+        public ClientStore(IStore<List<ClientJob>> store, ILogger logger)
         {
-            _store = new SecureStore<Storage>(store);
+            _store = new Storage(store);
             _logger = logger;
         }
 
         public void Init() => _store.Init();
 
-        public bool IsWorkerPresent => _store.Value.Worker != null;
-
-        public Node GetWorker() => _store.Value.Worker;
-
-        public void StoreWorker(Node node)
-        {
-            _store.Value.Worker = node;
-            _store.ValuesChanged?.Invoke();
-        }
-
         public void StoreClientJob(ClientJob job)
         {
             // Remove job with same ID
-            _store.Value.Jobs.RemoveAll(current => current.ID == job.ID);
-
-            _store.Value.Jobs.Add(job);
+            _store.RemoveAll(current => current.ID == job.ID);
+            _store.Add(job);
             _store.ValuesChanged?.Invoke();
         }
 
         public void UpdateClientJobResult(int jobId, IJobResult result)
         {
-            foreach (ClientJob job in _store.Value.Jobs)
-                if (job.ID == jobId)
-                {
-                    job.Result = result;
-                    _store.ValuesChanged?.Invoke();
-                    break;
-                }
+            _store.ExecuteTransaction(jobs => {
+                foreach (ClientJob job in jobs)
+                    if (job.ID == jobId)
+                    {
+                        job.Result = result;
+                        _store.ValuesChanged?.Invoke();
+                        break;
+                    }
+            });
         }
 
         public List<ClientJob> ClientJobs(Predicate<IJobResult> predicate)
         {
             List<ClientJob> jobs = new List<ClientJob>();
-            _store.Value.Jobs.ForEach<ClientJob>(job => 
+            _store.ForEach(job => 
             {
                 if (predicate.Invoke(job.Result))
                     jobs.Add(job);

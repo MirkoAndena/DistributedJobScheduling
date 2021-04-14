@@ -6,14 +6,13 @@ using DistributedJobScheduling.Logging;
 namespace DistributedJobScheduling.Storage.SecureStorage
 {
     // T must has the default constructor (without parameters)
-    public class SecureStore<T> : IInitializable
+    public abstract class SecureStore<T> : IInitializable
     {
-        private IStore<T> _store;
-        private ILogger _logger;
+        protected IStore<T> _store;
+        protected ILogger _logger;
+        protected T _value;
 
         public Action ValuesChanged;
-
-        public T Value { get; set; }
 
         public SecureStore(IStore<T> store) : this(store, DependencyManager.Get<ILogger>()) { }
         public SecureStore(IStore<T> store, ILogger logger)
@@ -29,17 +28,17 @@ namespace DistributedJobScheduling.Storage.SecureStorage
             _logger.Log(Tag.SecureStorage, $"Read {typeof(T)} from secure storage");
             
             if (stored != null)
-                Value = stored;
+                _value = stored;
             else
             {
                 _logger.Log(Tag.SecureStorage, $"No data read from secure storage");
-                Value = Activator.CreateInstance<T>();
+                _value = Activator.CreateInstance<T>();
             }
         }
 
-        private void Write()
+        protected virtual void Write()
         {
-            _store.Write(Value);
+            _store.Write(_value);
             _logger.Log(Tag.SecureStorage, $"Wrote {typeof(T)} to secure storage");
         }
     }

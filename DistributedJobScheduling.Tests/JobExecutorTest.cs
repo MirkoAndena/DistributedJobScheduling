@@ -30,7 +30,7 @@ namespace DistributedJobScheduling.Tests
             _store.InsertAndAssign(new TimeoutJob(1));
             _store.InsertAndAssign(new TimeoutJob(1));
             _store.InsertAndAssign(new TimeoutJob(1));
-            _store.UpdateJob += job =>
+            _store.JobUpdated += job =>
             {
                 executed = job.Status == JobStatus.COMPLETED;
             };

@@ -172,7 +172,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             }
                             else //Multicast
                             {
-                                await _communicationManager.SendMulticast(message.ApplyStamp(_messageTimeStamper));
+                                List<Node> viewMembers = new List<Node>(View.Others);
+
+                                if(viewMembers.Count > 0)
+                                {
+                                    Message timeStampedMessage = message.ApplyStamp(_messageTimeStamper);
+                                    //Reliable Multicast
+                                    foreach(Node viewMember in viewMembers)
+                                        await _communicationManager.Send(viewMember, timeStampedMessage);
+                                }
                             }
                             
                             //Notify Send Completion
@@ -266,8 +274,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
         }
 
+        /// <summary>
+        /// Sends a reliable multicast to each view member
+        /// </summary>
+        /// <param name="message">Message to send</param>
         public async Task SendMulticast(Message message)
         {
+            if(View.Others.Count == 0)
+                return;
+            
             _logger.Log(Tag.VirtualSynchrony, $"Queuing send multicast {message.GetType().Name}");
             TaskCompletionSource<bool> consolidateTask;
             var tempMessage = await EnqueueMessageAndWaitSend(null, message, 30);
@@ -347,7 +362,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             {
                 //We need to fault!
                 Message teardownMessage = new TeardownMessage();
-                _communicationManager.SendMulticast(teardownMessage).Wait();
+                _communicationManager.SendMulticast(teardownMessage).Wait(); //Unrealiable Multicast
                 OnTeardownReceived(View.Me, teardownMessage);
             } else //The other view needs to fault
                 _communicationManager.Send(node, new NotInViewMessage(myViewSize, myViewId)).Wait();
@@ -725,7 +740,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     {
                         _logger.Warning(Tag.VirtualSynchrony, "View join request timedout, trying to join...");
-                        await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me));
+                        await _communicationManager.SendMulticast(new ViewJoinRequest(View.Me)); //Unrealiable Multicast
                         
                         try
                         {

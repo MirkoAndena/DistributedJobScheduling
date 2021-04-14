@@ -1,9 +1,15 @@
-using System.Linq;
-using System.Threading.Tasks;
-using System.Security.Principal;
 using System;
+
+using System.Collections.Generic;
+
+using System.Drawing;
+using System.Linq;
+using System.Security.Principal;
+using System.Threading.Tasks;
+
 using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
+using DistributedJobScheduling.Communication.Basic.Speakers;
 using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.JobAssignment;
@@ -13,16 +19,15 @@ using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.Serialization;
-using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.Storage.SecureStorage;
 using DistributedJobScheduling.VirtualSynchrony;
+
 using static DistributedJobScheduling.Communication.Basic.Node;
-using DistributedJobScheduling.Communication.Basic.Speakers;
-using System.Drawing;
 using DistributedJobScheduling.DependencyInjection;
 
 namespace DistributedJobScheduling.Client
 {
+    using Storage = List<ClientJob>;
     public class ClientSystemManager : SystemLifeCycle
     {
         #region Paths
@@ -96,8 +101,8 @@ namespace DistributedJobScheduling.Client
             speaker.Start();
 
             int batches = 4;
-            int totalWidth = 1024;
-            int totalHeight = 1024;
+            int totalWidth = 256;
+            int totalHeight = 256;
             int iterations = 1000;
 
             int batchesPerSide = batches / 2;
