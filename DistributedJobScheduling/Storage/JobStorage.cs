@@ -92,7 +92,6 @@ namespace DistributedJobScheduling.Storage
             JobUpdated?.Invoke(job);
 
             _logger.Log(Tag.JobStorage, $"Job {job} assigned to {job.Node.Value}");
-            UnlockJobExecution();
         }
 
         public void InsertOrUpdateJobLocally(Job job)
@@ -116,7 +115,7 @@ namespace DistributedJobScheduling.Storage
             UnlockJobExecution();
         }
 
-        private void UnlockJobExecution()
+        public void UnlockJobExecution()
         {
             _executionBlips.Enqueue(0);
         }
