@@ -12,7 +12,7 @@ namespace DistributedJobScheduling.JobAssignment
 {
     public class JobUtils
     { 
-        private static Dictionary<int, int> FindNodesOccurrences(Group group, ILogger logger, BlockingListSecureStore<List<Job>, Job> secureStore)
+        private static Dictionary<int, int> FindNodesOccurrences(Group group, ILogger logger, BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> secureStore)
         {
             // Init each node with no occurrences
             Dictionary<int, int> nodeJobCount = new Dictionary<int, int>();
@@ -21,7 +21,7 @@ namespace DistributedJobScheduling.JobAssignment
             group.Others.ForEach(node => nodeJobCount.Add(node.ID.Value, 0));
 
             // For each node calculate how many jobs are assigned
-            secureStore.ForEach(job =>
+            secureStore.Values.ForEach(job =>
             {
                 // Here should be always true
                 if (job.Node.HasValue)
@@ -37,7 +37,7 @@ namespace DistributedJobScheduling.JobAssignment
             return nodeJobCount;
         }
 
-        public static int FindNodeWithLessJobs(Group group, ILogger logger, BlockingListSecureStore<List<Job>, Job> secureStore)
+        public static int FindNodeWithLessJobs(Group group, ILogger logger, BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> secureStore)
         {
             Dictionary<int, int> nodeJobCount = FindNodesOccurrences(group, logger, secureStore);
 

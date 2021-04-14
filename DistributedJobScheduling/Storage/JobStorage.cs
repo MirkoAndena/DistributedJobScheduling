@@ -1,3 +1,4 @@
+using System.Linq;
 using System.IO.Compression;
 using System;
 using System.Collections.Generic;
@@ -20,21 +21,21 @@ namespace DistributedJobScheduling.Storage
     {
         private ReusableIndex _reusableIndex;
         private AsyncGenericQueue<int> _executionBlips;
-        private BlockingListSecureStore<List<Job>, Job> _secureStore;
+        private BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> _secureStore;
         private ILogger _logger;
         private Group _group;
         private HashSet<Job> _executionSet;
         public event Action<Job> JobUpdated;
 
         public JobStorage() : this (
-            DependencyInjection.DependencyManager.Get<IStore<List<Job>>>(), 
+            DependencyInjection.DependencyManager.Get<IStore<Dictionary<int, Job>>>(), 
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<IGroupViewManager>()) { }
         
-        public JobStorage(IStore<List<Job>> store, ILogger logger, IGroupViewManager groupView)
+        public JobStorage(IStore<Dictionary<int, Job>> store, ILogger logger, IGroupViewManager groupView)
         {
-            _secureStore = new BlockingListSecureStore<List<Job>, Job>(store, logger);
-            _reusableIndex = new ReusableIndex();
+            _secureStore = new BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job>(store, logger);
+            _reusableIndex = new ReusableIndex(index => _secureStore.ContainsKey(index));
             _executionBlips = new AsyncGenericQueue<int>();
             _logger = logger;
             _group = groupView.View;
@@ -58,7 +59,7 @@ namespace DistributedJobScheduling.Storage
 
         public void UpdateJob(Job job)
         {   
-            if (_secureStore.Contains(job))
+            if (job.ID.HasValue && _secureStore.ContainsKey(job.ID.Value))
             {
                 if(job.Status != JobStatus.RUNNING && _executionSet.Contains(job))
                     _executionSet.Remove(job);
@@ -69,7 +70,7 @@ namespace DistributedJobScheduling.Storage
 
         public void SetJobDeliveredToClient(Job job)
         {
-            if (_secureStore.Contains(job))
+            if (job.ID.HasValue && _secureStore.ContainsKey(job.ID.Value))
             {
                 job.Status = JobStatus.REMOVED;
                 _secureStore.ValuesChanged?.Invoke();
@@ -78,17 +79,15 @@ namespace DistributedJobScheduling.Storage
             }
         }
 
-        public Job Get(int jobID) 
-        {
-            return _secureStore[(job) => job.ID.HasValue && job.ID.Value == jobID];
-        }
+        public Job Get(int jobID) => _secureStore[jobID];
 
         public void InsertAndAssign(Job job)
         {
             job.Node = JobUtils.FindNodeWithLessJobs(_group, _logger, _secureStore);
             job.ID = _reusableIndex.NewIndex;
+            _logger.Log(Tag.JobStorage, $"new job id: {job.ID}");
 
-            _secureStore.Add(job);
+            _secureStore.Add(job.ID.Value, job);
             _secureStore.ValuesChanged?.Invoke();
             JobUpdated?.Invoke(job);
 
@@ -99,32 +98,20 @@ namespace DistributedJobScheduling.Storage
         public void InsertOrUpdateJobLocally(Job job)
         {
             // If the job is already in the list it is updated
-            if (_secureStore.Contains(job))
+            if (_secureStore.ContainsKey(job.ID.Value))
             {
-                _logger.Warning(Tag.JobStorage, $"Job {job} is already in the storage, update refused");
-                return;
+                Job localJob = _secureStore[job.ID.Value];
+                localJob.Node = job.Node;
+                if(localJob.Node != _group.Me.ID)
+                    localJob.Result = job.Result;
+                if(localJob.Node != _group.Me.ID && localJob.Status < job.Status)
+                    localJob.Status = job.Status;
             }
-
-            // Remove job with same ID
-            _secureStore.ExecuteTransaction(jobs => {
-                //TODO: Make it better
-                bool isUpdate = false;
-                foreach(Job localJob in jobs)
-                {
-                    if(localJob.ID == job.ID)
-                    {
-                        localJob.Node = job.Node;
-                        if(localJob.Node != _group.Me.ID)
-                            localJob.Result = job.Result;
-                        if(localJob.Node != _group.Me.ID && localJob.Status < job.Status)
-                            localJob.Status = job.Status;
-                        isUpdate = true;
-                        break;
-                    }
-                }
-                if(!isUpdate) jobs.Add(job);
-                _secureStore.ValuesChanged?.Invoke();
-            });
+            else
+            {
+                _secureStore.Add(job.ID.Value, job);
+            }
+            _secureStore.ValuesChanged?.Invoke();
             _logger.Log(Tag.JobStorage, $"Job {job} inserted locally with result {job.Result?.ToString()}");
             UnlockJobExecution();
         }
@@ -138,7 +125,7 @@ namespace DistributedJobScheduling.Storage
         {
             await _executionBlips.Dequeue();
             Job toExecute = null;
-            _secureStore.ForEach(job => 
+            _secureStore.Values.ForEach(job => 
             {
                 if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
                 {
@@ -151,7 +138,7 @@ namespace DistributedJobScheduling.Storage
 
         public Message ToSyncMessage()
         {
-            return new JobSyncMessage(_secureStore.Clone());
+            return new JobSyncMessage(_secureStore.Values.ToList());
         }
 
         public void OnViewSync(Message syncMessage)
@@ -161,7 +148,7 @@ namespace DistributedJobScheduling.Storage
             {
                 _secureStore.ExecuteTransaction(jobs => {
                     jobs.Clear();
-                    jobs.AddRange(jobSyncMessage.Jobs);
+                    jobSyncMessage.Jobs.ForEach(job => jobs.Add(job.ID.Value, job));
                     _secureStore.ValuesChanged?.Invoke();
                 });
                 _logger.Log(Tag.JobStorage, "Job synchronization complete");

@@ -103,6 +103,14 @@ namespace DistributedJobScheduling.Storage.SecureStorage
             }
         }
 
+        public bool Contains(Predicate<CT> predicate)
+        {
+            lock(_value)
+            {
+                return this._value.Any(item => predicate(item));
+            }
+        }
+
         protected override void Write()
         {
             lock(_value)

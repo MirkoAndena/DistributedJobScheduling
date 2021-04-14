@@ -32,6 +32,14 @@ namespace DistributedJobScheduling.Storage.SecureStorage
             }
         }
 
+        public ICollection<CT> Values
+        {
+            get
+            {
+                return _value.Values;
+            }
+        }
+
         public void Update(CK key, CT value)
         {
             lock(_value)
@@ -73,6 +81,22 @@ namespace DistributedJobScheduling.Storage.SecureStorage
             lock(_value)
             {
                 return this._value.ContainsKey(key);
+            }
+        }
+
+        public void Clear()
+        {
+            lock(_value)
+            {
+                this._value.Clear();
+            }
+        }
+
+        public void ExecuteTransaction(Action<T> transaction)
+        {
+            lock(_value)
+            {
+                transaction(_value);
             }
         }
 
