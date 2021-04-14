@@ -22,7 +22,9 @@ namespace DistributedJobScheduling.Logging
         private string _directory;
         private string _filepath;
         private bool _consoleWrite;
-        
+
+        public Task LogginTask => _loggerTask;
+
         public CsvLogger(string path, bool consoleWrite = true, string separator = ",")
         {
             _directory = $"{path}/Logs";
@@ -122,6 +124,13 @@ namespace DistributedJobScheduling.Logging
             _loggerCancellationToken.Cancel();
             _loggerCancellationToken = null;
             _loggerTask = null;
+        }
+
+        public void Flush()
+        {
+            var logs = _logQueue.DequeueAll();
+            while(logs.Count > 0)
+                CommitLog(logs.Dequeue());
         }
     }
 }

@@ -31,10 +31,10 @@ namespace DistributedJobScheduling.Communication
 
         public event Action<Node, Message> OnMessageReceived;
 
-        public NetworkManager(ISerializer serializer) : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
+        public NetworkManager() : this(DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
                                        DependencyInjection.DependencyManager.Get<Configuration.IConfigurationService>(),
                                        DependencyInjection.DependencyManager.Get<ILogger>(),
-                                       serializer) {}
+                                       DependencyInjection.DependencyManager.Get<ISerializer>()) {}
         public NetworkManager(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger, ISerializer serializer)
         {
             _serializer = serializer;

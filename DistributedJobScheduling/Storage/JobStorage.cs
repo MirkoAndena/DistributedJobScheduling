@@ -106,11 +106,12 @@ namespace DistributedJobScheduling.Storage
             }
 
             // Remove job with same ID
-            _secureStore.RemoveAll(current => current.ID.HasValue && current.ID.Value == job.ID.Value);
-
-            _secureStore.Add(job);
-            _secureStore.ValuesChanged?.Invoke();
-            _logger.Log(Tag.JobStorage, $"Job {job} inserted locally");
+            _secureStore.ExecuteTransaction(jobs => {
+                jobs.RemoveAll(current => current.ID.HasValue && current.ID.Value == job.ID.Value);
+                jobs.Add(job);
+                _secureStore.ValuesChanged?.Invoke();
+            });
+            _logger.Log(Tag.JobStorage, $"Job {job} inserted locally with result {job.Result?.ToString()}");
             UnlockJobExecution();
         }
 

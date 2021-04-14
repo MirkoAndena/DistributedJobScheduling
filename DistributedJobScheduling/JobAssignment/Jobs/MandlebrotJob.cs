@@ -7,6 +7,8 @@ using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.JobAssignment.Jobs
 {
+    [Serializable]
+    [JsonObject(MemberSerialization.Fields)]
     public class MandlebrotResult : IJobResult 
     { 
         public double[,] Value { get; private set; }
@@ -29,7 +31,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
         public override string ToString()
         {
-            return base.ToString();
+            return $"{base.ToString()}:{Value.Length}";
         }
     }
 

@@ -30,7 +30,9 @@ namespace DistributedJobScheduling.Storage.SecureStorage
         public T Read()
         {
             byte[] content = File.ReadAllBytes(_filePath);
-            return _serializer.Deserialize<T>(content);
+            if(content.Length > 0)
+                return _serializer.Deserialize<T>(content);
+            return default;
         }
 
         public void Write(T item)

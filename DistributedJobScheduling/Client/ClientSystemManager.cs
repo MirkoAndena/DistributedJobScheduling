@@ -119,6 +119,7 @@ namespace DistributedJobScheduling.Client
             }
 
             bool hasFinised = false;
+            ILogger logger = DependencyManager.Get<ILogger>();
             _jobResultHandler.ResponsesArrived += () => 
             {
                 int nonFinished = _store.ClientJobs(result => result == null).Count;
@@ -127,6 +128,8 @@ namespace DistributedJobScheduling.Client
                     Console.WriteLine(nonFinished + " job not finished yet");
                     return;
                 }
+
+                logger.Flush();
                     
                 Console.WriteLine("All responses arrived, shutdown");
                 hasFinised = true;

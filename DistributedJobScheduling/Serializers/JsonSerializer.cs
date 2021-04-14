@@ -12,7 +12,7 @@ namespace DistributedJobScheduling.Serialization
             _settings = new JsonSerializerSettings()
             {
                 TypeNameHandling = TypeNameHandling.All,
-                Formatting = Formatting.Indented
+                //Formatting = Formatting.Indented
             };
         }
 

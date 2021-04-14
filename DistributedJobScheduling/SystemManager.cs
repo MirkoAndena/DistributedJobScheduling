@@ -51,18 +51,16 @@ namespace DistributedJobScheduling
 
         protected override void CreateSubsystems()
         {
-            JsonSerializer jsonSerializer = new JsonSerializer();
-            ByteBase64Serializer byteSerializer = new ByteBase64Serializer();
-
+            RegisterSubSystem<ISerializer, JsonSerializer>(new JsonSerializer());
             RegisterSubSystem<INodeRegistry, NodeRegistryService>(new NodeRegistryService());
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
             RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
-            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager(jsonSerializer));
+            RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
-            RegisterSubSystem<IStore<JobCollection>, FileStore<JobCollection>>(new FileStore<JobCollection>(JOBS_PATH, jsonSerializer));
+            RegisterSubSystem<IStore<JobCollection>, FileStore<JobCollection>>(new FileStore<JobCollection>(JOBS_PATH));
             RegisterSubSystem<IJobStorage, JobStorage>(new JobStorage());
-            RegisterSubSystem<IStore<Table>, FileStore<Table>>(new FileStore<Table>(TRANSLATIONTABLE_PATH, jsonSerializer));
+            RegisterSubSystem<IStore<Table>, FileStore<Table>>(new FileStore<Table>(TRANSLATIONTABLE_PATH));
             TranslationTable translationTable = new TranslationTable();
             RegisterSubSystem<TranslationTable>(translationTable);
 

@@ -9,10 +9,14 @@ using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using System;
+using Newtonsoft.Json;
+
 namespace DistributedJobScheduling.Client
 {
     using Storage = BlockingListSecureStore<List<ClientJob>, ClientJob>;
 
+    [Serializable]
+    [JsonObject(MemberSerialization.Fields)]
     public class ClientJob
     {
         public int ID;
@@ -51,6 +55,7 @@ namespace DistributedJobScheduling.Client
 
         public void UpdateClientJobResult(int jobId, IJobResult result)
         {
+            _logger.Log(Tag.JobStorage, $"Updating job {jobId} with result {result?.ToString()}");
             _store.ExecuteTransaction(jobs => {
                 foreach (ClientJob job in jobs)
                     if (job.ID == jobId)
