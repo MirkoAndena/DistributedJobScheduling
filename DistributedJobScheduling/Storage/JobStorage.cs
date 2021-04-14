@@ -85,14 +85,17 @@ namespace DistributedJobScheduling.Storage
 
         public void InsertAndAssign(Job job)
         {
-            job.Node = JobUtils.FindNodeWithLessJobs(_group, _logger, _secureStore);
-            job.ID = _reusableIndex.NewIndex;
+            lock(_secureStore)
+            {
+                job.Node = JobUtils.FindNodeWithLessJobs(_group, _logger, _secureStore);
+                job.ID = _reusableIndex.NewIndex;
 
-            _secureStore.Add(job);
-            _secureStore.ValuesChanged?.Invoke();
-            JobUpdated?.Invoke(job);
+                _secureStore.Add(job);
+                _secureStore.ValuesChanged?.Invoke();
+                JobUpdated?.Invoke(job);
 
-            _logger.Log(Tag.JobStorage, $"Job {job} assigned to {job.Node.Value}");
+                _logger.Log(Tag.JobStorage, $"Job {job} assigned to {job.Node.Value}");
+            }
             UnlockJobExecution();
         }
 
