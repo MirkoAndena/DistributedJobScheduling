@@ -114,7 +114,8 @@ namespace DistributedJobScheduling.Client
                 {
                     int verticalBatchSize = totalHeight / batchesPerSide;
                     int startingY = j * verticalBatchSize;
-                    _messageHandler.SubmitJob(speaker, new MandlebrotJob(new Rectangle(startingX, startingY, horizontalBatchSize, verticalBatchSize), totalWidth, totalHeight, iterations));
+                    //_messageHandler.SubmitJob(speaker, new MandlebrotJob(new Rectangle(startingX, startingY, horizontalBatchSize, verticalBatchSize), totalWidth, totalHeight, iterations));
+                    _messageHandler.SubmitJob(speaker, new TimeoutJob(30));
                 }
             }
 
