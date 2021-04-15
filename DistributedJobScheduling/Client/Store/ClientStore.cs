@@ -15,27 +15,15 @@ namespace DistributedJobScheduling.Client
 {
     using Storage = BlockingListSecureStore<List<ClientJob>, ClientJob>;
 
-    [Serializable]
-    [JsonObject(MemberSerialization.Fields)]
-    public class ClientJob
-    {
-        public int ID;
-        public IJobResult Result;
-
-        public ClientJob(int id)
-        {
-            ID = id;
-        }
-    }
-
-    public class ClientStore : IInitializable
+    public class ClientStore : IInitializable, IClientStore
     {
         private Storage _store;
         private ILogger _logger;
 
         public ClientStore() : this(
-            DependencyInjection.DependencyManager.Get<IStore<List<ClientJob>>>(), 
-            DependencyInjection.DependencyManager.Get<ILogger>()) { }
+            DependencyInjection.DependencyManager.Get<IStore<List<ClientJob>>>(),
+            DependencyInjection.DependencyManager.Get<ILogger>())
+        { }
 
         public ClientStore(IStore<List<ClientJob>> store, ILogger logger)
         {
@@ -56,7 +44,8 @@ namespace DistributedJobScheduling.Client
         public void UpdateClientJobResult(int jobId, IJobResult result)
         {
             _logger.Log(Tag.JobStorage, $"Updating job {jobId} with result {result?.ToString()}");
-            _store.ExecuteTransaction(jobs => {
+            _store.ExecuteTransaction(jobs =>
+            {
                 foreach (ClientJob job in jobs)
                     if (job.ID == jobId)
                     {
@@ -70,7 +59,7 @@ namespace DistributedJobScheduling.Client
         public List<ClientJob> ClientJobs(Predicate<IJobResult> predicate)
         {
             List<ClientJob> jobs = new List<ClientJob>();
-            _store.ForEach(job => 
+            _store.ForEach(job =>
             {
                 if (predicate.Invoke(job.Result))
                     jobs.Add(job);

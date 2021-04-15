@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Logging;
 using Xunit.Abstractions;
@@ -14,7 +15,9 @@ namespace DistributedJobScheduling.Tests
             _boundNode = node;
             _output = output;
         }
-        
+
+        public Task LogginTask => new Task(Flush);
+
         public void Error(Tag tag, Exception e) => WriteLog(tag, $"ERROR: {e.Message}", e);
 
         public void Error(Tag tag, string content, Exception e) => WriteLog(tag, $"ERROR: {content}", e);
@@ -25,6 +28,11 @@ namespace DistributedJobScheduling.Tests
 
             //FIXME: Handle fatal?
             throw e;
+        }
+
+        public void Flush()
+        {
+            // Nothing
         }
 
         public void Log(Tag tag, string content) => WriteLog(tag, $"INFO: {content}");

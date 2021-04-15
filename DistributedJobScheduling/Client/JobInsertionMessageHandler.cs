@@ -15,26 +15,31 @@ using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.Client
 {
-    public class JobInsertionMessageHandler : IStartable
+    public interface IJobInsertionMessageHandler
+    {
+        void SubmitJob(BoldSpeaker speaker, Job job);
+    }
+
+    public class JobInsertionMessageHandler : IStartable, IJobInsertionMessageHandler
     {
         private BoldSpeaker _speaker;
         private ILogger _logger;
         private ISerializer _serializer;
         private ITimeStamper _timeStamper;
-        private ClientStore _store;
+        private IClientStore _store;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
         private bool _registered;
 
-        public JobInsertionMessageHandler(ClientStore store) : this (
-            store,
+        public JobInsertionMessageHandler() : this (
+            DependencyInjection.DependencyManager.Get<IClientStore>(),
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<ISerializer>(),
             DependencyInjection.DependencyManager.Get<ITimeStamper>(),
             DependencyInjection.DependencyManager.Get<INodeRegistry>(),
             DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
 
-        public JobInsertionMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
+        public JobInsertionMessageHandler(IClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
         {
             _store = store;
             _logger = logger;

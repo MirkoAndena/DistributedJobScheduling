@@ -16,12 +16,19 @@ using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.Client
 {
-    public class JobResultMessageHandler : IStartable
+    public interface IJobResultMessageHandler
+    {
+        event Action ResponsesArrived;
+        void RequestAllStoredJobs(BoldSpeaker speaker);
+        void RequestJob(BoldSpeaker speaker, ClientJob job);
+    }
+
+    public class JobResultMessageHandler : IStartable, IJobResultMessageHandler
     {
         private BoldSpeaker _speaker;
         private ILogger _logger;
         private ISerializer _serializer;
-        private ClientStore _store;
+        private IClientStore _store;
         private ITimeStamper _timeStamper;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
@@ -29,15 +36,15 @@ namespace DistributedJobScheduling.Client
         public event Action ResponsesArrived;
         private bool _registered;
 
-        public JobResultMessageHandler(ClientStore store) : this (
-            store,
+        public JobResultMessageHandler() : this (
+            DependencyInjection.DependencyManager.Get<IClientStore>(),
             DependencyInjection.DependencyManager.Get<ILogger>(),
             DependencyInjection.DependencyManager.Get<ISerializer>(),
             DependencyInjection.DependencyManager.Get<ITimeStamper>(),
             DependencyInjection.DependencyManager.Get<INodeRegistry>(),
             DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
 
-        public JobResultMessageHandler(ClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
+        public JobResultMessageHandler(IClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
         {
             _store = store;
             _logger = logger;

@@ -39,7 +39,6 @@ namespace DistributedJobScheduling.Client
 
         private JobInsertionMessageHandler _messageHandler;
         private JobResultMessageHandler _jobResultHandler;
-        private ClientStore _store;
 
         public ClientSystemManager()
         {
@@ -77,14 +76,9 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<ILogger, CsvLogger>(new CsvLogger(ROOT, separator: "|"));
             RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
             RegisterSubSystem<IStore<Storage>, FileStore<Storage>>(new FileStore<Storage>(STORAGE_PATH));
-            
-            _store = new ClientStore();
-            RegisterSubSystem<ClientStore>(_store);
-
-            _messageHandler = new JobInsertionMessageHandler(_store);
-            RegisterSubSystem<JobInsertionMessageHandler>(_messageHandler);
-            _jobResultHandler = new JobResultMessageHandler(_store);
-            RegisterSubSystem<JobResultMessageHandler>(_jobResultHandler);
+            RegisterSubSystem<IClientStore, ClientStore>(new ClientStore());
+            RegisterSubSystem<IJobInsertionMessageHandler, JobInsertionMessageHandler>(new JobInsertionMessageHandler());
+            RegisterSubSystem<IJobResultMessageHandler, JobResultMessageHandler>(new JobResultMessageHandler());
         }
 
         protected override void OnSystemStarted() => Main();
@@ -94,6 +88,7 @@ namespace DistributedJobScheduling.Client
             var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
             var serializer = DependencyInjection.DependencyManager.Get<ISerializer>();
+            var store = DependencyInjection.DependencyManager.Get<IClientStore>();
 
             Node node = nodeRegistry.GetOrCreate(ip: configuration.GetValue<string>("worker"));
             var speaker = new BoldSpeaker(node, serializer);
@@ -123,7 +118,7 @@ namespace DistributedJobScheduling.Client
             ILogger logger = DependencyManager.Get<ILogger>();
             _jobResultHandler.ResponsesArrived += () => 
             {
-                int nonFinished = _store.ClientJobs(result => result == null).Count;
+                int nonFinished = store.ClientJobs(result => result == null).Count;
                 if(nonFinished > 0)
                 {
                     Console.WriteLine(nonFinished + " job not finished yet");

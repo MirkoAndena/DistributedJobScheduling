@@ -8,19 +8,20 @@ using DistributedJobScheduling.Storage.SecureStorage;
 
 namespace DistributedJobScheduling.Storage
 {
-    public class TranslationTable : IInitializable
+    public class TranslationTable : IInitializable, ITranslationTable
     {
         private ReusableIndex _reusableIndex;
-        private BlockingDictionarySecureStore<Dictionary<int,int>, int, int> _secureStorage;
+        private BlockingDictionarySecureStore<Dictionary<int, int?>, int, int?> _secureStorage;
         private ILogger _logger;
 
         public TranslationTable() : this(
-            DependencyInjection.DependencyManager.Get<IStore<Dictionary<int,int>>>(),
-            DependencyInjection.DependencyManager.Get<ILogger>()) { }
-        public TranslationTable(IStore<Dictionary<int,int>> store, ILogger logger)
+            DependencyInjection.DependencyManager.Get<IStore<Dictionary<int, int?>>>(),
+            DependencyInjection.DependencyManager.Get<ILogger>())
+        { }
+        public TranslationTable(IStore<Dictionary<int, int?>> store, ILogger logger)
         {
             _logger = logger;
-            _secureStorage = new BlockingDictionarySecureStore<Dictionary<int,int>, int, int>(store, logger);
+            _secureStorage = new BlockingDictionarySecureStore<Dictionary<int, int?>, int, int?>(store, logger);
             _reusableIndex = new ReusableIndex(index => _secureStorage.ContainsKey(index));
         }
 
@@ -33,7 +34,7 @@ namespace DistributedJobScheduling.Storage
 
         public void StoreIndex(int requestId)
         {
-            _secureStorage.Add(requestId, -1);
+            _secureStorage.Add(requestId, null);
             _secureStorage.ValuesChanged?.Invoke();
             _logger.Log(Tag.TranslationTable, $"Stored request id {requestId} with no job id");
         }
@@ -48,7 +49,7 @@ namespace DistributedJobScheduling.Storage
             _logger.Log(Tag.TranslationTable, $"Added job {job} with local id {requestId}");
         }
 
-        public int? Get(int localID) 
+        public int? Get(int localID)
         {
             if (_secureStorage.ContainsKey(localID))
                 return _secureStorage[localID];

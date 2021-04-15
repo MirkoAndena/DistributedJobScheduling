@@ -18,23 +18,23 @@ namespace DistributedJobScheduling.JobAssignment
         private IGroupViewManager _groupManager;
         private ICommunicationManager _communicationManager;
         private ITimeStamper _timeStamper;
-        private TranslationTable _translationTable;
+        private ITranslationTable _translationTable;
         private IJobStorage _jobStorage;
         private ILogger _logger;
         
         private Dictionary<(Node, int), Job> _unconfirmedRequestIds;
 
-        public JobMessageHandler(TranslationTable translationTable) : 
+        public JobMessageHandler() : 
         this(DependencyManager.Get<IGroupViewManager>(),
             DependencyManager.Get<ICommunicationManager>(),
             DependencyManager.Get<ITimeStamper>(),
-            translationTable,
+            DependencyManager.Get<ITranslationTable>(),
             DependencyManager.Get<IJobStorage>(),
             DependencyManager.Get<ILogger>()) {}
         public JobMessageHandler(IGroupViewManager groupManager,
             ICommunicationManager communicationManager,
             ITimeStamper timeStamper,
-            TranslationTable translationTable, 
+            ITranslationTable translationTable, 
             IJobStorage jobStorage,
             ILogger logger)
         {
@@ -138,7 +138,7 @@ namespace DistributedJobScheduling.JobAssignment
         {
             _logger.Log(Tag.ClientCommunication, $"Job result request arrived");
             int? jobID = _translationTable.Get(message.RequestID);
-            if (jobID == null) 
+            if (!jobID.HasValue) 
             {
                 _logger.Warning(Tag.ClientCommunication, $"Job requested (id: {message.RequestID}) doesn't exists");
                 return;
