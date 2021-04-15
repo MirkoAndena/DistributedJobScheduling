@@ -20,10 +20,6 @@ using DistributedJobScheduling.DistributedJobUpdate;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
-
-    //TODO: Timeouts?
-    //TODO: Re-Broadcast messages? This is part of the original algorithm but can we get away with dropping them like we are doing?
-    //FIXME: Resource Locks? Messages are asynchronous, some blocks should have mutual exclusion
     public class GroupViewManager : IGroupViewManager, IStartable
     {
         private const int DEFAULT_SEND_TIMEOUT = 1;
@@ -176,10 +172,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                                 if(viewMembers.Count > 0)
                                 {
+                                    Task[] awaitMulticast = new Task[viewMembers.Count];
                                     Message timeStampedMessage = message.ApplyStamp(_messageTimeStamper);
+                                    
                                     //Reliable Multicast
-                                    foreach(Node viewMember in viewMembers)
-                                        await _communicationManager.Send(viewMember, timeStampedMessage);
+                                    for(int i = 0; i <  viewMembers.Count; i++)
+                                        awaitMulticast[i] = _communicationManager.Send(viewMembers[i], timeStampedMessage);  
+                                    await Task.WhenAll(awaitMulticast);
                                 }
                             }
                             
