@@ -145,7 +145,9 @@ namespace DistributedJobScheduling.Communication
             // Create a new speaker and connect to remote
             BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
             await speaker.Connect(timeout);
-            OnSpeakerCreated(node, speaker);
+            
+            if(speaker.IsConnected)
+                OnSpeakerCreated(node, speaker);
 
             return speaker;
         }
