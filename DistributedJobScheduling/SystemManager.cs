@@ -18,7 +18,7 @@ using static DistributedJobScheduling.Communication.Basic.Node;
 
 namespace DistributedJobScheduling
 {
-    using JobCollection = List<Job>;
+    using JobTable = Dictionary<int, Job>;
     using Table = Dictionary<int, int>;
     
     public class SystemManager : SystemLifeCycle
@@ -58,7 +58,7 @@ namespace DistributedJobScheduling
             RegisterSubSystem<ICommunicationManager, NetworkManager>(new NetworkManager());
             RegisterSubSystem<IGroupViewManager, GroupViewManager>(new GroupViewManager());
             
-            RegisterSubSystem<IStore<JobCollection>, FileStore<JobCollection>>(new FileStore<JobCollection>(JOBS_PATH));
+            RegisterSubSystem<IStore<JobTable>, FileStore<JobTable>>(new FileStore<JobTable>(JOBS_PATH));
             RegisterSubSystem<IJobStorage, JobStorage>(new JobStorage());
             RegisterSubSystem<IStore<Table>, FileStore<Table>>(new FileStore<Table>(TRANSLATIONTABLE_PATH));
             TranslationTable translationTable = new TranslationTable();
