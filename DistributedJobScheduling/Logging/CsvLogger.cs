@@ -11,18 +11,9 @@ namespace DistributedJobScheduling.Logging
 {
     enum LogType { INFORMATION, WARNING, ERROR, FATAL }
 
-    public class LoggedException : Exception
-    {
-        public int Line;
-        public LoggedException(int line, Exception e) : base($"[{line}] {e?.Message}", e)
-        {
-            this.Line = line;
-        }
-    }
-
     public class CsvLogger : ILogger, IInitializable, IStartable
     {
-        private AsyncGenericQueue<(string, LogType, LoggedException)> _logQueue;
+        private AsyncGenericQueue<(int, string, LogType, Exception)> _logQueue;
         private Task _loggerTask;
         private CancellationTokenSource _loggerCancellationToken;
         private DateTime _startupTime;
@@ -46,7 +37,7 @@ namespace DistributedJobScheduling.Logging
 
         public void Init()
         {
-            _logQueue = new AsyncGenericQueue<(string, LogType, LoggedException)>();
+            _logQueue = new AsyncGenericQueue<(int, string, LogType, Exception)>();
             if (!File.Exists(_directory))
                 Directory.CreateDirectory(_directory);
             
@@ -75,27 +66,27 @@ namespace DistributedJobScheduling.Logging
             return stringBuilder.AppendJoin(_sepatator, elements).ToString() + Environment.NewLine;
         }
 
-        private void CommitLog((string, LogType, Exception) content)
+        private void CommitLog((int, string, LogType, Exception) content)
         {
-            File.AppendAllText(_filepath, content.Item1);
+            File.AppendAllText(_filepath, content.Item2);
 
+            var type = content.Item3;
             if (_consoleWrite) 
             {
-                var type = content.Item2;
                 lock(Console.Out)
                 {
                     if (type == LogType.WARNING) Console.ForegroundColor = ConsoleColor.DarkYellow;
                     if (type == LogType.ERROR) Console.ForegroundColor = ConsoleColor.Red;
                     if (type == LogType.FATAL) Console.ForegroundColor = ConsoleColor.Magenta;
-                    Console.Write(content.Item1);
+                    Console.Write(content.Item2);
                     Console.ResetColor();
                 }
             }
 
-            var e = content.Item3;
-            if(e != null)
+            var e = content.Item4;
+            if(e != null && type > LogType.WARNING)
             {
-                string exceptionPath = $"{_directory}/{DateTime.Now.ToString("ddMMyyHHmmssfff")}.txt";
+                string exceptionPath = $"{_directory}/{DateTime.Now.ToString("ddMMyyHHmmssfff")}_{content.Item1}.txt";
                 File.WriteAllText(exceptionPath, e.Message + Environment.NewLine + e.StackTrace);
             }
         }
@@ -103,9 +94,8 @@ namespace DistributedJobScheduling.Logging
         private void Log(LogType type, Tag tag, string content, Exception e)
         {
             int index = _reusableIndex.NewIndex;
-            LoggedException loggedException = e != null ? new LoggedException(index, e) : null;
             string entry = Compile(index.ToString(), (DateTime.Now - _startupTime).ToString(), type.ToString(), tag.ToString(), content, e?.Message);
-            var log = (entry, type, loggedException);
+            var log = (index, entry, type, e);
 
             if(type == LogType.FATAL)
                 CommitLog(log);

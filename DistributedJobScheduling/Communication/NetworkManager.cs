@@ -58,27 +58,31 @@ namespace DistributedJobScheduling.Communication
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
         {
-            _logger.Log(Tag.Communication, $"New speaker created for communications with {node}");
-            
-            if(_speakers.ContainsKey(node))
+            lock(_speakers)
             {
-                var oldSpeaker = _speakers[node];
-
-                if(oldSpeaker.IsConnected)
+                _logger.Log(Tag.Communication, $"New speaker created for communications with {node}");
+                
+                if(_speakers.ContainsKey(node))
                 {
-                    _logger.Warning(Tag.Communication, $"Discarded duplicate speaker for {node}");
-                    return;
+                    var oldSpeaker = _speakers[node];
+
+                    if(oldSpeaker.IsConnected)
+                    {
+                        _logger.Warning(Tag.Communication, $"Discarded duplicate speaker for {node}");
+                        return;
+                    }
+                        
+                    _logger.Log(Tag.Communication, $"Speaker for {node} was due to a previous disconnection, updating");
+                    oldSpeaker.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
+                    oldSpeaker.Stop();
+                    _speakers.Remove(node);
                 }
-                    
-                _logger.Log(Tag.Communication, $"Speaker for {node} was due to a previous disconnection, updating");
-                oldSpeaker.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-                oldSpeaker.Stop();
-                _speakers.Remove(node);
+
+                speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
+                speaker.Stopped += OnSpeakerStopped;
+                _speakers.Add(node, speaker);
             }
 
-            speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
-            speaker.Stopped += OnSpeakerStopped;
-            _speakers.Add(node, speaker);
             speaker.Start();
         }
 
@@ -93,12 +97,17 @@ namespace DistributedJobScheduling.Communication
 
         private void OnSpeakerStopped(Node remote)
         {
-            if (_speakers.ContainsKey(remote))
+            Node toNotify = null;
+            lock(_speakers)
             {
-                _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-                _speakers.Remove(remote);
-                remote.NotifyDeath();
+                if (_speakers.ContainsKey(remote))
+                {
+                    _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
+                    _speakers.Remove(remote);
+                    toNotify = remote;
+                }
             }
+            toNotify?.NotifyDeath();
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)
@@ -124,10 +133,13 @@ namespace DistributedJobScheduling.Communication
         private async Task<Speaker> GetSpeakerTo(Node node, int timeout)
         {
             // Retrieve an already connected speaker
-            if (_speakers.ContainsKey(node))
+            lock(_speakers)
             {
-                _logger.Log(Tag.Communication, $"Speaker to {node} is already created");
-                return _speakers[node];
+                if (_speakers.ContainsKey(node))
+                {
+                    _logger.Log(Tag.Communication, $"Speaker to {node} is already created");
+                    return _speakers[node];
+                }
             }
 
             // Create a new speaker and connect to remote

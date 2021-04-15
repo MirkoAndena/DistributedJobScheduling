@@ -15,7 +15,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 {
     public class Speaker : IStartable
     {
-        public bool IsConnected => _client.Connected;
+        public bool IsConnected => _client != null && _client.Connected;
         protected TcpClient _client;
         protected NetworkStream _stream;
         protected MemoryStream _memoryStream;
@@ -62,8 +62,11 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 _receiveToken.Cancel();
                 _globalReceiveToken.Cancel();
                 _client.Close();
+                _stream?.Close();
                 _logger.Log(Tag.CommunicationBasic, $"Closed connection to {_remote}");
                 Stopped?.Invoke(_remote);
+                _client = null;
+                _stream = null;
             }
         }
 
@@ -103,7 +106,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
             else
             {
-                throw new Exception($"Total bytes received ({bytesReceived}) not greater than zero");
+                _logger.Log(Tag.CommunicationBasic, $"Speaker closed with remote {_remote}");
+                this.Stop();
+                return null;
             }
         }
 
@@ -160,13 +165,16 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         {
             try
             {
-                byte[] bytes = _serializer.Serialize(message);
-                await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
-                await _stream.WriteAsync(new byte[] { (byte)'\0' }, _sendToken.Token);
-                await _stream.FlushAsync(_sendToken.Token);
-                _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
+                if(IsConnected)
+                {
+                    byte[] bytes = _serializer.Serialize(message);
+                    await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
+                    await _stream.WriteAsync(new byte[] { (byte)'\0' }, _sendToken.Token);
+                    await _stream.FlushAsync(_sendToken.Token);
+                    _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
+                }
             }
-            catch (ObjectDisposedException e)
+            catch (ObjectDisposedException)
             {
                 this.Stop();
                 _logger.Warning(Tag.CommunicationBasic, $"Failed sent to {_remote} because communication is closed");

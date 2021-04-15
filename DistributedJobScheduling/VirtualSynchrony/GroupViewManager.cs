@@ -25,8 +25,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private const int DEFAULT_SEND_TIMEOUT = 1;
 
         public int JoinRequestTimeout { get; set; } = 5000;
-        private class MulticastNotDeliveredException : Exception {}
-        private class NotDeliveredException : Exception {}
+        public class MulticastNotDeliveredException : Exception {}
+        public class NotDeliveredException : Exception {}
         private class KickedFromViewException : Exception {
             public KickedFromViewException() : base("Consolidated view without this node") {}
         }
