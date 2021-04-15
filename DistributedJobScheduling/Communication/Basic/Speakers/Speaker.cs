@@ -110,11 +110,17 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     return null;
                 }
             }
+            catch (ObjectDisposedException e)
+            {
+                this.Stop();
+                _logger.Warning(Tag.CommunicationBasic, $"Failed receive from {_remote} because communication is closed");
+                return null;
+            }
             catch (Exception e)
             {
                 _logger.Error(Tag.CommunicationBasic, $"Failed receive from {_remote}", e);
                 this.Stop();
-                throw;
+                return null;
             }
         }
 
@@ -169,6 +175,12 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 await _stream.WriteAsync(new byte[] { (byte)'\0' }, _sendToken.Token);
                 await _stream.FlushAsync(_sendToken.Token);
                 _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
+            }
+            catch (ObjectDisposedException e)
+            {
+                this.Stop();
+                _logger.Warning(Tag.CommunicationBasic, $"Failed sent to {_remote} because communication is closed");
+                return;
             }
             catch (Exception e)
             {
