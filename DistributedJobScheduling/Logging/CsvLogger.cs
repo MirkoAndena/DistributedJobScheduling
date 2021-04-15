@@ -11,9 +11,18 @@ namespace DistributedJobScheduling.Logging
 {
     enum LogType { INFORMATION, WARNING, ERROR, FATAL }
 
+    public class LoggedException : Exception
+    {
+        public int Line;
+        public LoggedException(int line, Exception e) : base($"[{line}] {e?.Message}", e)
+        {
+            this.Line = line;
+        }
+    }
+
     public class CsvLogger : ILogger, IInitializable, IStartable
     {
-        private AsyncGenericQueue<(string, LogType, Exception)> _logQueue;
+        private AsyncGenericQueue<(string, LogType, LoggedException)> _logQueue;
         private Task _loggerTask;
         private CancellationTokenSource _loggerCancellationToken;
         private DateTime _startupTime;
@@ -37,7 +46,7 @@ namespace DistributedJobScheduling.Logging
 
         public void Init()
         {
-            _logQueue = new AsyncGenericQueue<(string, LogType, Exception)>();
+            _logQueue = new AsyncGenericQueue<(string, LogType, LoggedException)>();
             if (!File.Exists(_directory))
                 Directory.CreateDirectory(_directory);
             
@@ -93,8 +102,10 @@ namespace DistributedJobScheduling.Logging
 
         private void Log(LogType type, Tag tag, string content, Exception e)
         {
-            string entry = Compile(_reusableIndex.NewIndex.ToString(), (DateTime.Now - _startupTime).ToString(), type.ToString(), tag.ToString(), content, e?.Message);
-            var log = (entry, type, e);
+            int index = _reusableIndex.NewIndex;
+            LoggedException loggedException = e != null ? new LoggedException(index, e) : null;
+            string entry = Compile(index.ToString(), (DateTime.Now - _startupTime).ToString(), type.ToString(), tag.ToString(), content, e?.Message);
+            var log = (entry, type, loggedException);
 
             if(type == LogType.FATAL)
                 CommitLog(log);
