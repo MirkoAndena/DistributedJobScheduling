@@ -69,58 +69,41 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
         private async Task<List<T>> Receive<T>() where T: Message
         {
-            try
+            byte[] fullMessage = null;
+            int bytesReceived = await _stream.ReadAsync(_partialBuffer, 0, _partialBuffer.Length, _receiveToken.Token);
+            if(bytesReceived > 0)
             {
-                byte[] fullMessage = null;
-                int bytesReceived = await _stream.ReadAsync(_partialBuffer, 0, _partialBuffer.Length, _receiveToken.Token);
-                if(bytesReceived > 0)
+                //TODO: Restore LastIndexOf
+                _lastTerminatorIndex = -1;
+                for(int i = bytesReceived - 1; i >= 0; i--)
+                    if(_partialBuffer[i] == '\0')
+                    {
+                        _lastTerminatorIndex = i;
+                        break;
+                    }
+                
+                _logger.Log(Tag.CommunicationBasic, $"Expecting {bytesReceived} bytes from {_remote} and terminator at {_lastTerminatorIndex}");
+                if(_lastTerminatorIndex >= 0)
                 {
-                    //TODO: Restore LastIndexOf
-                    _lastTerminatorIndex = -1;
-                    for(int i = bytesReceived - 1; i >= 0; i--)
-                        if(_partialBuffer[i] == '\0')
-                        {
-                            _lastTerminatorIndex = i;
-                            break;
-                        }
-                    
-                    _logger.Log(Tag.CommunicationBasic, $"Expecting {bytesReceived} bytes from {_remote} and terminator at {_lastTerminatorIndex}");
-                    if(_lastTerminatorIndex >= 0)
-                    {
-                        //New Message Completed
-                        await _memoryStream.WriteAsync(_partialBuffer, 0, _lastTerminatorIndex + 1, _receiveToken.Token);
-                        fullMessage = _memoryStream.ToArray();
-                        await _memoryStream.DisposeAsync();
-                        _memoryStream = new MemoryStream();
-                        await _memoryStream.WriteAsync(_partialBuffer, _lastTerminatorIndex + 1, bytesReceived - (_lastTerminatorIndex + 1), _receiveToken.Token);
-                        _logger.Log(Tag.CommunicationBasic, $"Received {fullMessage.Length} bytes from {_remote}");
-                        return ParseMessages<T>(fullMessage);
-                    }
-                    else
-                    {
-                        //Partial message, continue
-                        await _memoryStream.WriteAsync(_partialBuffer, 0, bytesReceived, _receiveToken.Token);
-                        return null;
-                    }
+                    //New Message Completed
+                    await _memoryStream.WriteAsync(_partialBuffer, 0, _lastTerminatorIndex + 1, _receiveToken.Token);
+                    fullMessage = _memoryStream.ToArray();
+                    await _memoryStream.DisposeAsync();
+                    _memoryStream = new MemoryStream();
+                    await _memoryStream.WriteAsync(_partialBuffer, _lastTerminatorIndex + 1, bytesReceived - (_lastTerminatorIndex + 1), _receiveToken.Token);
+                    _logger.Log(Tag.CommunicationBasic, $"Received {fullMessage.Length} bytes from {_remote}");
+                    return ParseMessages<T>(fullMessage);
                 }
                 else
                 {
-                    _logger.Log(Tag.CommunicationBasic, $"Speaker closed with remote {_remote}");
-                    this.Stop();
+                    //Partial message, continue
+                    await _memoryStream.WriteAsync(_partialBuffer, 0, bytesReceived, _receiveToken.Token);
                     return null;
                 }
             }
-            catch (ObjectDisposedException e)
+            else
             {
-                this.Stop();
-                _logger.Warning(Tag.CommunicationBasic, $"Failed receive from {_remote} because communication is closed");
-                return null;
-            }
-            catch (Exception e)
-            {
-                _logger.Error(Tag.CommunicationBasic, $"Failed receive from {_remote}", e);
-                this.Stop();
-                return null;
+                throw new Exception($"Total bytes received ({bytesReceived}) not greater than zero");
             }
         }
 
@@ -156,14 +139,21 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 catch when (_globalReceiveToken.IsCancellationRequested) 
                 { 
                     _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}, stopped by CancellationToken");
-                    this.Stop();
+                    break;
+                }
+                catch (ObjectDisposedException)
+                {
+                    _logger.Warning(Tag.CommunicationBasic, $"Failed receive from {_remote} because communication is closed");
+                    break;
                 }
                 catch (Exception e)
                 {
                     _logger.Error(Tag.CommunicationBasic, e);
-                    return;
+                    break;
                 }
             }
+
+            this.Stop();
         }
 
         public async Task Send(Message message)
