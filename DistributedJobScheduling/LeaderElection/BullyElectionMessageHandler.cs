@@ -94,7 +94,6 @@ namespace DistributedJobScheduling.LeaderElection
         {
             ElectMessage arrived = (ElectMessage)message;
             int myID = _groupManager.View.Me.ID.Value;
-            _candidate.CancelElection();
             if (myID > arrived.ID)
             {
                 _logger.Log(Tag.LeaderElection, $"Received ELECT from {node.ID.Value}, my id ({myID}) is greater so i start a new election");
@@ -104,7 +103,10 @@ namespace DistributedJobScheduling.LeaderElection
                     _candidate.Run();
             }
             else
+            {
+                _candidate.CancelElection();
                 _logger.Log(Tag.LeaderElection, $"Received ELECT from {node.ID.Value}, OK");
+            }
                 
             _electionInProgress = true;
         }

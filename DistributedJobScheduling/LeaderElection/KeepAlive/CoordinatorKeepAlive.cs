@@ -70,7 +70,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 {
                     _groupManager.Send(node, new KeepAliveRequest()).Wait();
                 }
-                catch(GroupViewManager.NotDeliveredException) { }
+                catch(NotDeliveredException) { }
                 _logger.Log(Tag.KeepAlive, $"Sent keep-alive request to {node}");
             });
             Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
