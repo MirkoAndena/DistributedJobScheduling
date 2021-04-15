@@ -18,6 +18,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
         private IGroupViewManager _groupManager;
         private IJobStorage _jobStorage;
         private ILogger _logger;
+        private List<Message> _notDeliveredRequests;
 
         public DistributedJobMessageHandler() : 
         this(DependencyManager.Get<IGroupViewManager>(),
@@ -32,6 +33,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
             _logger = logger;
             _jobStorage = jobStorage;
             _groupManager = groupManager;
+            _notDeliveredRequests = new List<Message>();
         }
 
         public void Init()
@@ -40,21 +42,66 @@ namespace DistributedJobScheduling.DistributedJobUpdate
             groupPublisher.RegisterForMessage(typeof(DistributedStorageUpdate), OnDistributedStorageUpdateArrived);
             groupPublisher.RegisterForMessage(typeof(DistributedStorageUpdateRequest), OnDistributedStorageUpdateRequestArrived);
             _jobStorage.JobUpdated += SendDistributedStorageUpdateRequest;
+            _groupManager.View.ViewChanged += OnViewChanged;
+        }
+
+        private void OnViewChanged()
+        {
+            // Send old messages when a stable view occured
+            if (_groupManager.View.Coordinator.ID.HasValue)
+            {
+                _logger.Log(Tag.DistributedUpdate, $"Start to send messages ({_notDeliveredRequests.Count})");
+                SendOldMessages();
+                _logger.Log(Tag.DistributedUpdate, $"Sent {_notDeliveredRequests.Count} old messages");
+            }
         }
         
+        private bool SendOldMessages()
+        {
+            bool success = true;
+            _notDeliveredRequests.ForEach(message => 
+            {
+                try 
+                { 
+                    if (_groupManager.View.ImCoordinator)
+                        _groupManager.SendMulticast(message).Wait();
+                    else
+                        _groupManager.Send(_groupManager.View.Coordinator, message).Wait(); 
+                    _notDeliveredRequests.Remove(message);
+                }
+                catch (NotDeliveredException) { success = false; }
+                catch (MulticastNotDeliveredException) { success = false; }
+            });
+            return success;
+        }
+
         private void SendDistributedStorageUpdateRequest(Job job)
         {
             if (_groupManager.View.ImCoordinator)
             {
-                _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
                 var message = new DistributedStorageUpdate(job);
-                _groupManager.SendMulticast(message).Wait();
+                try 
+                { 
+                    _groupManager.SendMulticast(message).Wait();
+                    _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                }
+                catch (NotDeliveredException) 
+                { 
+                    _notDeliveredRequests.Add(message); 
+                }
             }
             else
             {
-                _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
                 var message = new DistributedStorageUpdateRequest(job);
-                _groupManager.Send(_groupManager.View.Coordinator, message).Wait();
+                try 
+                { 
+                    _groupManager.Send(_groupManager.View.Coordinator, message).Wait();
+                    _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
+                }
+                catch (NotDeliveredException) 
+                { 
+                    _notDeliveredRequests.Add(message); 
+                }
             }
         }
 
@@ -67,10 +114,19 @@ namespace DistributedJobScheduling.DistributedJobUpdate
                 _logger.Log(Tag.DistributedUpdate, $"Distributed update request arrived");
                 if (message.Job.ID.HasValue && message.Job.Node.HasValue)
                 {
-                    _logger.Log(Tag.DistributedUpdate, $"Sending distributed update in multicast");
-                    _groupManager.SendMulticast(new DistributedStorageUpdate(message.Job)).Wait();
+                    try
+                    { 
+                        _groupManager.SendMulticast(new DistributedStorageUpdate(message.Job)).Wait(); 
+                        _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                    }
+                    catch (NotDeliveredException) 
+                    { 
+                        _notDeliveredRequests.Add(message);
+                        return; 
+                    }
+
                     _jobStorage.InsertOrUpdateJobLocally(message.Job);
-                    _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                    _logger.Log(Tag.DistributedUpdate, $"Updated local storage");
                 }
                 else
                     _logger.Warning(Tag.DistributedUpdate, $"Arrived job is malformed (id or owner null)");
