@@ -66,5 +66,16 @@ namespace DistributedJobScheduling.Client
             });
             return jobs;
         }
+
+        public List<IJobResult> Results(Predicate<int> predicate)
+        {
+            List<IJobResult> jobs = new List<IJobResult>();
+            _store.ForEach(job =>
+            {
+                if (predicate.Invoke(job.ID))
+                    jobs.Add(job.Result);
+            });
+            return jobs;
+        }
     }
 }

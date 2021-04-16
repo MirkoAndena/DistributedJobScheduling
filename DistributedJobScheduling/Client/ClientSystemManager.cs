@@ -37,9 +37,6 @@ namespace DistributedJobScheduling.Client
 
         #endregion
 
-        private JobInsertionMessageHandler _messageHandler;
-        private JobResultMessageHandler _jobResultHandler;
-
         public ClientSystemManager()
         {
             RegisterSubSystem<IConfigurationService, DictConfigService>(new DictConfigService());
@@ -90,14 +87,14 @@ namespace DistributedJobScheduling.Client
             if (speaker == null)
                 logger.Fatal(Tag.WorkerCommunication, "Can't communicate with network", new Exception($"Speaker can't connect to worker"));
 
-
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
+            Mandlebrot mandlebrot = new Mandlebrot(4, 256);
 
-            List<MandlebrotJob> jobs = Mandlebrot.CreateJobs(4, 256, 1000);
-            _messageHandler.SubmitJob(speaker, jobs);
+            var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
+            var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
 
             bool hasFinised = false;
-            _jobResultHandler.ResponsesArrived += () => 
+            jobResultHandler.ResponsesArrived += () => 
             {
                 int nonFinished = store.ClientJobs(result => result == null).Count;
                 if(nonFinished > 0)
@@ -108,14 +105,22 @@ namespace DistributedJobScheduling.Client
                     
                 Console.WriteLine("All responses arrived, shutdown");
                 hasFinised = true;
+
+                // Creating final result
+                List<IJobResult> results = store.Results(id => messageHandler.Requests.Contains(id));
+                mandlebrot.CreateImage(results);
+
                 speaker.Stop(); 
                 Shutdown.Invoke(); 
             };
 
+            List<MandlebrotJob> jobs = mandlebrot.CreateJobs(1000);
+            messageHandler.SubmitJob(speaker, jobs);
+
             while(!hasFinised)
             {
                 await Task.Delay(TimeSpan.FromSeconds(10));
-                _jobResultHandler.RequestAllStoredJobs(speaker);
+                jobResultHandler.RequestAllStoredJobs(speaker);
             }
         }
 

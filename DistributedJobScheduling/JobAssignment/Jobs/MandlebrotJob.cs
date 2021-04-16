@@ -13,10 +13,12 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
     { 
         public double[,] Value { get; private set; }
         public double Max { get; private set; }
+        public Rectangle Rectangle { get; }
 
-        public MandlebrotResult(int width, int height)
+        public MandlebrotResult(Rectangle rectangle)
         {
-            this.Value = new double[width, height];
+            this.Rectangle = rectangle;
+            this.Value = new double[rectangle.Width, rectangle.Height];
             this.Max = 0;
         }
 
@@ -56,7 +58,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
         public override async Task<IJobResult> Run()
         {
-            var result = new MandlebrotResult(_rect.Width, _rect.Height);
+            var result = new MandlebrotResult(_rect);
             var xRange = Enumerable.Range(_rect.X, _rect.Width);
             var yRange = Enumerable.Range(_rect.Y, _rect.Height);
             
@@ -84,7 +86,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
                 result.Value[coords.x - _rect.X, coords.y - _rect.Y] = value;
                 result.TryUpdateMax(value);
             }));
-
+            
             return result;
         }
     }

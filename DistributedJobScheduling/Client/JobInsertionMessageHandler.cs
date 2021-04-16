@@ -18,6 +18,7 @@ namespace DistributedJobScheduling.Client
 {
     public interface IJobInsertionMessageHandler
     {
+        List<int> Requests { get; } 
         void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : Job;
     }
 
@@ -31,6 +32,7 @@ namespace DistributedJobScheduling.Client
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
         private bool _registered;
+        public List<int> Requests { get; private set; } 
 
         public JobInsertionMessageHandler() : this (
             DependencyInjection.DependencyManager.Get<IClientStore>(),
@@ -50,6 +52,7 @@ namespace DistributedJobScheduling.Client
             _configuration = configuration;
             var now = DateTime.Now;
             _registered = false;
+            Requests = new List<int>();
         }
 
 
@@ -62,6 +65,7 @@ namespace DistributedJobScheduling.Client
                 _registered =  true;
             }
 
+            Requests.Clear();
             jobs.ForEach(job =>
             {
                 try
@@ -96,6 +100,7 @@ namespace DistributedJobScheduling.Client
                 _logger.Log(Tag.WorkerCommunication, $"Job successfully assigned to network, RequestID: {job.ID}");
                 
                 _store.StoreClientJob(job);
+                Requests.Add(job.ID);
                 _logger.Log(Tag.WorkerCommunication, $"Stored request id ({job.ID})");
             }
         }

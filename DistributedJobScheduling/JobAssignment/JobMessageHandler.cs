@@ -18,7 +18,6 @@ namespace DistributedJobScheduling.JobAssignment
     {
         private IGroupViewManager _groupManager;
         private ICommunicationManager _communicationManager;
-        private ITimeStamper _timeStamper;
         private ITranslationTable _translationTable;
         private IJobStorage _jobStorage;
         private ILogger _logger;
@@ -29,20 +28,17 @@ namespace DistributedJobScheduling.JobAssignment
         public JobMessageHandler() : 
         this(DependencyManager.Get<IGroupViewManager>(),
             DependencyManager.Get<ICommunicationManager>(),
-            DependencyManager.Get<ITimeStamper>(),
             DependencyManager.Get<ITranslationTable>(),
             DependencyManager.Get<IJobStorage>(),
             DependencyManager.Get<ILogger>()) {}
         public JobMessageHandler(IGroupViewManager groupManager,
             ICommunicationManager communicationManager,
-            ITimeStamper timeStamper,
             ITranslationTable translationTable, 
             IJobStorage jobStorage,
             ILogger logger)
         {
             _logger = logger;
             _translationTable = translationTable;
-            _timeStamper = timeStamper;
             _jobStorage = jobStorage;
             _groupManager = groupManager;
             _communicationManager = communicationManager;
@@ -72,7 +68,6 @@ namespace DistributedJobScheduling.JobAssignment
             
             try
             {
-                message.ApplyStamp(_timeStamper);
                 _communicationManager.Send(node, new ExecutionResponse(message, requestID));
                 _logger.Log(Tag.ClientCommunication, $"Response sent with a proposal request id ({requestID})");
             }
@@ -156,7 +151,6 @@ namespace DistributedJobScheduling.JobAssignment
             var responseMessage = new ResultResponse(message, job, message.RequestID);
             try
             {
-                message.ApplyStamp(_timeStamper);
                 _communicationManager.Send(node, responseMessage);
                 _logger.Log(Tag.ClientCommunication, $"Result sent back to the client");
             }
