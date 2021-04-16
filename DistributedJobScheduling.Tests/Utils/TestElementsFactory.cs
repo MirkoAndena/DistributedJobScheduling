@@ -12,7 +12,7 @@ namespace DistributedJobScheduling.Tests.Utils
         {
             Group group = CreateStubGroup();
             StubLogger stubLogger = new StubLogger(group.Me, output);
-            JobStorage jobManager = new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
+            JobStorage jobManager = null;//new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
             JobExecutor jobExecutor = new JobExecutor(jobManager, stubLogger);
             return (jobManager, jobExecutor);
         }
@@ -21,7 +21,7 @@ namespace DistributedJobScheduling.Tests.Utils
         {
             Group group = CreateStubGroup();
             StubLogger stubLogger = new StubLogger(group.Me, output);
-            return new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
+            return null;//new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
         }
 
         private static Group CreateStubGroup()

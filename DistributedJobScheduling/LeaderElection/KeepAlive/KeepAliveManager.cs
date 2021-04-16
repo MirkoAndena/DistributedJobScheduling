@@ -29,14 +29,14 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _logger = logger;
             _group = group;
-            group.View.ViewChanged += () => OnViewChanged(group.View.Coordinator);
+            group.View.ViewChanged += OnViewChanged;
             group.ViewChanging += Stop;
         }
 
-        private void OnViewChanged(Node coordinator)
+        private void OnViewChanged()
         {
             Stop();
-
+            Node coordinator = _group?.View?.Coordinator;
             if (coordinator != null)
             {
                 // Group has coordinator so keep-alive can start

@@ -1,4 +1,5 @@
 
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
@@ -11,14 +12,14 @@ namespace DistributedJobScheduling.Queues
     /// </summary>
     public class AsyncGenericQueue<T>
     {
-        private Queue<T> _queue;
+        private ConcurrentQueue<T> _queue;
         private TaskCompletionSource<bool> _dataAvailable;
         private bool _waitingForElement;
 
         public AsyncGenericQueue() : this(null) {}
         public AsyncGenericQueue(Queue<T> other)
         {
-            _queue = new Queue<T>(other ?? new Queue<T>());
+            _queue = new ConcurrentQueue<T>(other ?? new Queue<T>());
             _dataAvailable = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
@@ -81,7 +82,7 @@ namespace DistributedJobScheduling.Queues
             
             lock(_queue)
             {
-                if(_queue.Count > 0) element = _queue.Dequeue();
+                if(_queue.Count > 0) _queue.TryDequeue(out element);
                 if(_queue.Count == 0)
                     _dataAvailable = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             }

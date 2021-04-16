@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading;
 using System;
 using System.Threading.Tasks;
@@ -45,7 +46,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private Task _messageSender;
         private AsyncGenericQueue<(Node, Message)> _sendQueue;
         private Dictionary<Message, TaskCompletionSource<bool>> _messageSendStateMap;
-        private Queue<(Node, Message)> _onHoldMessages;
+        private ConcurrentQueue<(Node, Message)> _onHoldMessages;
 
         
         #region Messaging Variables
@@ -146,6 +147,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             try
             {
+                await Task.Yield();
                 while(!cancellationToken.IsCancellationRequested)
                 {
                     var messageToSend = await _sendQueue.Dequeue();
@@ -463,7 +465,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             ViewId = flushMessage.ViewId + 1
                         }); //Self-Report Viewchange
 
-                    if(_pendingViewChange.IsSame(flushMessage.RelatedChangeNode, flushMessage.RelatedChangeOperation, flushMessage.ViewId + 1))
+                    if(_pendingViewChange?.IsSame(flushMessage.RelatedChangeNode, flushMessage.RelatedChangeOperation, flushMessage.ViewId + 1) == true)
                     {
                         _logger.Log(Tag.VirtualSynchrony, $"Processing flush state");
                         _flushedNodes.Add(node);
@@ -497,7 +499,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     ViewChanging?.Invoke();
 
                     //Stop all messaging
-                    _onHoldMessages = new Queue<(Node, Message)>();
+                    _onHoldMessages = new ConcurrentQueue<(Node, Message)>();
 
                     if(_pendingViewChange.Operation == ViewChangeOperation.Left)
                     {
@@ -555,7 +557,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         _logger.Log(Tag.VirtualSynchrony, $"All nodes have flushed their messages, consolidating view change");
 
                         //Check for errors
-                        if (_pendingViewChange.Node == View.Me)
+                        if (_pendingViewChange.Operation == ViewChangeOperation.Left && _pendingViewChange.Node == View.Me)
                         {
                             var kickedException = new KickedFromViewException();
                             _logger.Fatal(Tag.VirtualSynchrony, kickedException.Message, kickedException);
@@ -563,6 +565,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         }
 
                         //Enstablish new View
+                        //FIXME: Something is up here
                         Node coordinator = View.ImCoordinator || _newGroupView.Contains(View.Coordinator) ? View.Coordinator : null;
                         View.Update(_newGroupView, coordinator, _pendingViewChange.ViewId);
                         var viewChangeTask = _viewChangeInProgress;

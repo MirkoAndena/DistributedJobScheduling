@@ -92,7 +92,13 @@ namespace DistributedJobScheduling.Communication
                 _registry.UpdateNodeID(node, message.SenderID.Value);
 
             _logger.Log(Tag.Communication, $"Received message of type {message.GetType()} from {node.ToString()}");
-            OnMessageReceived?.Invoke(node, message);
+            try
+            {
+                OnMessageReceived?.Invoke(node, message);
+            }
+            catch(Exception ex) {
+                _logger.Error(Tag.Communication, $"Exception generated while handling {message.GetType()} from {node.ToString()}", ex);
+            }
         }
 
         private void OnSpeakerStopped(Node remote)
