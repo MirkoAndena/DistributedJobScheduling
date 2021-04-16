@@ -147,7 +147,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             try
             {
-                await Task.Yield();
                 while(!cancellationToken.IsCancellationRequested)
                 {
                     var messageToSend = await _sendQueue.Dequeue();
@@ -253,7 +252,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _logger.Log(Tag.VirtualSynchrony, $"Queued send {message.GetType().Name} to {node}");
             CancellationTokenSource cts = new CancellationTokenSource();
             await Task.WhenAny(sendMessageTask.Item2.Task,
-                               Task.Delay(TimeSpan.FromSeconds(timeout), cts.Token));
+                            Task.Delay(TimeSpan.FromSeconds(timeout), cts.Token));
             cts.Cancel();
             
             if(!sendMessageTask.Item2.Task.IsCompleted || !sendMessageTask.Item2.Task.Result)
@@ -568,6 +567,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         //FIXME: Something is up here
                         Node coordinator = View.ImCoordinator || _newGroupView.Contains(View.Coordinator) ? View.Coordinator : null;
                         View.Update(_newGroupView, coordinator, _pendingViewChange.ViewId);
+                        _logger.Log(Tag.VirtualSynchrony, $"Consolidated view {View.ViewId}: COORD => [{coordinator}], OTHERS => [{string.Join(",", _newGroupView)}]");
                         var viewChangeTask = _viewChangeInProgress;
 
                         //Reset view state change
