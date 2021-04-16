@@ -88,7 +88,7 @@ namespace DistributedJobScheduling.Communication
 
         private void OnMessageReceivedFromSpeakerOrShouter(Node node, Message message)
         {
-            if (!node.ID.HasValue && message.SenderID.HasValue)
+            if (message.SenderID.HasValue && node.ID != message.SenderID)
                 _registry.UpdateNodeID(node, message.SenderID.Value);
 
             _logger.Log(Tag.Communication, $"Received message of type {message.GetType()} from {node.ToString()}");
@@ -114,10 +114,13 @@ namespace DistributedJobScheduling.Communication
         {
             try
             {
-                Speaker speaker = await GetSpeakerTo(node, timeout);
                 message.SenderID = _me.ID;
                 message.ReceiverID = node.ID;
-                await _sendOrdering.OrderedExecute(message, () => speaker.Send(message));
+
+                await _sendOrdering.OrderedExecute(message, async () => {
+                    Speaker speaker = await GetSpeakerTo(node, timeout);
+                    await speaker.Send(message);
+                });
             }
             catch
             {

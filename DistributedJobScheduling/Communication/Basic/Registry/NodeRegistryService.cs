@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 namespace DistributedJobScheduling.Communication.Basic
 {
@@ -66,6 +67,16 @@ namespace DistributedJobScheduling.Communication.Basic
 
                     if(node.ID.HasValue)
                         _nodeIDMap.Remove(node.ID.Value);
+
+                    if(_nodeIDMap.ContainsKey(newID))
+                    {
+                        var removeNode = _nodeIDMap[newID];
+                        _localNodes.Remove(removeNode);
+                        if(removeNode.IP != null) _nodeIPMap.Remove(removeNode.IP);
+                        _nodeIDMap.Remove(newID);
+                        Console.WriteLine($"Removed changed node {removeNode} substituted by old node {node} with new ID {newID}");
+                    }
+
                     node.ID = newID;
                     _nodeIDMap.Add(newID, node);
                 }

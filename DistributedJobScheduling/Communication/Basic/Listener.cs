@@ -49,7 +49,7 @@ namespace DistributedJobScheduling.Communication.Basic
             try
             {
                 _listener.Start();
-                _logger.Log(Tag.CommunicationBasic, $"Start listening on port {PORT}");
+                _logger.Log(Tag.CommunicationBasic, $"Start listening on {address.ToString()}:{PORT}");
             }
             catch (Exception e)
             {

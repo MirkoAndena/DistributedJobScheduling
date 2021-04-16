@@ -26,6 +26,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
         private CancellationTokenSource _receiveToken;
         private CancellationTokenSource _globalReceiveToken;
         private ISerializer _serializer;
+        private SemaphoreSlim _sendSemaphore;
 
         protected Node _remote;
 
@@ -46,6 +47,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             _sendToken = new CancellationTokenSource();
             _receiveToken = new CancellationTokenSource();
             _globalReceiveToken = new CancellationTokenSource();
+            _sendSemaphore = new SemaphoreSlim(1,1);
 
             if(_client.Connected)
                 _stream = _client.GetStream();
@@ -137,7 +139,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     List<Message> response = await Receive<Message>();
                     if(response != null)
                     {
-                        _logger.Log(Tag.CommunicationBasic, $"Routing {response.Count} messages from {_remote}");
+                        _logger.Log(Tag.CommunicationBasic, $"Routing {response.Count} messages from {_remote.IP}");
                         response.ForEach(message => MessageReceived?.Invoke(_remote, message));
                     }
                 }
@@ -168,9 +170,14 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 if(IsConnected)
                 {
                     byte[] bytes = _serializer.Serialize(message);
+
+                    //One sender at a time
+                    await _sendSemaphore.WaitAsync();
                     await _stream.WriteAsync(bytes, 0, bytes.Length, _sendToken.Token);
                     await _stream.WriteAsync(new byte[] { (byte)'\0' }, _sendToken.Token);
                     await _stream.FlushAsync(_sendToken.Token);
+                    _sendSemaphore.Release();
+
                     _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
                 }
             }

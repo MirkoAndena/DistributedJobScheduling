@@ -201,10 +201,14 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     }
                 }
             }
-            catch {}
+            catch(Exception ex) {
+                if(!cancellationToken.IsCancellationRequested)
+                    _logger.Fatal(Tag.VirtualSynchrony, "Message router errored out", ex);
+            }
             finally
             {
-                _logger.Log(Tag.VirtualSynchrony, "Message router token got cancelled, stopping send task...");
+                if(cancellationToken.IsCancellationRequested)
+                    _logger.Warning(Tag.VirtualSynchrony, "Message router token got cancelled, stopping send task...");
             }
         }
 
@@ -241,8 +245,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
         {
+            _logger.Log(Tag.VirtualSynchrony, $"Queuing send {message.GetType().Name} to {node}");
             var sendMessageTask = EnqueueMessage(node, message);
 
+            _logger.Log(Tag.VirtualSynchrony, $"Queued send {message.GetType().Name} to {node}");
             CancellationTokenSource cts = new CancellationTokenSource();
             await Task.WhenAny(sendMessageTask.Item2.Task,
                                Task.Delay(TimeSpan.FromSeconds(timeout), cts.Token));
@@ -262,7 +268,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             try
             {
-                _logger.Log(Tag.VirtualSynchrony, $"Queuing send {message.GetType().Name} to {node}");
                 await EnqueueMessageAndWaitSend(node, message, timeout);
                 _logger.Log(Tag.VirtualSynchrony, $"Sent {message.GetType().Name}({message.TimeStamp}) to {node}");
             }
