@@ -85,37 +85,18 @@ namespace DistributedJobScheduling.Client
 
         private async Task Main()
         {
-            var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
-            var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
-            var serializer = DependencyInjection.DependencyManager.Get<ISerializer>();
+            var logger = DependencyManager.Get<ILogger>();
+            var speaker = CreateConnection();
+            if (speaker == null)
+                logger.Fatal(Tag.WorkerCommunication, "Can't communicate with network", new Exception($"Speaker can't connect to worker"));
+
+
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
 
-            Node node = nodeRegistry.GetOrCreate(ip: configuration.GetValue<string>("worker"));
-            var speaker = new BoldSpeaker(node, serializer);
-            speaker.Connect(30).Wait();
-            speaker.Start();
-
-            int batches = 4;
-            int totalWidth = 256;
-            int totalHeight = 256;
-            int iterations = 1000;
-
-            int batchesPerSide = batches / 2;
-            for(int i = 0; i < batchesPerSide; i++)
-            {
-                int horizontalBatchSize = totalWidth / batchesPerSide;
-                int startingX = i * horizontalBatchSize;
-                for(int j = 0; j < batchesPerSide; j++)
-                {
-                    int verticalBatchSize = totalHeight / batchesPerSide;
-                    int startingY = j * verticalBatchSize;
-                    //_messageHandler.SubmitJob(speaker, new MandlebrotJob(new Rectangle(startingX, startingY, horizontalBatchSize, verticalBatchSize), totalWidth, totalHeight, iterations));
-                    _messageHandler.SubmitJob(speaker, new TimeoutJob(30));
-                }
-            }
+            List<MandlebrotJob> jobs = Mandlebrot.CreateJobs(4, 256, 1000);
+            _messageHandler.SubmitJob(speaker, jobs);
 
             bool hasFinised = false;
-            ILogger logger = DependencyManager.Get<ILogger>();
             _jobResultHandler.ResponsesArrived += () => 
             {
                 int nonFinished = store.ClientJobs(result => result == null).Count;
@@ -124,8 +105,6 @@ namespace DistributedJobScheduling.Client
                     Console.WriteLine(nonFinished + " job not finished yet");
                     return;
                 }
-
-                logger.Flush();
                     
                 Console.WriteLine("All responses arrived, shutdown");
                 hasFinised = true;
@@ -137,6 +116,26 @@ namespace DistributedJobScheduling.Client
             {
                 await Task.Delay(TimeSpan.FromSeconds(10));
                 _jobResultHandler.RequestAllStoredJobs(speaker);
+            }
+        }
+
+        private BoldSpeaker CreateConnection()
+        {
+            var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
+            var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
+            var serializer = DependencyInjection.DependencyManager.Get<ISerializer>();
+            Node node = nodeRegistry.GetOrCreate(ip: configuration.GetValue<string>("worker"));
+            var speaker = new BoldSpeaker(node, serializer);
+
+            try
+            {
+                speaker.Connect(30).Wait();
+                speaker.Start();
+                return speaker;
+            }
+            catch
+            {
+                return null;
             }
         }
     }

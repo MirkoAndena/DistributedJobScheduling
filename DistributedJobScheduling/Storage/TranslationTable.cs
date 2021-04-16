@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Reflection.Metadata;
 using System.Collections.Generic;
 using DistributedJobScheduling.JobAssignment.Jobs;
@@ -28,7 +29,10 @@ namespace DistributedJobScheduling.Storage
         public void Init()
         {
             _secureStorage.Init();
+            DeleteUnAssignedIDs();
         }
+
+        private void DeleteUnAssignedIDs() => _secureStorage.RemoveAll(id => id == null);
 
         public int CreateNewIndex => _reusableIndex.NewIndex;
 
@@ -54,6 +58,12 @@ namespace DistributedJobScheduling.Storage
             if (_secureStorage.ContainsKey(localID))
                 return _secureStorage[localID];
             return null;
+        }
+
+        public void Remove(int localID)
+        {
+            if (_secureStorage.ContainsKey(localID))
+                _secureStorage.Remove(localID);
         }
     }
 }

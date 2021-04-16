@@ -76,7 +76,15 @@ namespace DistributedJobScheduling.Client
             }
 
             Message message = new ResultRequest(job.ID);
-            _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
+
+            try
+            {
+                _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
+            }
+            catch (Exception e)
+            {
+                _logger.Error(Tag.WorkerCommunication, "Job request not sent", e);
+            }
         }
 
         public void Start()

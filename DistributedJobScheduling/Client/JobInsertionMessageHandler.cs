@@ -12,12 +12,13 @@ using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.Communication.Messaging;
+using System.Collections.Generic;
 
 namespace DistributedJobScheduling.Client
 {
     public interface IJobInsertionMessageHandler
     {
-        void SubmitJob(BoldSpeaker speaker, Job job);
+        void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : Job;
     }
 
     public class JobInsertionMessageHandler : IStartable, IJobInsertionMessageHandler
@@ -52,7 +53,7 @@ namespace DistributedJobScheduling.Client
         }
 
 
-        public void SubmitJob(BoldSpeaker speaker, Job job)
+        public void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : Job
         {
             _speaker = speaker;
             if (!_registered) 
@@ -61,9 +62,19 @@ namespace DistributedJobScheduling.Client
                 _registered =  true;
             }
 
-            Message message = new ExecutionRequest(job);
-            _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
-            _logger.Log(Tag.WorkerCommunication, $"Job submit request sent");
+            jobs.ForEach(job =>
+            {
+                try
+                {
+                    Message message = new ExecutionRequest(job);
+                    _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
+                    _logger.Log(Tag.WorkerCommunication, $"Job submit request sent");
+                }
+                catch (Exception e)
+                {
+                    _logger.Fatal(Tag.ClientCommunication, "An error occured during job submission", e);
+                }
+            });
         }
 
         public void Stop()

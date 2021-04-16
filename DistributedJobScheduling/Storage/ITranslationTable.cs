@@ -7,5 +7,6 @@ namespace DistributedJobScheduling.Storage
         void Init();
         void StoreIndex(int requestId);
         void Update(int requestId, int job);
+        void Remove(int localID);
     }
 }

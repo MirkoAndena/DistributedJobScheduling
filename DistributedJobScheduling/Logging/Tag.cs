@@ -17,6 +17,7 @@ namespace DistributedJobScheduling.Logging
         UnHandled,
         WorkerCommunication,
         DistributedUpdate,
-        ClientCommunication
+        ClientCommunication,
+        OldMessageHandler
     }
 }

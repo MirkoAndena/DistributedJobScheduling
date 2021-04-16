@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Diagnostics;
 using System;
 using System.Collections.Generic;
@@ -5,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.LifeCycle
 {
@@ -41,6 +43,7 @@ namespace DistributedJobScheduling.LifeCycle
         {
             Shutdown += delegate 
             { 
+                DependencyManager.Get<ILogger>().Flush();
                 Stop(); 
                 _terminationSemaphore.Release();
                 Destroy();
