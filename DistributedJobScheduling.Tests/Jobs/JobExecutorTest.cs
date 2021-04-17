@@ -1,3 +1,5 @@
+using System;
+using System.Threading.Tasks;
 using System.Linq;
 using System.Threading;
 using System.Collections.Generic;
@@ -17,38 +19,43 @@ namespace DistributedJobScheduling.Tests.Jobs
 {
     using Store = BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job>;
 
-    public class JobAssignmentTest : JobUtils
+    public class JobExecutorTest
     {
         private Group _group;
         private ILogger _logger;
         private Store _secureStore;
         private ReusableIndex _index;
+        private IJobStorage _jobStorage;
+        private JobExecutor _executor;
 
-        public JobAssignmentTest(ITestOutputHelper testOutputHelper)
+        public JobExecutorTest(ITestOutputHelper testOutputHelper) : base()
         {
             _group = TestElementsFactory.CreateStubGroup();
             _logger = new StubLogger(_group.Me, testOutputHelper);
-            _secureStore = new Store(new MemoryStore<Dictionary<int, Job>>(), _logger);
+            IStore<Dictionary<int, Job>> store = new MemoryStore<Dictionary<int, Job>>();
+            _secureStore = new Store(store, _logger);
             _index = new ReusableIndex();
+            _jobStorage = new JobStorage(store, _logger, new FakeGroupViewManager(_group));
+            _executor = new JobExecutor(_jobStorage, _logger);
             _secureStore.Init();
         }
 
         [Fact]
-        public void NodeWithLessJobs()
+        public async void ExecuteMyJobsTest()
         {
+            // 4 jobs assigned to me
             JobTestUtils.StoreJobs(_index, _group, _secureStore);
-            int id = JobUtils.FindNodeWithLessJobs(_group, _logger, _secureStore);
-            Assert.Equal(2, id);
-        }
+            bool executedAll = false;
+            _executor.Start();
 
-        [Fact]
-        public void OccurrencesTest()
-        {
-            JobTestUtils.StoreJobs(_index, _group, _secureStore);
-            Dictionary<int, int> occurreces = JobUtils.FindNodesOccurrences(_group, _logger, _secureStore);
-            Assert.Equal(4, occurreces[_group.Me.ID.Value]);
-            Assert.Equal(3, occurreces[_group.Coordinator.ID.Value]);
-            _group.Others.ForEach(node => Assert.Equal(node.ID.Value, occurreces[node.ID.Value]));
+            await Task.Delay(TimeSpan.FromSeconds(60)).ContinueWith(t => 
+            {
+                int count = _secureStore.Count(value => value.Node.Value == _group.Me.ID.Value && value.Status == JobStatus.COMPLETED);
+                Assert.Equal(4, count);
+                executedAll = true;
+            });
+
+            Assert.True(executedAll);
         }
     }
 }

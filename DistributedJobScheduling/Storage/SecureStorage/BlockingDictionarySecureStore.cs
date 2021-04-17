@@ -5,6 +5,7 @@ using DistributedJobScheduling.DependencyInjection;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using System.Collections.Generic;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.Storage.SecureStorage
 {
@@ -29,6 +30,27 @@ namespace DistributedJobScheduling.Storage.SecureStorage
             lock(_value)
             {
                 return this._value[index];
+            }
+        }
+
+        public List<CT> GetAll(Predicate<CT> predicate)
+        {
+            lock(_value)
+            {
+                List<CT> selected = new List<CT>();
+                this._value.ForEach(item => {
+                    if (predicate(item.Value))
+                        selected.Add(item.Value);
+                });
+                return selected;
+            }
+        }
+
+        public int Count(Predicate<CT> predicate)
+        {
+            lock(_value)
+            {
+                return this._value.Count(item => predicate(item.Value));
             }
         }
 

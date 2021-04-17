@@ -26,10 +26,11 @@ namespace DistributedJobScheduling.Tests
         public async void JobRun()
         {
             bool executed = false;
-            _store.InsertAndAssign(new TimeoutJob(1));
-            _store.InsertAndAssign(new TimeoutJob(1));
-            _store.InsertAndAssign(new TimeoutJob(1));
-            _store.InsertAndAssign(new TimeoutJob(1));
+            Random random = new Random();
+            _store.InsertAndAssign(new TimeoutJob(2 + random.Next(7)));
+            _store.InsertAndAssign(new TimeoutJob(2 + random.Next(7)));
+            _store.InsertAndAssign(new TimeoutJob(2 + random.Next(7)));
+            _store.InsertAndAssign(new TimeoutJob(2 + random.Next(7)));
             _store.JobUpdated += job =>
             {
                 executed = job.Status == JobStatus.COMPLETED;
