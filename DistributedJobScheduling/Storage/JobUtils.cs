@@ -12,7 +12,7 @@ namespace DistributedJobScheduling.JobAssignment
 {
     public class JobUtils
     { 
-        private static Dictionary<int, int> FindNodesOccurrences(Group group, ILogger logger, BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> secureStore)
+        protected static Dictionary<int, int> FindNodesOccurrences(Group group, ILogger logger, BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> secureStore)
         {
             // Init each node with no occurrences
             Dictionary<int, int> nodeJobCount = new Dictionary<int, int>();

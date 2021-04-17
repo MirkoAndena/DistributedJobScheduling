@@ -1,18 +1,22 @@
+using System.Collections.Generic;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.JobAssignment;
+using DistributedJobScheduling.JobAssignment.Jobs;
 using DistributedJobScheduling.Storage;
 using DistributedJobScheduling.VirtualSynchrony;
 using Xunit.Abstractions;
 
 namespace DistributedJobScheduling.Tests.Utils
 {
+    using JobCollection = Dictionary<int, Job>;
+
     public static class TestElementsFactory
     {
         public static (JobStorage, JobExecutor) CreateJobManagerAndExecutor(ITestOutputHelper output)
         {
             Group group = CreateStubGroup();
             StubLogger stubLogger = new StubLogger(group.Me, output);
-            JobStorage jobManager = null;//new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
+            JobStorage jobManager = new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
             JobExecutor jobExecutor = new JobExecutor(jobManager, stubLogger);
             return (jobManager, jobExecutor);
         }
@@ -21,10 +25,10 @@ namespace DistributedJobScheduling.Tests.Utils
         {
             Group group = CreateStubGroup();
             StubLogger stubLogger = new StubLogger(group.Me, output);
-            return null;//new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
+            return new JobStorage(new MemoryStore<JobCollection>(), stubLogger, new FakeGroupViewManager(group));
         }
 
-        private static Group CreateStubGroup()
+        public static Group CreateStubGroup()
         {
             Node.INodeRegistry registry = new Node.NodeRegistryService();
             Group group = new Group(registry.GetOrCreate("127.0.0.1", 0));
