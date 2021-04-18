@@ -10,6 +10,9 @@ namespace DistributedJobScheduling.Tests
     {
         private Node _boundNode;
         private ITestOutputHelper _output;
+
+        public StubLogger(ITestOutputHelper outputHelper) : this(null, outputHelper) { }
+
         public StubLogger(Node node, ITestOutputHelper output)
         {
             _boundNode = node;
@@ -43,7 +46,7 @@ namespace DistributedJobScheduling.Tests
 
         private void WriteLog(Tag tag, string content, Exception e = null)
         {
-            string message = $"|{DateTime.Now.ToString("hh:mm:ss.fff")}|{{{_boundNode.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}";
+            string message = $"|{DateTime.Now.ToString("hh:mm:ss.fff")}|{{{_boundNode?.ToString()}}} [{Enum.GetName(typeof(Tag), tag)}] \t {content}";
             Console.WriteLine(message);
             _output.WriteLine(message);
             if(e != null)

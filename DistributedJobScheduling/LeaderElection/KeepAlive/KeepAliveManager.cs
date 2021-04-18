@@ -14,8 +14,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
     public class KeepAliveManager : IStartable
     {
-        public Action CoordinatorDied;
-        public Action<List<Node>> NodesDied;
+        public event Action CoordinatorDied;
+        public event Action<List<Node>> NodesDied;
 
         private IStartable _keepAlive;
         private ILogger _logger;

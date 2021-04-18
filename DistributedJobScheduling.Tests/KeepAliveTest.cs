@@ -15,70 +15,71 @@ using DistributedJobScheduling.Tests;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
-    public class KeepAliveTest
+    public class KeepAliveTest : IDisposable
     {
-        IGroupViewManager _group;
-        ILogger _logger;
-        ITimeStamper _timeStamper;
-        FakeNode _diedNode, _coordinator;
-        ITestOutputHelper _output;
-        StubNetworkBus _networkBus;
+        private IGroupViewManager _group;
+        private ILogger _logger;
+        private ITimeStamper _timeStamper;
+        private ITestOutputHelper _output;
+        private StubNetworkBus _networkBus;
+        private Node _coordinator, _worker;
+        private CoordinatorKeepAlive _coordinatorKeepAlive;
+        private WorkersKeepAlive _workersKeepAlive;
         
         public KeepAliveTest(ITestOutputHelper output)
         {
             _output = output;
             _networkBus = new StubNetworkBus(new Random().Next());
-            FakeNode[] nodes = new FakeNode[3];
-            for(int i = 0; i < nodes.Length; i++)
-                nodes[i] = new FakeNode(i, i == 0, _networkBus, output, 3);
-            NodeToolkit.CreateView(nodes, nodes[0]);
-            _group = nodes[0].Group;
-            _coordinator = nodes[0];
-            _diedNode = nodes[1];
-            _logger = new StubLogger(_group.View.Me, _output);
-            NodeToolkit.StartSequence(nodes, 50).Wait();
+            _logger = new StubLogger(_output);
+            _group = CreateGroup(_output);
         }
 
-        private void KillNode(FakeNode node)
+        private IGroupViewManager CreateGroup(ITestOutputHelper output)
         {
-            node.Group.View.Remove(node.Node);
+            FakeNode[] nodes = new FakeNode[3];
+            nodes[0] = new FakeNode(0, true, _networkBus, output, 3);
+            nodes[1] = new FakeNode(1, false, _networkBus, output, 3);
+            nodes[2] = new FakeNode(2, false, _networkBus, output, 3);
+
+            _coordinator = nodes[0].Node;
+            _worker = nodes[1].Node;
+
+            NodeToolkit.CreateView(nodes, nodes[0]);
+            NodeToolkit.StartSequence(nodes, 50).Wait();
+            return nodes[0].Group;
         }
 
         [Fact]
-        public async void WorkerFail()
+        public async void EveryoneLives()
         {
-            bool someoneDies = false;
-            bool coordinatorDie = false;
+            bool coordDeath = false;
+            bool someoneDeath = false;
+            StartKeepAlive(() => coordDeath = true, nodes => someoneDeath = nodes.Count > 0);
 
-            CoordinatorKeepAlive coordinatorKeepAlive = new CoordinatorKeepAlive(_group, _logger);
-            coordinatorKeepAlive.NodesDied += nodes =>
+            await Task.Delay(TimeSpan.FromSeconds(20)).ContinueWith(t => 
             {
-                Assert.Equal(1, nodes.Count);
-                Assert.Equal(_diedNode.Node, nodes[0]);
-                someoneDies = true;
-                _output.WriteLine($"Expected to die: {_diedNode.Node.ToString()}, Nodes died: {nodes.ToString<Node>()}");
-            };
-            WorkersKeepAlive workersKeepAlive = new WorkersKeepAlive(_group, _logger);
-            workersKeepAlive.CoordinatorDied += () =>
-            {
-                coordinatorDie = true;
-            };
-            
-            workersKeepAlive.Start();
-            coordinatorKeepAlive.Start();
-
-            Task.Delay(TimeSpan.FromSeconds(20)).ContinueWith(t => KillNode(_diedNode));
-
-            await Task.Delay(TimeSpan.FromSeconds(30)).ContinueWith(t => 
-            {
-                workersKeepAlive.Stop();
-                coordinatorKeepAlive.Stop();
-                Assert.True(someoneDies);
-                _output.WriteLine($"Some nodes died? {(someoneDies ? "YES" : "NO")}");
-                Assert.True(coordinatorDie);
-                _output.WriteLine($"Coordinator died? {(coordinatorDie ? "YES" : "NO")}");
-                _networkBus.Dispose();
+                Assert.False(coordDeath);
+                Assert.False(someoneDeath);
             });
+        }
+
+        public void StartKeepAlive(Action coordinatorDeath, Action<List<Node>> workerDeath)
+        {
+            _coordinatorKeepAlive = new CoordinatorKeepAlive(_group, _logger);
+            _coordinatorKeepAlive.NodesDied += workerDeath;
+
+            _workersKeepAlive = new WorkersKeepAlive(_group, _logger);
+            _workersKeepAlive.CoordinatorDied += coordinatorDeath;
+            
+            _workersKeepAlive.Start();
+            _coordinatorKeepAlive.Start();
+        }
+
+        public void Dispose()
+        {
+            _coordinatorKeepAlive.Stop();
+            _workersKeepAlive.Stop();
+            _networkBus.Dispose();
         }
     }
 }
