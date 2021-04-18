@@ -21,7 +21,7 @@ namespace DistributedJobScheduling.Storage
     {
         private ReusableIndex _reusableIndex;
         private AsyncGenericQueue<int> _executionBlips;
-        private BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> _secureStore;
+        protected BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> _secureStore;
         private ILogger _logger;
         private Group _group;
         private HashSet<Job> _executionSet;
@@ -115,7 +115,7 @@ namespace DistributedJobScheduling.Storage
                 _secureStore.Add(job.ID.Value, job);
             }
             _secureStore.ValuesChanged?.Invoke();
-            _logger.Log(Tag.JobStorage, $"Job {job} inserted locally with result {job.Result?.ToString()}");
+            _logger.Log(Tag.JobStorage, $"Job {job} inserted locally{(job.Result == null ? "" : ", result: " + job.Result.ToString())}");
             UnlockJobExecution();
         }
 
@@ -126,16 +126,19 @@ namespace DistributedJobScheduling.Storage
 
         public async Task<Job> FindJobToExecute()
         {
+            _logger.Log(Tag.JobStorage, "Finding job to execute");
             await _executionBlips.Dequeue();
             Job toExecute = null;
             _secureStore.Values.ForEach(job => 
             {
                 if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
                 {
+                    _logger.Log(Tag.JobStorage, $"Found job {job}");
                     toExecute = job;
                     _executionSet.Add(toExecute);
                 }
             });
+
             return toExecute;
         }
 

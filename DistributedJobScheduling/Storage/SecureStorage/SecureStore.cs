@@ -25,10 +25,12 @@ namespace DistributedJobScheduling.Storage.SecureStorage
         public void Init()
         {
             T stored = _store.Read();
-            _logger.Log(Tag.SecureStorage, $"Read {typeof(T)} from secure storage");
             
             if (stored != null)
+            {
+                _logger.Log(Tag.SecureStorage, $"Read {typeof(T).Name} from secure storage");
                 _value = stored;
+            }
             else
             {
                 _logger.Log(Tag.SecureStorage, $"No data read from secure storage");

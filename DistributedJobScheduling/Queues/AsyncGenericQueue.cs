@@ -90,5 +90,7 @@ namespace DistributedJobScheduling.Queues
             _waitingForElement = false;
             return element;
         }
+
+        public override string ToString() => _queue.ToString();
     }
 }

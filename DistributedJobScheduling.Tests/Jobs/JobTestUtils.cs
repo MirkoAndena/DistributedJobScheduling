@@ -39,10 +39,16 @@ namespace DistributedJobScheduling.Tests.Jobs
 
         public static void StoreJob(ReusableIndex index, Store secureStore, Node owner)
         {
+            Job job = CreateJob(index, owner);
+            secureStore.Add(job.ID.Value, job);
+        }
+
+        public static Job CreateJob(ReusableIndex index, Node owner)
+        {
             Job job = new TimeoutJob(1);
             job.ID = index.NewIndex;
             job.Node = owner.ID.Value;
-            secureStore.Add(job.ID.Value, job);
+            return job;
         }
     }
 }

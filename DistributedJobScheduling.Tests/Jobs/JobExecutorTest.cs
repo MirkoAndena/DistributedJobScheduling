@@ -14,18 +14,26 @@ using Xunit.Abstractions;
 using Xunit;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Storage;
+using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.Tests.Jobs
 {
     using Store = BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job>;
 
+    class TestJobStorage : JobStorage
+    {
+        public TestJobStorage( IStore<Dictionary<int, Job>> store, ILogger logger, IGroupViewManager groupViewManager) : 
+        base (store, logger, groupViewManager) { }
+
+        public Store Store => _secureStore;
+    }
+
     public class JobExecutorTest
     {
         private Group _group;
         private ILogger _logger;
-        private Store _secureStore;
         private ReusableIndex _index;
-        private IJobStorage _jobStorage;
+        private TestJobStorage _jobStorage;
         private JobExecutor _executor;
 
         public JobExecutorTest(ITestOutputHelper testOutputHelper) : base()
@@ -33,25 +41,26 @@ namespace DistributedJobScheduling.Tests.Jobs
             _group = TestElementsFactory.CreateStubGroup();
             _logger = new StubLogger(_group.Me, testOutputHelper);
             IStore<Dictionary<int, Job>> store = new MemoryStore<Dictionary<int, Job>>();
-            _secureStore = new Store(store, _logger);
             _index = new ReusableIndex();
-            _jobStorage = new JobStorage(store, _logger, new FakeGroupViewManager(_group));
+            _jobStorage = new TestJobStorage(store, _logger, new FakeGroupViewManager(_group));
             _executor = new JobExecutor(_jobStorage, _logger);
-            _secureStore.Init();
+            _jobStorage.Init();
         }
 
         [Fact]
         public async void ExecuteMyJobsTest()
         {
-            // 4 jobs assigned to me
-            JobTestUtils.StoreJobs(_index, _group, _secureStore);
+            _jobStorage.InsertOrUpdateJobLocally(JobTestUtils.CreateJob(_index, _group.Me));
+            _jobStorage.InsertOrUpdateJobLocally(JobTestUtils.CreateJob(_index, _group.Me));
+            _jobStorage.InsertOrUpdateJobLocally(JobTestUtils.CreateJob(_index, _group.Me));
+
             bool executedAll = false;
             _executor.Start();
 
-            await Task.Delay(TimeSpan.FromSeconds(60)).ContinueWith(t => 
+            await Task.Delay(TimeSpan.FromSeconds(20)).ContinueWith(t => 
             {
-                int count = _secureStore.Count(value => value.Node.Value == _group.Me.ID.Value && value.Status == JobStatus.COMPLETED);
-                Assert.Equal(4, count);
+                int count = _jobStorage.Store.Count(value => value.Node.Value == _group.Me.ID.Value && value.Status == JobStatus.COMPLETED);
+                Assert.Equal(3, count);
                 executedAll = true;
             });
 
