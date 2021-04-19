@@ -57,7 +57,10 @@ namespace DistributedJobScheduling.LeaderElection
 
         private void OnViewChanged()
         {
-            if (_groupManager.View.Coordinator == null)
+            bool coordinatorDeath = _groupManager?.View?.Coordinator == null;
+            string coordinator = coordinatorDeath ? "death" : _groupManager.View.Coordinator.ToString();
+            _logger.Log(Tag.LeaderElection, $"View changed with coordinator {coordinator}");
+            if (coordinatorDeath)
             {
                 _electionInProgress = false;
                 Start();
@@ -67,7 +70,7 @@ namespace DistributedJobScheduling.LeaderElection
 
         private void OnCoordinatorDeathReported()
         {
-            _logger.Log(Tag.LeaderElection, $"Coordinator is dead, starting election");
+            _logger.Log(Tag.LeaderElection, $"Starting election");
             _candidate.Run();
         }
 

@@ -14,9 +14,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
     public class KeepAliveManager : IStartable
     {
-        public event Action CoordinatorDied;
-        public event Action<List<Node>> NodesDied;
-
         private IStartable _keepAlive;
         private ILogger _logger;
         private IGroupViewManager _group;
@@ -29,9 +26,31 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _logger = logger;
             _group = group;
-            group.View.ViewChanged += OnViewChanged;
-            group.ViewChanging += Stop;
         }
+
+        public void Start()
+        {
+            _logger.Log(Tag.KeepAlive, "Registered to ViewChanged and ViewChanging events");
+            _group.View.ViewChanged += OnViewChanged;
+            _group.ViewChanging += Stop;
+        }
+
+        public void Stop()
+        {
+            if (_keepAlive != null) 
+            {
+                _logger.Log(Tag.KeepAlive, "Keep-alive stopped");
+                _keepAlive.Stop();
+
+                // Unregister from previous events
+                if (_keepAlive is CoordinatorKeepAlive coordinatorKeepAlive)
+                    coordinatorKeepAlive.NodesDied -= OnNodesDied;    
+                if (_keepAlive is WorkersKeepAlive workersKeepAlive)
+                    workersKeepAlive.CoordinatorDied -= OnCoordinatorDied;
+
+                _keepAlive = null;
+            }
+        } 
 
         private void OnViewChanged()
         {
@@ -40,13 +59,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             if (coordinator != null)
             {
                 // Group has coordinator so keep-alive can start
-                _logger.Log(Tag.KeepAlive, "View changed with coordinator alive");
-
-                // Unregister from previous events
-                if (_keepAlive is CoordinatorKeepAlive coordinatorKeepAlive)
-                    coordinatorKeepAlive.NodesDied -= OnNodesDied;    
-                if (_keepAlive is WorkersKeepAlive workersKeepAlive)
-                    workersKeepAlive.CoordinatorDied -= OnCoordinatorDied;
+                _logger.Log(Tag.KeepAlive, "View changed with coordinator alive, start keep-alive");
 
                 // Create and start proper keep-alive handler
                 if (_group.View.ImCoordinator) StartCoordinatorKeepAlive();
@@ -55,13 +68,13 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             else
             {
                 // Coordinator has crashed so keep-alive suspended
-                _logger.Log(Tag.KeepAlive, "View changed with coordinator died");
-                _keepAlive.Stop();
+                _logger.Log(Tag.KeepAlive, "View changed with no coordinator, keep-alive can't start yet");
             }
         }
 
         private void StartCoordinatorKeepAlive()
         {
+            _logger.Log(Tag.KeepAlive, "Starting coordinator keep-alive");
             _keepAlive = new CoordinatorKeepAlive(_group, _logger);
             ((CoordinatorKeepAlive)_keepAlive).NodesDied += OnNodesDied;
             _keepAlive.Start();
@@ -69,12 +82,12 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnNodesDied(List<Node> nodes) 
         {
-            NodesDied?.Invoke(nodes);
             _group.NotifyViewChanged(new HashSet<Node>(nodes), ViewChangeOperation.Left);
         }
 
         private void StartWorkerKeepAlive()
         {
+            _logger.Log(Tag.KeepAlive, "Starting workers keep-alive");
             _keepAlive = new WorkersKeepAlive(_group, _logger);
             ((WorkersKeepAlive)_keepAlive).CoordinatorDied += OnCoordinatorDied;
             _keepAlive.Start();
@@ -83,18 +96,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private void OnCoordinatorDied()
         {
             _group.NotifyViewChanged(new HashSet<Node>(new [] { _group.View.Coordinator} ), ViewChangeOperation.Left);
-            CoordinatorDied?.Invoke();
         }
-
-        public void Start()
-        {
-            // First start is not needed
-        }
-
-        public void Stop()
-        {
-            if (_keepAlive != null) 
-                _keepAlive.Stop();
-        } 
     }
 }
