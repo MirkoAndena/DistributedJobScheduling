@@ -24,6 +24,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 
 using static DistributedJobScheduling.Communication.Basic.Node;
 using DistributedJobScheduling.DependencyInjection;
+using DistributedJobScheduling.Client.Work;
 
 namespace DistributedJobScheduling.Client
 {
@@ -76,11 +77,12 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<IClientStore, ClientStore>(new ClientStore());
             RegisterSubSystem<IJobInsertionMessageHandler, JobInsertionMessageHandler>(new JobInsertionMessageHandler());
             RegisterSubSystem<IJobResultMessageHandler, JobResultMessageHandler>(new JobResultMessageHandler());
+
         }
 
-        protected override void OnSystemStarted() => Main();
+        protected override void OnSystemStarted() => Main(new DummyWork(10));
 
-        private async Task Main()
+        private async Task Main(IWork work)
         {
             var logger = DependencyManager.Get<ILogger>();
             var speaker = CreateConnection();
@@ -88,7 +90,6 @@ namespace DistributedJobScheduling.Client
                 logger.Fatal(Tag.WorkerCommunication, "Can't communicate with network", new Exception($"Speaker can't connect to worker"));
 
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
-            Mandlebrot mandlebrot = new Mandlebrot(4, 256);
 
             var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
             var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
@@ -108,13 +109,13 @@ namespace DistributedJobScheduling.Client
 
                 // Creating final result
                 List<IJobResult> results = store.Results(id => messageHandler.Requests.Contains(id));
-                mandlebrot.CreateImage(results);
+                work.ComputeResult(results);
 
                 speaker.Stop(); 
                 Shutdown.Invoke(); 
             };
 
-            List<MandlebrotJob> jobs = mandlebrot.CreateJobs(1000);
+            List<Job> jobs = work.CreateJobs();
             messageHandler.SubmitJob(speaker, jobs);
 
             while(!hasFinised)

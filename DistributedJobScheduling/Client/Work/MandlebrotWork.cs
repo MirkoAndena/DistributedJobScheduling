@@ -8,23 +8,26 @@ using System.Linq;
 using System.Threading.Tasks;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using SkiaSharp;
+using DistributedJobScheduling.Client.Work;
 
 namespace DistributedJobScheduling.Client
 {
-    public class Mandlebrot
+    public class MandlebrotWork : IWork
     {
         private int batches;
         private int dimension;
+        private int iterations;
 
-        public Mandlebrot(int batches, int dimension)
+        public MandlebrotWork(int batches, int dimension, int iterations)
         {
             this.batches = batches;
             this.dimension = dimension;
+            this.iterations = iterations;
         }
 
-        public List<MandlebrotJob> CreateJobs(int iterations)
+        public List<Job> CreateJobs()
         {
-            List<MandlebrotJob> jobs = new List<MandlebrotJob>();
+            List<Job> jobs = new List<Job>();
             int batchesPerSide = batches / 2;
             for(int i = 0; i < batchesPerSide; i++)
             {
@@ -40,13 +43,7 @@ namespace DistributedJobScheduling.Client
             return jobs;
         }
 
-        private SKColor GetColor(double value)
-        {
-            byte color = (byte)(255 * value);
-            return new SKColor(color, color, color, 255);
-        }
-
-        public void CreateImage(List<IJobResult> results)
+        public void ComputeResult(List<IJobResult> results)
         {
             var batchDim = dimension / batches;
             SKBitmap image = new SKBitmap(batchDim, batchDim, true);
@@ -66,6 +63,12 @@ namespace DistributedJobScheduling.Client
             Console.WriteLine("Encoding");
             using(FileStream fileStream = new FileStream("output.jpg", FileMode.Create))
                 image.Encode(fileStream, SKEncodedImageFormat.Jpeg, 98);
+        }
+
+        private SKColor GetColor(double value)
+        {
+            byte color = (byte)(255 * value);
+            return new SKColor(color, color, color, 255);
         }
 
         private MandlebrotResult ChooseCorrectResult(List<IJobResult> results, int x, int y)
