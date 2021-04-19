@@ -19,6 +19,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
         public HashSet<Node> Others  { get; private set; }
 
         public bool ImCoordinator => Me == Coordinator;
+
+        public bool CoordinatorExists => Coordinator != null;
         public int Count
         {
             get {

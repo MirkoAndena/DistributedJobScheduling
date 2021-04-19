@@ -34,8 +34,7 @@ namespace DistributedJobScheduling
         private void OnViewChanged()
         {
             // Send old messages when a stable view occured
-            bool coordinatorAlive = _groupManager?.View?.Coordinator != null;
-            if (coordinatorAlive)
+            if (_groupManager.View.CoordinatorExists)
             {
                 _logger.Log(Tag.OldMessageHandler, $"Start to send messages ({_notDeliveredMessages.Count})");
                 SendOldMessages();

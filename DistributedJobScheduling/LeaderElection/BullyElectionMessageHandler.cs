@@ -61,10 +61,9 @@ namespace DistributedJobScheduling.LeaderElection
 
         private void OnViewChanged()
         {
-            bool coordinatorDeath = _groupManager?.View?.Coordinator == null;
-            string coordinator = coordinatorDeath ? "death" : _groupManager.View.Coordinator.ToString();
+            string coordinator = _groupManager.View.CoordinatorExists ? _groupManager.View.Coordinator.ToString() : "death";
             _logger.Log(Tag.LeaderElection, $"View changed with coordinator {coordinator}");
-            if (coordinatorDeath)
+            if (!_groupManager.View.CoordinatorExists)
             {
                 _electionInProgress = false;
                 Start();

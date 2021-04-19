@@ -55,8 +55,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private void OnViewChanged()
         {
             Stop();
-            Node coordinator = _group?.View?.Coordinator;
-            if (coordinator != null)
+            if (_group.View.CoordinatorExists)
             {
                 // Group has coordinator so keep-alive can start
                 _logger.Log(Tag.KeepAlive, "View changed with coordinator alive, start keep-alive");

@@ -47,7 +47,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
 
         private void SendDistributedStorageUpdateRequest(Job job)
         {
-            if (_groupManager.View.ImCoordinator)
+            if (_groupManager.View.CoordinatorExists && _groupManager.View.ImCoordinator)
             {
                 var message = new DistributedStorageUpdate(job);
                 if (_oldMessageHandler.SendMulticastOrKeep(message))
