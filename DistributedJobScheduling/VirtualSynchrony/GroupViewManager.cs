@@ -266,6 +266,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         public async Task Send(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
         {
+            if(node == null)
+            {
+                _logger.Error(Tag.VirtualSynchrony, "Trying to send a message to null node");
+                return;
+            }
+            
             try
             {
                 await EnqueueMessageAndWaitSend(node, message, timeout);
