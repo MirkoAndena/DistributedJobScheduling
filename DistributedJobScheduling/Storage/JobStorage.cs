@@ -129,15 +129,17 @@ namespace DistributedJobScheduling.Storage
             _logger.Log(Tag.JobStorage, "Finding job to execute");
             await _executionBlips.Dequeue();
             Job toExecute = null;
-            _secureStore.Values.ForEach(job => 
-            {
-                if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
+            _secureStore.ExecuteTransaction(storedJobs =>
+                storedJobs.Values.ForEach(job => 
                 {
-                    _logger.Log(Tag.JobStorage, $"Found job {job}");
-                    toExecute = job;
-                    _executionSet.Add(toExecute);
-                }
-            });
+                    if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
+                    {
+                        _logger.Log(Tag.JobStorage, $"Found job {job}");
+                        toExecute = job;
+                        _executionSet.Add(toExecute);
+                    }
+                })
+            );
 
             return toExecute;
         }
