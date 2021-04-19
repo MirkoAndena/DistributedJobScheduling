@@ -1,11 +1,11 @@
-using System.Threading.Tasks;
+using System.Threading;
 using System;
 
 namespace DistributedJobScheduling.Logging
 {
     public interface ILogger
     {
-        Task LogginTask { get; }
+        Thread LogginThread { get; }
         void Log(Tag tag, string content);
         void Warning(Tag tag, string content);
         void Warning(Tag tag, string content, Exception e);

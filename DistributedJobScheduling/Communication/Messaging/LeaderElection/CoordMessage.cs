@@ -18,5 +18,11 @@ namespace DistributedJobScheduling.Communication.Messaging.LeaderElection
         {
             Coordinator = me;
         }
+
+        public override void BindToRegistry(Node.INodeRegistry registry)
+        {
+            Coordinator = registry.GetOrCreate(Coordinator);
+            base.BindToRegistry(registry);
+        }
     }
 }

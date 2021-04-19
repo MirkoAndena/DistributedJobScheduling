@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using System;
@@ -13,8 +14,8 @@ namespace DistributedJobScheduling.Logging
 
     public class CsvLogger : ILogger, IInitializable, IStartable
     {
-        private AsyncGenericQueue<(int, string, LogType, Exception)> _logQueue;
-        private Task _loggerTask;
+        private BlockingCollection<(int, string, LogType, Exception)> _logQueue;
+        private Thread _loggerThread;
         private CancellationTokenSource _loggerCancellationToken;
         private DateTime _startupTime;
         private ReusableIndex _reusableIndex;
@@ -23,7 +24,7 @@ namespace DistributedJobScheduling.Logging
         private string _filepath;
         private bool _consoleWrite;
 
-        public Task LogginTask => _loggerTask;
+        public Thread LogginThread => _loggerThread;
 
         public CsvLogger(string path, bool consoleWrite = true, string separator = ",")
         {
@@ -37,7 +38,7 @@ namespace DistributedJobScheduling.Logging
 
         public void Init()
         {
-            _logQueue = new AsyncGenericQueue<(int, string, LogType, Exception)>();
+            _logQueue = new BlockingCollection<(int, string, LogType, Exception)>();
             if (!File.Exists(_directory))
                 Directory.CreateDirectory(_directory);
             
@@ -47,13 +48,13 @@ namespace DistributedJobScheduling.Logging
             _reusableIndex = new ReusableIndex();
         }
 
-        private async Task LoggerLoop(CancellationToken token)
+        private void LoggerLoop(CancellationToken token)
         {
             try
             {
                 while(!token.IsCancellationRequested)
                 {
-                    var log = await _logQueue.Dequeue(token);
+                    var log = _logQueue.Take(token);
                     CommitLog(log);
                 }
             }
@@ -100,7 +101,7 @@ namespace DistributedJobScheduling.Logging
             if(type == LogType.FATAL)
                 CommitLog(log);
             else
-                _logQueue.Enqueue(log);
+                _logQueue.Add(log);
         }
 
         public void Error(Tag tag, Exception e) => Log(LogType.ERROR, tag, null, e);
@@ -117,21 +118,22 @@ namespace DistributedJobScheduling.Logging
         public void Start()
         {
             _loggerCancellationToken = new CancellationTokenSource();
-            _loggerTask = LoggerLoop(_loggerCancellationToken.Token);
+            _loggerThread = new Thread(() => LoggerLoop(_loggerCancellationToken.Token));
+            _loggerThread.Start();
         }
 
         public void Stop()
         {
             _loggerCancellationToken.Cancel();
             _loggerCancellationToken = null;
-            _loggerTask = null;
+            _loggerThread = null;
         }
 
         public void Flush()
         {
-            var logs = _logQueue.DequeueAll();
-            while(logs.Count > 0)
-                CommitLog(logs.Dequeue());
+            var logs = _logQueue.ToArray();
+            foreach(var log in logs)
+                CommitLog(log);
         }
     }
 }

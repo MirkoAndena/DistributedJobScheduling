@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Logging;
@@ -19,7 +20,7 @@ namespace DistributedJobScheduling.Tests
             _output = output;
         }
 
-        public Task LogginTask => new Task(Flush);
+        public Thread LogginThread => new Thread(Flush);
 
         public void Error(Tag tag, Exception e) => WriteLog(tag, $"ERROR: {e.Message}", e);
 

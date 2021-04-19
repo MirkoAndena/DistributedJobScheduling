@@ -9,6 +9,7 @@ using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
+using static DistributedJobScheduling.Communication.Basic.Node;
 
 namespace DistributedJobScheduling.LeaderElection
 {
@@ -17,14 +18,17 @@ namespace DistributedJobScheduling.LeaderElection
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
         private IGroupViewManager _groupManager;
+        private INodeRegistry _nodeRegistry;
         private bool _electionInProgress;
 
         public BullyElectionMessageHandler() : this (DependencyInjection.DependencyManager.Get<ILogger>(),
-                                                    DependencyInjection.DependencyManager.Get<IGroupViewManager>()) {}
-        public BullyElectionMessageHandler(ILogger logger, IGroupViewManager groupViewManager)
+                                                    DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
+                                                    DependencyInjection.DependencyManager.Get<INodeRegistry>()) {}
+        public BullyElectionMessageHandler(ILogger logger, IGroupViewManager groupViewManager, INodeRegistry nodeRegistry)
         {
             _logger = logger;
             _groupManager = groupViewManager;
+            _nodeRegistry = nodeRegistry;
             _candidate = new BullyElectionCandidate(groupViewManager, logger);
         }
 
@@ -117,6 +121,8 @@ namespace DistributedJobScheduling.LeaderElection
         private void OnCoordMessageArrived(Node node, Message message)
         {
             CoordMessage arrived = (CoordMessage)message;
+            arrived.BindToRegistry(_nodeRegistry);
+
             _electionInProgress = false;
             _groupManager.View.UpdateCoordinator(arrived.Coordinator);
             _logger.Log(Tag.LeaderElection, $"Received COORD from {node.ID.Value}, updated");

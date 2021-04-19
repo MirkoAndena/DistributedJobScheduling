@@ -43,8 +43,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private ITopicPublisher _virtualSynchronyTopic;
 
         private CancellationTokenSource _senderCancellationTokenSource;
-        private Task _messageSender;
-        private AsyncGenericQueue<(Node, Message)> _sendQueue;
+        private Thread _messageSender;
+        private BlockingCollection<(Node, Message)> _sendQueue;
         private Dictionary<Message, TaskCompletionSource<bool>> _messageSendStateMap;
         private ConcurrentQueue<(Node, Message)> _onHoldMessages;
 
@@ -100,7 +100,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _futureMessagesQueue = new Queue<(Node, ViewMessage)>();
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
 
-            _sendQueue = new AsyncGenericQueue<(Node, Message)>();
+            _sendQueue = new BlockingCollection<(Node, Message)>();
             _messageSendStateMap = new Dictionary<Message, TaskCompletionSource<bool>>();
 
             Topics = new GenericTopicOutlet(this, logger,
@@ -143,13 +143,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
         /// This task waits for enqueued messages and sends them appropriatly
         /// </summary>
         /// <returns></returns>
-        private async Task MessageRouter(CancellationToken cancellationToken)
+        private void MessageRouter(CancellationToken cancellationToken)
         {
             try
             {
                 while(!cancellationToken.IsCancellationRequested)
                 {
-                    var messageToSend = await _sendQueue.Dequeue();
+                    var messageToSend = _sendQueue.Take();
 
                     if(messageToSend != default)
                     {
@@ -162,7 +162,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             if(node != null) //Unicast
                             {
                                 if(View.Contains(node))
-                                    await _communicationManager.Send(node, message.ApplyStamp(_messageTimeStamper));
+                                    Task.Run(() => _communicationManager.Send(node, message.ApplyStamp(_messageTimeStamper)));
                                 else
                                     _logger.Warning(Tag.VirtualSynchrony, $"Message sender has a message for {node} in queue which isn't in the view anymore!");
                             }
@@ -177,8 +177,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                                     
                                     //Reliable Multicast
                                     for(int i = 0; i <  viewMembers.Count; i++)
-                                        awaitMulticast[i] = _communicationManager.Send(viewMembers[i], timeStampedMessage);  
-                                    await Task.WhenAll(awaitMulticast);
+                                        awaitMulticast[i] = _communicationManager.Send(viewMembers[i], timeStampedMessage);
                                 }
                             }
                             
@@ -238,7 +237,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _onHoldMessages.Enqueue(sendMessageElement);
                 }
                 else
-                    _sendQueue.Enqueue(sendMessageElement);
+                    _sendQueue.Add(sendMessageElement);
             }
 
             return (tempMessage, sendCompletionSource);
@@ -331,7 +330,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 if (tempMessage.IsMulticast)
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"Sending ack for received message {messageKey}");
-                    _sendQueue.Enqueue((null, new TemporaryAckMessage(tempMessage)));
+                    _sendQueue.Add((null, new TemporaryAckMessage(tempMessage)));
                     _logger.Log(Tag.VirtualSynchrony, $"Correctly sent ack for {messageKey}");
                 }
             }
@@ -592,12 +591,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             );
                             
                             _logger.Log(Tag.VirtualSynchrony, $"Sending view sync response");
-                            _sendQueue.Enqueue((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value, componentsSyncMessages)));
+                            _sendQueue.Add((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value, componentsSyncMessages)));
                             _currentJoinRequest = null;
                         }
 
                         //Unlock Message Queue
-                        _sendQueue.EnqueueRange(_onHoldMessages);
+                        foreach(var message in _onHoldMessages)
+                            _sendQueue.Add(message);
                         _onHoldMessages = null;
 
                         //Unlock group communication
@@ -619,7 +619,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange.Operation} of {_pendingViewChange.Node}!");
                     flushMessage = new FlushMessage(_pendingViewChange.Node, _pendingViewChange.Operation, View.ViewId.Value);
                 }
-                _sendQueue.Enqueue((null, flushMessage));
+                _sendQueue.Add((null, flushMessage));
                 _flushed = true;
             }
         }
@@ -733,7 +733,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             //Start Sender
             _senderCancellationTokenSource = new CancellationTokenSource();
-            _messageSender = MessageRouter(_senderCancellationTokenSource.Token);
+            _messageSender = new Thread(() => MessageRouter(_senderCancellationTokenSource.Token));
+            _messageSender.Start();
 
             _logger.Log(Tag.VirtualSynchrony, "Registered for VS messages");
             _joinRequestCancellation = new CancellationTokenSource();
