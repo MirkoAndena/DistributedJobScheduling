@@ -17,9 +17,9 @@ namespace DistributedJobScheduling.Tests.Communication
     public class StubNetworkBus : IDisposable
     {
         private List<Node> _registeredNodes;
-        private Dictionary<string, StubNetworkManager> _networkMap;
-        private Dictionary<(string,string), StubLink> _networkLinks;
-        private Dictionary<string, Node.INodeRegistry> _registryMap;
+        private ConcurrentDictionary<string, StubNetworkManager> _networkMap;
+        private ConcurrentDictionary<(string,string), StubLink> _networkLinks;
+        private ConcurrentDictionary<string, Node.INodeRegistry> _registryMap;
         private Random _random;
 
         private class StubLink
@@ -29,53 +29,50 @@ namespace DistributedJobScheduling.Tests.Communication
             private StubNetworkBus _networkBus;
             private CancellationTokenSource _cancellationTokenSource;
 
-            private AsyncGenericQueue<Message> _forwardQueue;
-            private AsyncGenericQueue<Message>  _backwardsQueue;
+            private BlockingCollection<Message> _forwardQueue;
+            private BlockingCollection<Message>  _backwardsQueue;
 
             public StubLink(Node a, Node b, StubNetworkBus networkBus)
             {
                 _a = a;
                 _b = b;
                 _networkBus = networkBus;
-                _forwardQueue = new AsyncGenericQueue<Message>();
-                _backwardsQueue = new AsyncGenericQueue<Message>();
+                _forwardQueue = new BlockingCollection<Message>();
+                _backwardsQueue = new BlockingCollection<Message>();
             }
 
             public void Enqueue(string fromIP, Message message)
             {
                 Console.WriteLine($"ATTEMPT\t({_a.ID} -> {_b.ID}): {message.ToString()}");
                 if(_a.IP == fromIP)
-                    _forwardQueue.Enqueue(message);
+                    _forwardQueue.Add(message);
                 else
-                    _backwardsQueue.Enqueue(message);
+                    _backwardsQueue.Add(message);
 
                 Console.WriteLine($"WROTE\t({_a.ID} -> {_b.ID}): {message.ToString()}");
             }
 
-            public async void ProcessLink()
+            public void StartProcessLink()
             {
                 if(_cancellationTokenSource != null)
                     _cancellationTokenSource.Cancel();
                 _cancellationTokenSource = new CancellationTokenSource();
 
-                await Task.WhenAny(ProcessChannel(_a, _b, _forwardQueue, _cancellationTokenSource.Token),
-                                    ProcessChannel(_b, _a, _backwardsQueue, _cancellationTokenSource.Token));
-
-                if(_cancellationTokenSource != null && !_cancellationTokenSource.Token.IsCancellationRequested)
-                    throw new Exception("Link collapsed!");
+                new Thread(() => ProcessChannel(_a, _b, _forwardQueue, _cancellationTokenSource.Token)).Start();
+                new Thread(() => ProcessChannel(_b, _a, _backwardsQueue, _cancellationTokenSource.Token)).Start();
             }
 
-            private async Task ProcessChannel(Node from, Node to, AsyncGenericQueue<Message> queue, CancellationToken cancellationToken)
+            private void ProcessChannel(Node from, Node to, BlockingCollection<Message> queue, CancellationToken cancellationToken)
             {
                 try
                 {
                     while(!cancellationToken.IsCancellationRequested)
                     {
-                        Message message = await queue.Dequeue();
+                        Message message = queue.Take(cancellationToken);
                         _networkBus.FinalizeSendTo(from, to, message);
                     }
                 }
-                catch {}
+                catch(OperationCanceledException) {}
             }
 
             public void StopLink()
@@ -90,9 +87,9 @@ namespace DistributedJobScheduling.Tests.Communication
         public StubNetworkBus(int randomSeed)
         {
             _registeredNodes = new List<Node>();
-            _networkMap = new Dictionary<string, StubNetworkManager>();
-            _networkLinks = new Dictionary<(string, string), StubLink>();
-            _registryMap = new Dictionary<string, Node.INodeRegistry>();
+            _networkMap = new ConcurrentDictionary<string, StubNetworkManager>();
+            _networkLinks = new ConcurrentDictionary<(string, string), StubLink>();
+            _registryMap = new ConcurrentDictionary<string, Node.INodeRegistry>();
             _random = new Random(randomSeed);
         }
 
@@ -102,16 +99,16 @@ namespace DistributedJobScheduling.Tests.Communication
             {
                 if(!_networkMap.ContainsKey(node.IP))
                 {
-                    _networkMap.Add(node.IP, communicator);
-                    _registryMap.Add(node.IP, registry);
+                    _networkMap.AddOrUpdate(node.IP, communicator, (a,b) => communicator);
+                    _registryMap.AddOrUpdate(node.IP, registry, (a,b) => registry);
 
                     //Update Links
                     foreach(Node registeredNode in _registeredNodes)
                     {
                         StubLink link = new StubLink(node, registeredNode, this);
-                        _networkLinks.Add((node.IP, registeredNode.IP), link);
-                        _networkLinks.Add((registeredNode.IP, node.IP), link);
-                        link.ProcessLink();
+                        _networkLinks.AddOrUpdate((node.IP, registeredNode.IP), link, (a,b) => link);
+                        _networkLinks.AddOrUpdate((registeredNode.IP, node.IP), link, (a,b) => link);
+                        link.StartProcessLink();
                     }
                     _registeredNodes.Add(node);
 
@@ -126,8 +123,8 @@ namespace DistributedJobScheduling.Tests.Communication
             {
                 if(_networkMap.ContainsKey(node.IP))
                 {
-                    _networkMap.Remove(node.IP);
-                    _registryMap.Remove(node.IP);
+                    _networkMap.Remove(node.IP, out _);
+                    _registryMap.Remove(node.IP, out _);
                     _registeredNodes.Remove(node);
 
                     List<(string,string)> _problematicKeys = new List<(string, string)>();
@@ -137,7 +134,7 @@ namespace DistributedJobScheduling.Tests.Communication
 
                     _problematicKeys.ForEach(nodeKey => {
                         _networkLinks[nodeKey].StopLink();
-                        _networkLinks.Remove(nodeKey);
+                        _networkLinks.Remove(nodeKey, out _);
                     });
                 }
             }

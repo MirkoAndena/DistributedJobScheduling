@@ -3,9 +3,11 @@ using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Basic
 {
+    [JsonObject(MemberSerialization.Fields)]
     [Serializable]
     public partial class Node
     {
+        [field: NonSerialized]
         public event Action<Node> Died;
         public string IP { get; private set; }
         public int? ID { get; private set; }

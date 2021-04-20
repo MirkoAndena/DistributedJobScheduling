@@ -12,7 +12,7 @@ namespace DistributedJobScheduling.Communication.Basic
     /// </summary>
     [JsonObject(MemberSerialization.Fields)]
     [Serializable]
-    public abstract class Message
+    public abstract class Message : IRegistryBindable
     {
         public int? TimeStamp => _messageID;
         private int? _messageID;

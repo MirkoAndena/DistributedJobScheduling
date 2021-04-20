@@ -12,22 +12,38 @@ using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Tests.Communication;
 using DistributedJobScheduling.Tests.Communication.Messaging;
 using DistributedJobScheduling.VirtualSynchrony;
+using DistributedJobScheduling.Serialization;
+using DistributedJobScheduling.Logging;
 using Xunit.Abstractions;
 using System.Linq;
+
 using static DistributedJobScheduling.Communication.Basic.Node;
-using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Tests.Utils
 {
+    [Serializable]
     public class EmptyMessage : Message 
     {
         public EmptyMessage() : base() {}
     }
 
+    [Serializable]
     public class IdMessage : Message 
     {
         public int Id { get; private set; }
         public IdMessage(int id) : base() { Id = id; }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is IdMessage otherIdMessage)
+                return otherIdMessage.Id == Id;
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(TimeStamp, SenderID, ReceiverID, Id);
+        }
     }
 
     public class FakeNode : SystemLifeCycle
@@ -44,7 +60,7 @@ namespace DistributedJobScheduling.Tests.Utils
         {
             Registry = RegisterSubSystem<INodeRegistry>(new Node.NodeRegistryService());
             Node = Registry.GetOrCreate($"127.0.0.{id}", id);
-            Logger = RegisterSubSystem<ILogger>(new StubLogger(Node, logger));
+            Logger = RegisterSubSystem<ILogger>(new StubLogger(Node, new JsonSerializer(), logger));
             Communication = RegisterSubSystem<ICommunicationManager>(new StubNetworkManager(Node, Logger));
             TimeStamper = RegisterSubSystem<ITimeStamper>(new StubScalarTimeStamper(Node));
             Configuration = RegisterSubSystem<IConfigurationService>(new FakeConfigurator(new Dictionary<string, object> {
