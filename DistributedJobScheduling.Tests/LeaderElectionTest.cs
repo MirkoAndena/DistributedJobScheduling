@@ -45,6 +45,7 @@ namespace DistributedJobScheduling.DistributedStorage
         private ITestOutputHelper _output;
         private StubNetworkBus _networkBus;
         private LeaderElectionNode[] _nodes;
+        private TimeSpan killDelay = TimeSpan.FromSeconds(2);
         private TimeSpan evaluationDelay = TimeSpan.FromSeconds(5);
         private bool _coordinatorElected;
         
@@ -60,7 +61,7 @@ namespace DistributedJobScheduling.DistributedStorage
         private LeaderElectionNode[] CreateGroup(ITestOutputHelper output)
         {
             LeaderElectionNode[] nodes = new LeaderElectionNode[3];
-            nodes[0] = new LeaderElectionNode(0, false, _networkBus, output);
+            nodes[0] = new LeaderElectionNode(0, true, _networkBus, output);
             nodes[1] = new LeaderElectionNode(1, false, _networkBus, output);
             nodes[2] = new LeaderElectionNode(2, false, _networkBus, output);
             return nodes;
@@ -72,13 +73,20 @@ namespace DistributedJobScheduling.DistributedStorage
             NodeToolkit.StartSequence(_nodes, 50).Wait();
             NodeToolkit.CreateView(_nodes, _nodes[0]);
 
-            await Task.Delay(evaluationDelay).ContinueWith(t => 
+            Task killAfterDelay = Task.Delay(killDelay).ContinueWith(t => 
             {
-                Assert.Equal(2, _nodes[0].Group.View.Coordinator.ID.Value);
+                _nodes[0].Shutdown();
+                NodeToolkit.CreateView(_nodes, null);
+            });
+
+            Task assertResult = Task.Delay(evaluationDelay).ContinueWith(t => 
+            {
                 Assert.Equal(2, _nodes[1].Group.View.Coordinator.ID.Value);
                 Assert.Equal(2, _nodes[2].Group.View.Coordinator.ID.Value);
-                Assert.True(_nodes[0].Group.View.ImCoordinator);
+                Assert.True(_nodes[2].Group.View.ImCoordinator);
             });
+
+            await Task.WhenAll(killAfterDelay, assertResult);
         }
 
         public void Dispose()
