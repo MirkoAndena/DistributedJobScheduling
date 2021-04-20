@@ -112,7 +112,7 @@ namespace DistributedJobScheduling.Client
                 work.ComputeResult(results);
 
                 speaker.Stop(); 
-                Shutdown.Invoke(); 
+                SystemShutdown.Invoke(); 
             };
 
             List<Job> jobs = work.CreateJobs();

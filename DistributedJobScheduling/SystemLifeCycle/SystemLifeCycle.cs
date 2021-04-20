@@ -13,7 +13,7 @@ namespace DistributedJobScheduling.LifeCycle
     public abstract class SystemLifeCycle : ILifeCycle
     {
         private SemaphoreSlim _terminationSemaphore;
-        public static Action Shutdown;
+        public static Action SystemShutdown;
         protected List<ILifeCycle> _subSystems;
 
         protected SystemLifeCycle() 
@@ -49,18 +49,20 @@ namespace DistributedJobScheduling.LifeCycle
 
         public void Run()
         {
-            Shutdown += () =>
-            {
-                GetLogger().Flush();
-                Stop(); 
-                _terminationSemaphore.Release();
-                Destroy();
-            };
+            SystemShutdown += Shutdown;
 
             Init();
             InitSubSystems();
             Start();
         } 
+
+        public void Shutdown()
+        {
+            GetLogger().Flush();
+            Stop(); 
+            _terminationSemaphore.Release();
+            Destroy();
+        }
         
         private void Init()
         {
