@@ -5,6 +5,7 @@ using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging.Ordering;
 using DistributedJobScheduling.Communication.Topics;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.Tests.Communication
 {
@@ -17,7 +18,7 @@ namespace DistributedJobScheduling.Tests.Communication
 
         public ITopicOutlet Topics { get; private set; }
 
-        public StubNetworkManager(Node node, StubLogger logger)
+        public StubNetworkManager(Node node, ILogger logger)
         {
             _me = node;
 

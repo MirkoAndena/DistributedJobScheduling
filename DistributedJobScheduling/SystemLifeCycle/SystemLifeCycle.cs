@@ -14,13 +14,15 @@ namespace DistributedJobScheduling.LifeCycle
     {
         private SemaphoreSlim _terminationSemaphore;
         public static Action Shutdown;
-        private List<ILifeCycle> _subSystems;
+        protected List<ILifeCycle> _subSystems;
 
         protected SystemLifeCycle() 
         {
             _subSystems = new List<ILifeCycle>();
             _terminationSemaphore = new SemaphoreSlim(0, 1);
         }
+
+        protected abstract ILogger GetLogger();
 
         protected abstract void CreateConfiguration(IConfigurationService configurationService, string[] args);
 
@@ -39,11 +41,17 @@ namespace DistributedJobScheduling.LifeCycle
             }
         }
 
-        public async Task Run()
+        public async Task RunAndWait()
         {
-            Shutdown += delegate 
-            { 
-                DependencyManager.Get<ILogger>().Flush();
+            this.Run();
+            await _terminationSemaphore.WaitAsync();
+        }
+
+        public void Run()
+        {
+            Shutdown += () =>
+            {
+                GetLogger().Flush();
                 Stop(); 
                 _terminationSemaphore.Release();
                 Destroy();
@@ -52,10 +60,9 @@ namespace DistributedJobScheduling.LifeCycle
             Init();
             InitSubSystems();
             Start();
-            await _terminationSemaphore.WaitAsync();
         } 
-
-        public void Init()
+        
+        private void Init()
         {
             Console.Write("Building subsystems...");
             CreateSubsystems();
@@ -68,7 +75,7 @@ namespace DistributedJobScheduling.LifeCycle
         {
             DependencyManager.Instance.RegisterSingletonServiceInstance<IT, T>(instance);
             if (instance is ILifeCycle lifeCycle)
-                _subSystems.Add(lifeCycle);
+                 _subSystems.Add(lifeCycle);
         }
 
         protected void RegisterSubSystem<T>(T instance) where T : ILifeCycle
@@ -76,7 +83,7 @@ namespace DistributedJobScheduling.LifeCycle
             _subSystems.Add(instance);
         }
 
-        public void InitSubSystems()
+        private void InitSubSystems()
         {
             int count = 0;
             _subSystems.ForEach(subsystem => 
@@ -91,7 +98,7 @@ namespace DistributedJobScheduling.LifeCycle
             Console.WriteLine($"{count} subsystems initialized");
         } 
 
-        public void Start()
+        private void Start()
         {
             int count = 0;
             _subSystems.ForEach(subsystem => 
@@ -109,7 +116,7 @@ namespace DistributedJobScheduling.LifeCycle
 
         protected virtual void OnSystemStarted() { }
 
-        public void Stop()
+        private void Stop()
         {
             int count = 0;
             _subSystems.ForEach(subsystem => 
@@ -124,7 +131,7 @@ namespace DistributedJobScheduling.LifeCycle
             Console.WriteLine($"{count} subsystems stopped");
         } 
 
-        private void Destroy()
+        protected virtual void Destroy()
         {
             Console.WriteLine("System in shutdown");
             Environment.Exit(0);
