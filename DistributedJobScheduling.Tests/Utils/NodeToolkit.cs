@@ -60,8 +60,8 @@ namespace DistributedJobScheduling.Tests.Utils
         {
             Registry = RegisterSubSystem<INodeRegistry>(new Node.NodeRegistryService());
             Node = Registry.GetOrCreate($"127.0.0.{id}", id);
-            Logger = RegisterSubSystem<ILogger>(new StubLogger(Node, new JsonSerializer(), logger));
-            Communication = RegisterSubSystem<ICommunicationManager>(new StubNetworkManager(Node, Logger));
+            Logger = RegisterSubSystem<ILogger>(new StubLogger(Node, logger));
+            Communication = RegisterSubSystem<ICommunicationManager>(new StubNetworkManager(Node, new JsonSerializer(), Logger));
             TimeStamper = RegisterSubSystem<ITimeStamper>(new StubScalarTimeStamper(Node));
             Configuration = RegisterSubSystem<IConfigurationService>(new FakeConfigurator(new Dictionary<string, object> {
                                                                     ["nodeId"] = id,
