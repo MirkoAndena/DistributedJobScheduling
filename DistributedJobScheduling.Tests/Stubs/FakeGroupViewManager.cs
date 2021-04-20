@@ -35,7 +35,7 @@ namespace DistributedJobScheduling.Tests
             throw new NotImplementedException();
         }
 
-        public void NotifyViewChanged(HashSet<Node> nodes, ViewChangeOperation operation)
+        public void NotifyViewChanged(HashSet<Node> nodes, Operation operation)
         {
             throw new NotImplementedException();
         }

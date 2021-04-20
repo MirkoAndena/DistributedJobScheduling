@@ -14,18 +14,33 @@ using DistributedJobScheduling.Tests.Communication.Messaging;
 using DistributedJobScheduling.VirtualSynchrony;
 using Xunit.Abstractions;
 using System.Linq;
+using DistributedJobScheduling.Serialization;
 
 namespace DistributedJobScheduling.Tests.Utils
 {
+    [Serializable]
     public class EmptyMessage : Message 
     {
         public EmptyMessage() : base() {}
     }
 
+    [Serializable]
     public class IdMessage : Message 
     {
         public int Id { get; private set; }
         public IdMessage(int id) : base() { Id = id; }
+
+        public override bool Equals(object obj)
+        {
+            if(obj is IdMessage otherIdMessage)
+                return otherIdMessage.Id == Id;
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(TimeStamp, SenderID, ReceiverID, Id);
+        }
     }
 
     public class FakeNode
@@ -43,7 +58,7 @@ namespace DistributedJobScheduling.Tests.Utils
             Registry = new Node.NodeRegistryService();
             Node = Registry.GetOrCreate($"127.0.0.{id}", id);
             Logger = new StubLogger(Node, logger);
-            Communication = new StubNetworkManager(Node, Logger);
+            Communication = new StubNetworkManager(Node, new JsonSerializer(), Logger);
             TimeStamper = new StubScalarTimeStamper(Node);
             Configuration = new FakeConfigurator(new Dictionary<string, object> {
                                                                     ["nodeId"] = id,

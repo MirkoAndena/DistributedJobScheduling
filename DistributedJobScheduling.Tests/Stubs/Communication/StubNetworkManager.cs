@@ -5,6 +5,8 @@ using DistributedJobScheduling.Communication;
 using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging.Ordering;
 using DistributedJobScheduling.Communication.Topics;
+using DistributedJobScheduling.Serialization;
+using Xunit;
 
 namespace DistributedJobScheduling.Tests.Communication
 {
@@ -13,14 +15,15 @@ namespace DistributedJobScheduling.Tests.Communication
         public event Action<Node, Message> OnMessageReceived;
         private StubNetworkBus _networkBus;
         private IMessageOrdering _sendOrdering;
+        private ISerializer _serializer;
         private Node _me;
 
         public ITopicOutlet Topics { get; private set; }
 
-        public StubNetworkManager(Node node, StubLogger logger)
+        public StubNetworkManager(Node node, ISerializer serializer, StubLogger logger)
         {
             _me = node;
-
+            _serializer = serializer;
             _sendOrdering = new FIFOMessageOrdering(logger);
             Topics = new GenericTopicOutlet(this, logger,
                 new VirtualSynchronyTopicPublisher()
@@ -53,7 +56,8 @@ namespace DistributedJobScheduling.Tests.Communication
 
         public void FakeReceive(Node node, Message message)
         {
-            OnMessageReceived?.Invoke(node, message);
+            Message decoupledMessage = _serializer.Deserialize<Message>(_serializer.Serialize(message));
+            OnMessageReceived?.Invoke(node, decoupledMessage);
         }
     }
 }

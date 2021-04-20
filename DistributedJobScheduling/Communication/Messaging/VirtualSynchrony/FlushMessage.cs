@@ -8,20 +8,18 @@ namespace DistributedJobScheduling.Communication.Messaging
     [Serializable]
     public class FlushMessage : ViewMessage 
     {
-        public ViewChangeOperation RelatedChangeOperation { get; private set; }
-        public Node RelatedChangeNode { get; private set; }
+        public ViewChange RelatedChange { get; private set; }
         
         [JsonConstructor]
-        public FlushMessage(Node relatedChangeNode, ViewChangeOperation relatedChangeOperation, int viewId) : base(viewId) 
+        public FlushMessage(ViewChange relatedChange, int viewId) : base(viewId) 
         {
-            RelatedChangeNode = relatedChangeNode;
-            RelatedChangeOperation = relatedChangeOperation;
+            RelatedChange = relatedChange;
         }
 
         public override void BindToRegistry(Node.INodeRegistry registry)
         {
             base.BindToRegistry(registry);
-            RelatedChangeNode = registry.GetOrCreate(RelatedChangeNode);
+            RelatedChange.BindToRegistry(registry);
         }
     }
 }
