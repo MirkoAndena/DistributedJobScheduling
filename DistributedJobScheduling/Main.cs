@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading;
 using System;
 using DistributedJobScheduling.Configuration;
@@ -29,7 +30,8 @@ namespace DistributedJobScheduling
                 }
             }
 
-            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
+            if(!Debugger.IsAttached)
+                AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
             
             await system.RunAndWait();
         }

@@ -73,6 +73,7 @@ namespace DistributedJobScheduling.Tests.Communication
                     }
                 }
                 catch(OperationCanceledException) {}
+                catch(AggregateException) {}
             }
 
             public void StopLink()

@@ -74,9 +74,13 @@ namespace DistributedJobScheduling.Communication.Basic
                     SpeakerCreated?.Invoke(remote, speaker);
                 }
             }
-            catch (OperationCanceledException) when (token.IsCancellationRequested) 
+            catch (OperationCanceledException)
             { 
                 _logger.Warning(Tag.CommunicationBasic, $"Listener (port {PORT}) stopped manually with CancellationToken");
+            }
+            catch (AggregateException)
+            { 
+                _logger.Warning(Tag.CommunicationBasic, $"Listener (port {PORT}) stopped manually with AggregateCancellationToken");
             }
             finally
             {
