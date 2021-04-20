@@ -46,6 +46,10 @@ namespace DistributedJobScheduling.JobAssignment
                     {
                         _logger.Warning(Tag.JobExecutor, "FindJobToExecute cancelled");
                     }
+                    catch(AggregateException ex)
+                    {
+                        _logger.Warning(Tag.JobExecutor, "FindJobToExecute aggregate exception", ex);
+                    }
                 }
             };
 
