@@ -112,7 +112,7 @@ namespace DistributedJobScheduling.Logging
         public void Fatal(Tag tag, string content, Exception e)
         {
             Log(LogType.FATAL, tag, content, e);
-            SystemLifeCycle.Shutdown?.Invoke();
+            SystemLifeCycle.SystemShutdown?.Invoke();
         }
 
         public void Start()

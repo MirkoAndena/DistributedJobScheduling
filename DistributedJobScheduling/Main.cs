@@ -31,7 +31,7 @@ namespace DistributedJobScheduling
 
             AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
             
-            await system.Run();
+            await system.RunAndWait();
         }
 
         private static bool IsClient(string[] args)

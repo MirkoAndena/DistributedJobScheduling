@@ -12,9 +12,12 @@ using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Tests.Communication;
 using DistributedJobScheduling.Tests.Communication.Messaging;
 using DistributedJobScheduling.VirtualSynchrony;
+using DistributedJobScheduling.Serialization;
+using DistributedJobScheduling.Logging;
 using Xunit.Abstractions;
 using System.Linq;
-using DistributedJobScheduling.Serialization;
+
+using static DistributedJobScheduling.Communication.Basic.Node;
 
 namespace DistributedJobScheduling.Tests.Utils
 {
@@ -43,54 +46,52 @@ namespace DistributedJobScheduling.Tests.Utils
         }
     }
 
-    public class FakeNode
+    public class FakeNode : SystemLifeCycle
     {
         public Node Node { get; private set; }
         public ICommunicationManager Communication { get; private set; }
         public IGroupViewManager Group { get; private set; }
         public ITimeStamper TimeStamper { get; private set; }
         public Node.INodeRegistry Registry { get; private set; }
-        public StubLogger Logger { get; private set; }
+        public ILogger Logger { get; private set; }
         public IConfigurationService Configuration { get; private set; }
 
         public FakeNode(int id, bool coordinator, StubNetworkBus networkBus, ITestOutputHelper logger, int joinTimeout = 5000)
         {
-            Registry = new Node.NodeRegistryService();
+            Registry = RegisterSubSystem<INodeRegistry>(new Node.NodeRegistryService());
             Node = Registry.GetOrCreate($"127.0.0.{id}", id);
-            Logger = new StubLogger(Node, logger);
-            Communication = new StubNetworkManager(Node, new JsonSerializer(), Logger);
-            TimeStamper = new StubScalarTimeStamper(Node);
-            Configuration = new FakeConfigurator(new Dictionary<string, object> {
+            Logger = RegisterSubSystem<ILogger>(new StubLogger(Node, new JsonSerializer(), logger));
+            Communication = RegisterSubSystem<ICommunicationManager>(new StubNetworkManager(Node, Logger));
+            TimeStamper = RegisterSubSystem<ITimeStamper>(new StubScalarTimeStamper(Node));
+            Configuration = RegisterSubSystem<IConfigurationService>(new FakeConfigurator(new Dictionary<string, object> {
                                                                     ["nodeId"] = id,
                                                                     ["coordinator"] = coordinator
-                                                                  });
-            Group = new GroupViewManager(Registry,
+                                                                  }));
+            Group = RegisterSubSystem<IGroupViewManager>(new GroupViewManager(Registry,
                                         Communication, 
                                         TimeStamper, 
                                         Configuration,
                                         Logger,
-                                        joinTimeout);
+                                        joinTimeout));
             Group.View.ViewChanged += () => { Logger.Log(Logging.Tag.VirtualSynchrony, $"View Changed: {Group.View.Others.ToString<Node>()}"); };
             networkBus.RegisterToNetwork(Node, Registry, (StubNetworkManager)Communication);
         }
 
-        public virtual void Start()
+        protected override void CreateConfiguration(IConfigurationService configurationService, string[] args) {}
+
+        protected override void CreateSubsystems() {}
+
+        private new IT RegisterSubSystem<IT>(IT instance)
         {
-            InitAndStart(Configuration);
-            InitAndStart(Logger);
-            InitAndStart(Registry);
-            InitAndStart(TimeStamper);
-            InitAndStart(Communication);
-            InitAndStart(Group);
+            if (instance is ILifeCycle lifeCycle)
+                _subSystems.Add(lifeCycle);
+            if (instance is IT it) return it;
+            throw new Exception($"{instance.GetType().FullName} is not {typeof(IT).FullName}");
         }
 
-        protected void InitAndStart(object Component)
-        {
-            if(Component is IInitializable initializable)
-                initializable.Init();
-            if(Component is IStartable startable)
-                startable.Start();
-        }
+        protected override ILogger GetLogger() => Logger;
+
+        protected override void Destroy() {}
     }
 
     public static class NodeToolkit
@@ -119,7 +120,7 @@ namespace DistributedJobScheduling.Tests.Utils
         {
             for(int i = 0; i < nodes.Length; i++)
             {
-                nodes[i].Start();
+                nodes[i].Run();
                 await Task.Delay(msBetweenNodes);
             }
         }

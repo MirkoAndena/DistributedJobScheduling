@@ -67,5 +67,7 @@ namespace DistributedJobScheduling
             RegisterSubSystem<BullyElectionMessageHandler>(new BullyElectionMessageHandler());
             RegisterSubSystem<DistributedJobMessageHandler>(new DistributedJobMessageHandler());
         }
+
+        protected override ILogger GetLogger() => DependencyInjection.DependencyManager.Get<ILogger>();
     }
 }

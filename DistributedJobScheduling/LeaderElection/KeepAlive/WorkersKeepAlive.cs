@@ -15,7 +15,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
     public class WorkersKeepAlive : IStartable
     {
-        private int ReceiveTimeout = CoordinatorKeepAlive.SendTimeout * 2;
         public Action CoordinatorDied;
         private ILogger _logger;
         private CancellationTokenSource _cancellationTokenSource;
@@ -33,7 +32,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
 
             _cancellationTokenSource = new CancellationTokenSource();
-            Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
+            Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout), _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
 

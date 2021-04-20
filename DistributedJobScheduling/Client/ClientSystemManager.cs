@@ -112,7 +112,7 @@ namespace DistributedJobScheduling.Client
                 work.ComputeResult(results);
 
                 speaker.Stop(); 
-                Shutdown.Invoke(); 
+                SystemShutdown.Invoke(); 
             };
 
             List<Job> jobs = work.CreateJobs();
@@ -144,5 +144,7 @@ namespace DistributedJobScheduling.Client
                 return null;
             }
         }
+
+        protected override ILogger GetLogger() => DependencyInjection.DependencyManager.Get<ILogger>();
     }
 }

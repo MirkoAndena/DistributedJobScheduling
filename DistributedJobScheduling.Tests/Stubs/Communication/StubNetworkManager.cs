@@ -6,6 +6,7 @@ using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Communication.Messaging.Ordering;
 using DistributedJobScheduling.Communication.Topics;
 using DistributedJobScheduling.Serialization;
+using DistributedJobScheduling.Logging;
 using Xunit;
 
 namespace DistributedJobScheduling.Tests.Communication
@@ -20,7 +21,7 @@ namespace DistributedJobScheduling.Tests.Communication
 
         public ITopicOutlet Topics { get; private set; }
 
-        public StubNetworkManager(Node node, ISerializer serializer, StubLogger logger)
+        public StubNetworkManager(Node node, ISerializer serializer, ILogger logger)
         {
             _me = node;
             _serializer = serializer;

@@ -16,8 +16,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
     public class CoordinatorKeepAlive : IStartable
     {
         // Seconds delay of coordintator to send keepAlive message
-        public static int SendTimeout = 5;
-        private int ReceiveTimeout = SendTimeout * 2;
+        public static int SendTimeout => 5;
+        public static int ReceiveTimeout => SendTimeout * 2;
 
         public Action<List<Node>> NodesDied;
         private Dictionary<Node, bool> _ticks;
