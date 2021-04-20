@@ -80,7 +80,7 @@ namespace DistributedJobScheduling.Client
 
         }
 
-        protected override void OnSystemStarted() => Main(new DummyWork(10));
+        protected override void OnSystemStarted() => Main(new DummyWork(10)).Wait();
 
         private async Task Main(IWork work)
         {

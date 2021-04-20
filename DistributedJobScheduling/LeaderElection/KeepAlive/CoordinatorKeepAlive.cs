@@ -15,10 +15,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
     public class CoordinatorKeepAlive : IStartable
     {
-        // Seconds delay of coordintator to send keepAlive message
-        public static int SendTimeout => 5;
-        public static int ReceiveTimeout => SendTimeout * 2;
-
         public Action<List<Node>> NodesDied;
         private Dictionary<Node, bool> _ticks;
         private ILogger _logger;
@@ -42,9 +38,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
             _cancellationTokenSource = new CancellationTokenSource();
             ResetTicks();
-            Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
+            Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
-            Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
+            Task.Delay(KeepAliveManager.ResponseWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
@@ -73,7 +69,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 catch(NotDeliveredException) { }
                 _logger.Log(Tag.KeepAlive, $"Sent keep-alive request to {node}");
             });
-            Task.Delay(TimeSpan.FromSeconds(SendTimeout), _cancellationTokenSource.Token)
+            Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
         }
 
@@ -106,7 +102,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 NodesDied?.Invoke(deaths);
             }
 
-            Task.Delay(TimeSpan.FromSeconds(ReceiveTimeout), _cancellationTokenSource.Token)
+            Task.Delay(KeepAliveManager.ResponseWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
     }

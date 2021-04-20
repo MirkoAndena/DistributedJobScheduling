@@ -16,112 +16,105 @@ using DistributedJobScheduling.LifeCycle;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
-    public class CoordinatorNode : FakeNode
+    public class FastKeepAliveManager : KeepAliveManager
     {
-        public CoordinatorKeepAlive KeepAlive { get; private set; }
-
-        public CoordinatorNode(int id, bool coordinator, StubNetworkBus networkBus, ITestOutputHelper logger) : 
-        base(id, coordinator, networkBus, logger, 3)
+        public FastKeepAliveManager(IGroupViewManager group, ILogger logger) : base(group, logger)
         {
-            KeepAlive = new CoordinatorKeepAlive(base.Group, base.Logger);
-            _subSystems.Add(KeepAlive);
+            RequestSendTimeout = TimeSpan.FromSeconds(0.2);
+            ResponseWindow = TimeSpan.FromSeconds(0.3
+            );
         }
     }
 
-    public class WorkerNode : FakeNode
+    public class KeepAliveNode : FakeNode
     {
-        public WorkersKeepAlive KeepAlive { get; private set; }
+        public FastKeepAliveManager KeepAlive { get; private set; }
 
-        public WorkerNode(int id, bool coordinator, StubNetworkBus networkBus, ITestOutputHelper logger) : 
+        public KeepAliveNode(int id, bool coordinator, StubNetworkBus networkBus, ITestOutputHelper logger) : 
         base(id, coordinator, networkBus, logger, 3)
         {
-            KeepAlive = new WorkersKeepAlive(base.Group, base.Logger);
+            KeepAlive = new FastKeepAliveManager(base.Group, base.Logger);
             _subSystems.Add(KeepAlive);
         }
     }
 
     public class KeepAliveTest : IDisposable
     {
-        private ILogger _logger;
-        private ITimeStamper _timeStamper;
-        private ITestOutputHelper _output;
         private StubNetworkBus _networkBus;
-        private FakeNode[] _nodes;
-        private CoordinatorNode _coordinatorNode => (CoordinatorNode)_nodes[0];
-        private WorkerNode _workerNode1 => (WorkerNode)_nodes[1];
-        private WorkerNode _workerNode2 => (WorkerNode)_nodes[2];
+        private KeepAliveNode[] _nodes;
+        private TimeSpan evaluationDelay = TimeSpan.FromSeconds(5);
+        private TimeSpan killDelay = TimeSpan.FromSeconds(2);
+        private bool _coordinatorDied, _workerDied;
         
         public KeepAliveTest(ITestOutputHelper output)
         {
-            _output = output;
             _networkBus = new StubNetworkBus(new Random().Next());
-            _logger = new StubLogger(_output);
-            _nodes = CreateGroup(_output);
+            _nodes = CreateGroup(output);
+            _coordinatorDied = false;
+            _workerDied = false;
         }
 
-        private FakeNode[] CreateGroup(ITestOutputHelper output)
+        private KeepAliveNode[] CreateGroup(ITestOutputHelper output)
         {
-            FakeNode[] nodes = new FakeNode[3];
-            nodes[0] = new CoordinatorNode(0, true, _networkBus, output);
-            nodes[1] = new WorkerNode(1, false, _networkBus, output);
-            nodes[2] = new WorkerNode(2, false, _networkBus, output);
-
-            NodeToolkit.CreateView(nodes, nodes[0]);
+            KeepAliveNode[] nodes = new KeepAliveNode[3];
+            nodes[0] = new KeepAliveNode(0, true, _networkBus, output);
+            nodes[1] = new KeepAliveNode(1, false, _networkBus, output);
+            nodes[2] = new KeepAliveNode(2, false, _networkBus, output);
             return nodes;
         }
 
         [Fact]
         public async void EveryoneLives()
         {
-            bool coordDeath = false;
-            bool someoneDeath = false;
-            StartKeepAlive(() => coordDeath = true, nodes => someoneDeath = nodes.Count > 0);
+            StartKeepAlive();
 
-            await Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout * 3)).ContinueWith(t => 
+            await Task.Delay(evaluationDelay).ContinueWith(t => 
             {
-                Assert.False(coordDeath);
-                Assert.False(someoneDeath);
+                Assert.False(_coordinatorDied);
+                Assert.False(_workerDied);
             });
         }
 
         [Fact]
         public async void WorkerDie()
         {
-            bool coordDeath = false;
-            bool someoneDeath = false;
-            StartKeepAlive(() => coordDeath = true, nodes => someoneDeath = nodes.Count > 0);
+            StartKeepAlive();
 
-            Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout)).ContinueWith(t => _workerNode1.KeepAlive.Stop());
+            Task killAfterDelay = Task.Delay(killDelay).ContinueWith(t => _nodes[1].Shutdown());
 
-            await Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout * 3)).ContinueWith(t => 
+            Task assertResult = Task.Delay(evaluationDelay).ContinueWith(t => 
             {
-                Assert.False(coordDeath);
-                Assert.True(someoneDeath);
+                Assert.False(_coordinatorDied);
+                Assert.True(_workerDied);
             });
+
+            await Task.WhenAll(killAfterDelay, assertResult);
         }
 
         [Fact]
         public async void CoordinatorDie()
         {
-            bool coordDeath = false;
-            bool someoneDeath = false;
-            StartKeepAlive(() => coordDeath = true, nodes => someoneDeath = nodes.Count > 0);
+            StartKeepAlive();
 
-            Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout)).ContinueWith(t => _coordinatorNode.KeepAlive.Stop());
+            Task killAfterDelay = Task.Delay(killDelay).ContinueWith(t => _nodes[0].Shutdown());
 
-            await Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout * 3)).ContinueWith(t => 
+            Task assertResult = Task.Delay(evaluationDelay).ContinueWith(t => 
             {
-                Assert.True(coordDeath);
-                Assert.False(someoneDeath);
+                Assert.True(_coordinatorDied);
+                Assert.False(_workerDied);
             });
+
+            await Task.WhenAll(killAfterDelay, assertResult);
         }
 
-        public void StartKeepAlive(Action coordinatorDeath, Action<List<Node>> workerDeath)
+        public void StartKeepAlive()
         {
-            _coordinatorNode.KeepAlive.NodesDied += workerDeath;
-            _workerNode1.KeepAlive.CoordinatorDied += coordinatorDeath;
-            _workerNode2.KeepAlive.CoordinatorDied += coordinatorDeath;
+            _nodes[0].Group.View.ViewChanged += () => _workerDied = _nodes[0].Group.View.Count != 3;
+            _nodes[1].Group.View.ViewChanged += () => _coordinatorDied = !_nodes[1].Group.View.CoordinatorExists;
+            _nodes[2].Group.View.ViewChanged += () => _coordinatorDied = !_nodes[2].Group.View.CoordinatorExists;
+
             NodeToolkit.StartSequence(_nodes, 50).Wait();
+            NodeToolkit.CreateView(_nodes, _nodes[0]);
         }
 
         public void Dispose()

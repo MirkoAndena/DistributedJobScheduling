@@ -15,6 +15,7 @@ namespace DistributedJobScheduling.LeaderElection
 {
     public class BullyElectionMessageHandler : IInitializable
     {
+        public static TimeSpan ResponseWindow = TimeSpan.FromSeconds(10);
         private ILogger _logger;
         private BullyElectionCandidate _candidate;
         private IGroupViewManager _groupManager;

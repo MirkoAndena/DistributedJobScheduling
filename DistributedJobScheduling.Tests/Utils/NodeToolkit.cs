@@ -55,6 +55,7 @@ namespace DistributedJobScheduling.Tests.Utils
         public Node.INodeRegistry Registry { get; private set; }
         public ILogger Logger { get; private set; }
         public IConfigurationService Configuration { get; private set; }
+        private StubNetworkBus _bus;
 
         public FakeNode(int id, bool coordinator, StubNetworkBus networkBus, ITestOutputHelper logger, int joinTimeout = 5000)
         {
@@ -74,6 +75,7 @@ namespace DistributedJobScheduling.Tests.Utils
                                         Logger,
                                         joinTimeout));
             Group.View.ViewChanged += () => { Logger.Log(Logging.Tag.VirtualSynchrony, $"View Changed: {Group.View.Others.ToString<Node>()}"); };
+            _bus = networkBus;
             networkBus.RegisterToNetwork(Node, Registry, (StubNetworkManager)Communication);
         }
 
@@ -91,7 +93,11 @@ namespace DistributedJobScheduling.Tests.Utils
 
         protected override ILogger GetLogger() => Logger;
 
-        protected override void Destroy() {}
+        protected override void Destroy() 
+        {
+            _bus.UnregisterFromNetwork(Node);
+            Logger.Warning(Tag.Communication, "Unregistered from network bus");
+        }
     }
 
     public static class NodeToolkit

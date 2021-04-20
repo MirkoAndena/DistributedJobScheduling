@@ -786,7 +786,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 _joinRequestCancellation.Cancel();
 
             //TODO: A node advertising he is leaving, might want to double check if we assumed it is possible.
-            NotifyViewChanged(new HashSet<Node>(new [] { View.Me }), Operation.Left);
+            //NotifyViewChanged(new HashSet<Node>(new [] { View.Me }), Operation.Left);
             
             //We can avoid waiting for the process to terminate correctly
             _senderCancellationTokenSource.Cancel();

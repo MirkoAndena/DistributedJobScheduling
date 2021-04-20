@@ -11,8 +11,6 @@ namespace DistributedJobScheduling.LeaderElection
 {
     public class BullyElectionCandidate
     {
-        // If no-one responds to ELECT for {timeout} seconds ...
-        private int timeout = KeepAlive.CoordinatorKeepAlive.SendTimeout * 3;
         private IGroupViewManager _group; 
         private CancellationTokenSource _cancellationTokenSource;
         public Action<List<Node>> SendElect, SendCoords;
@@ -31,7 +29,7 @@ namespace DistributedJobScheduling.LeaderElection
             _cancellationTokenSource = new CancellationTokenSource();
             List<Node> nodesWithIdHigherThanMe = NodesWithId(id => id > _group.View.Me.ID.Value);
             SendElect?.Invoke(nodesWithIdHigherThanMe);
-            Task.Delay(TimeSpan.FromSeconds(timeout), _cancellationTokenSource.Token).ContinueWith(t => 
+            Task.Delay(BullyElectionMessageHandler.ResponseWindow, _cancellationTokenSource.Token).ContinueWith(t => 
             {
                 if (!t.IsCanceled)
                 {

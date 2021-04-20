@@ -58,10 +58,13 @@ namespace DistributedJobScheduling.LifeCycle
 
         public void Shutdown()
         {
-            GetLogger().Flush();
-            Stop(); 
-            _terminationSemaphore.Release();
-            Destroy();
+            if (_terminationSemaphore.CurrentCount == 0)
+            {
+                GetLogger().Flush();
+                Stop(); 
+                _terminationSemaphore.Release();
+                Destroy();
+            }
         }
         
         private void Init()
