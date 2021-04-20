@@ -124,10 +124,10 @@ namespace DistributedJobScheduling.Storage
             _executionBlips.Enqueue(0);
         }
 
-        public async Task<Job> FindJobToExecute()
+        public async Task<Job> FindJobToExecute(CancellationToken token)
         {
             _logger.Log(Tag.JobStorage, "Finding job to execute");
-            await _executionBlips.Dequeue();
+            await _executionBlips.Dequeue(token);
             Job toExecute = null;
             _secureStore.ExecuteTransaction(storedJobs =>
                 storedJobs.Values.ForEach(job => 

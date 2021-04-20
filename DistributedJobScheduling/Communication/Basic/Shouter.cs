@@ -64,7 +64,7 @@ namespace DistributedJobScheduling.Communication.Basic
                     OnMessageReceived?.Invoke(remote, message);
                 }
             }
-            catch when (_closeTokenSource.Token.IsCancellationRequested) { }
+            catch (OperationCanceledException) when (_closeTokenSource.Token.IsCancellationRequested) { }
             finally
             {
                 _client.Close();

@@ -24,7 +24,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
         private CancellationTokenSource _sendToken;
         private CancellationTokenSource _receiveToken;
-        private CancellationTokenSource _globalReceiveToken;
+        private bool _globalReceive;
         private ISerializer _serializer;
         private SemaphoreSlim _sendSemaphore;
 
@@ -46,7 +46,6 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             _memoryStream = new MemoryStream();
             _sendToken = new CancellationTokenSource();
             _receiveToken = new CancellationTokenSource();
-            _globalReceiveToken = new CancellationTokenSource();
             _sendSemaphore = new SemaphoreSlim(1,1);
 
             if(_client.Connected)
@@ -62,7 +61,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             {
                 _sendToken.Cancel();
                 _receiveToken.Cancel();
-                _globalReceiveToken.Cancel();
+                _globalReceive = false;
                 _client.Close();
                 _stream?.Close();
                 _logger.Log(Tag.CommunicationBasic, $"Closed connection to {_remote}");
@@ -132,7 +131,8 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
         public async void Start()
         {
-            while(!_globalReceiveToken.Token.IsCancellationRequested)
+            _globalReceive = true;
+            while(_globalReceive)
             {
                 try
                 {
@@ -142,11 +142,6 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                         _logger.Log(Tag.CommunicationBasic, $"Routing {response.Count} messages from {_remote.IP}");
                         response.ForEach(message => MessageReceived?.Invoke(_remote, message));
                     }
-                }
-                catch when (_globalReceiveToken.IsCancellationRequested) 
-                { 
-                    _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}, stopped by CancellationToken");
-                    break;
                 }
                 catch (ObjectDisposedException)
                 {
@@ -159,6 +154,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     break;
                 }
             }
+            _logger.Warning(Tag.CommunicationBasic, $"Stop receiving from {_remote}, stopped by cancellation");
 
             this.Stop();
         }

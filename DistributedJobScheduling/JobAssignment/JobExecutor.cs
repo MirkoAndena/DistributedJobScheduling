@@ -36,13 +36,20 @@ namespace DistributedJobScheduling.JobAssignment
             {
                 while (!_cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    Job current = await _jobStorage.FindJobToExecute();
-                    if (current != null)
-                        await ExecuteJob(current);
+                    try
+                    {
+                        Job current = await _jobStorage.FindJobToExecute(_cancellationTokenSource.Token);
+                        if (current != null)
+                            await ExecuteJob(current);
+                    }
+                    catch(OperationCanceledException)
+                    {
+                        _logger.Warning(Tag.JobExecutor, "FindJobToExecute cancelled");
+                    }
                 }
             };
 
-            _ = Task.Run(findAndExecute, _cancellationTokenSource.Token);
+            Task.Run(findAndExecute, _cancellationTokenSource.Token);
         }
 
         private async Task ExecuteJob(Job current)

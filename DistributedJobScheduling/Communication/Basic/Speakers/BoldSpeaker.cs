@@ -21,12 +21,14 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             if(_connectToken != null)
                 _connectToken.Cancel();
             _connectToken = new CancellationTokenSource();
-            _connectToken.Token.ThrowIfCancellationRequested();
-            _connectToken.CancelAfter(TimeSpan.FromSeconds(timeout));
 
             try
             {
+                _connectToken.CancelAfter(TimeSpan.FromSeconds(timeout));
+
                 await _client.ConnectAsync(_remote.IP, Listener.PORT, _connectToken.Token);
+                _connectToken.Token.ThrowIfCancellationRequested();
+                
                 _logger.Log(Tag.CommunicationBasic, $"Connected to {_remote}");
                 _stream = _client.GetStream();
             }

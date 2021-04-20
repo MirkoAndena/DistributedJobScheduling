@@ -1,3 +1,4 @@
+using System.Threading;
 using System;
 using System.Threading.Tasks;
 using DistributedJobScheduling.JobAssignment.Jobs;
@@ -12,6 +13,6 @@ namespace DistributedJobScheduling.Storage
         Job Get(int jobID);
         void InsertAndAssign(Job job);
         void InsertOrUpdateJobLocally(Job job);
-        Task<Job> FindJobToExecute();
+        Task<Job> FindJobToExecute(CancellationToken token);
     }
 }

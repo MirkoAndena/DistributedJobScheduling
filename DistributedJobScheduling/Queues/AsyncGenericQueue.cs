@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
@@ -78,8 +79,12 @@ namespace DistributedJobScheduling.Queues
                 _waitingForElement = true;
             }
 
+            cancellationToken.Register(() => { _dataAvailable.TrySetResult(false); });
+
             await _dataAvailable.Task;
             
+            cancellationToken.ThrowIfCancellationRequested();
+
             lock(_queue)
             {
                 if(_queue.Count > 0) _queue.TryDequeue(out element);

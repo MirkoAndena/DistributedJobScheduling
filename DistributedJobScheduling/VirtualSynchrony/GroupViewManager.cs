@@ -212,7 +212,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
         }
 
-        private (TemporaryMessage, TaskCompletionSource<bool>) EnqueueMessage(Node node, Message message)
+        private (TemporaryMessage, TaskCompletionSource<bool>) EnqueueMessage(Node node, Message message, CancellationToken token = default)
         {
             //Checks that the node is in the view
             if(node != null && !View.Contains(node))
@@ -228,6 +228,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             {
                 tempMessage = new TemporaryMessage(node == null, message, View.ViewId.Value);
                 sendCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                token.Register(() => {sendCompletionSource.TrySetResult(false); });
                 _messageSendStateMap[tempMessage] = sendCompletionSource;
                 var sendMessageElement = (node, tempMessage);
 
@@ -245,14 +246,14 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
         {
+            CancellationTokenSource cts = new CancellationTokenSource();
             _logger.Log(Tag.VirtualSynchrony, $"Queuing send {message.GetType().Name} to {node}");
-            var sendMessageTask = EnqueueMessage(node, message);
+            var sendMessageTask = EnqueueMessage(node, message, cts.Token);
 
             _logger.Log(Tag.VirtualSynchrony, $"Queued send {message.GetType().Name} to {node}");
-            CancellationTokenSource cts = new CancellationTokenSource();
-            await Task.WhenAny(sendMessageTask.Item2.Task,
-                            Task.Delay(TimeSpan.FromSeconds(timeout), cts.Token));
-            cts.Cancel();
+            cts.CancelAfter(TimeSpan.FromSeconds(timeout));
+
+            await sendMessageTask.Item2.Task;
             
             if(!sendMessageTask.Item2.Task.IsCompleted || !sendMessageTask.Item2.Task.Result)
             {
