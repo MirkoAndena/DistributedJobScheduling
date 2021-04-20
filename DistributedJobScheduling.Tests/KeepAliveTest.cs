@@ -91,7 +91,7 @@ namespace DistributedJobScheduling.DistributedStorage
             bool someoneDeath = false;
             StartKeepAlive(() => coordDeath = true, nodes => someoneDeath = nodes.Count > 0);
 
-            Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout)).ContinueWith(t => _workerNode1.Shutdown());
+            Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout)).ContinueWith(t => _workerNode1.KeepAlive.Stop());
 
             await Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout * 3)).ContinueWith(t => 
             {
@@ -107,7 +107,7 @@ namespace DistributedJobScheduling.DistributedStorage
             bool someoneDeath = false;
             StartKeepAlive(() => coordDeath = true, nodes => someoneDeath = nodes.Count > 0);
 
-            Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout)).ContinueWith(t => _coordinatorNode.Shutdown());
+            Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout)).ContinueWith(t => _coordinatorNode.KeepAlive.Stop());
 
             await Task.Delay(TimeSpan.FromSeconds(CoordinatorKeepAlive.ReceiveTimeout * 3)).ContinueWith(t => 
             {
