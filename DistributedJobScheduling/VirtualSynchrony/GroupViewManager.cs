@@ -281,7 +281,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     ProcessAcknowledge(messageKey, View.Me);
                 }
-                _logger.Log(Tag.VirtualSynchrony, $"Sent {message.GetType().Name}({message.TimeStamp}) to {node}");
+                _logger.Log(Tag.VirtualSynchrony, $"Sent {message.GetType().Name}({View.Me.ID},{message.TimeStamp}) to {node}");
             }
             catch
             {
@@ -302,7 +302,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             TaskCompletionSource<bool> consolidateTask;
             var tempMessage = await EnqueueMessageAndWaitSend(null, message, 30);
 
-            _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network");
+            _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network ({View.Me.ID},{message.TimeStamp})");
             var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp.Value);
             lock(_confirmationQueue)
             {
