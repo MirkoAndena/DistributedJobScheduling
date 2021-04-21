@@ -9,7 +9,6 @@ namespace DistributedJobScheduling.Storage
     {
         event Action<Job> JobUpdated;
         void UpdateJob(Job job);
-        void SetJobDeliveredToClient(Job job);
         Job Get(int jobID);
         void InsertAndAssign(Job job);
         void InsertOrUpdateJobLocally(Job job);

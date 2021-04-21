@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using DistributedJobScheduling.JobAssignment.Jobs;
 using SkiaSharp;
 using DistributedJobScheduling.Client.Work;
+using DistributedJobScheduling.Extensions;
 
 namespace DistributedJobScheduling.Client
 {
@@ -39,7 +40,7 @@ namespace DistributedJobScheduling.Client
             {
                 if (result is DividersResult dividersResult)
                 {
-                    string res = dividersResult.Dividers == null ? "is prime!" : dividersResult.Dividers.ToString();
+                    string res = dividersResult.Dividers == null ? "is prime!" : dividersResult.Dividers.ToString<int>();
                     stringBuilder.Append($"{dividersResult.Number}: {res}{Environment.NewLine}");
                 }
             }

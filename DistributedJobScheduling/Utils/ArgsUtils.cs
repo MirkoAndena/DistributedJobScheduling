@@ -56,7 +56,7 @@ namespace DistributedJobScheduling.Utils
         {
             foreach (string arg in args)
                 if (arg.Trim().ToLower() == item.ToLower()) return true;
-            return Environment.GetEnvironmentVariable(item) != null;
+            return Environment.GetEnvironmentVariable(item.ToUpper()) != null;
         }
     }
 }

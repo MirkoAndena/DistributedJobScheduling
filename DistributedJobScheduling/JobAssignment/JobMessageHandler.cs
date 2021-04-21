@@ -165,7 +165,10 @@ namespace DistributedJobScheduling.JobAssignment
             }
 
             if (job.Status == JobStatus.COMPLETED)
-                _jobStorage.SetJobDeliveredToClient(job);
+            {
+                job.Status = JobStatus.REMOVED;
+                _jobStorage.UpdateJob(job);
+            }
         }
     }
 }

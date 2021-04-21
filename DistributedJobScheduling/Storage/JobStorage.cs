@@ -63,19 +63,7 @@ namespace DistributedJobScheduling.Storage
             {
                 if(job.Status != JobStatus.RUNNING && _executionSet.Contains(job))
                     _executionSet.Remove(job);
-                _secureStore.ValuesChanged?.Invoke();
                 JobUpdated?.Invoke(job);
-            }
-        }
-
-        public void SetJobDeliveredToClient(Job job)
-        {
-            if (job.ID.HasValue && _secureStore.ContainsKey(job.ID.Value))
-            {
-                job.Status = JobStatus.REMOVED;
-                _secureStore.ValuesChanged?.Invoke();
-                JobUpdated?.Invoke(job);
-                _logger.Log(Tag.JobStorage, $"Job {job} logically removed");
             }
         }
 
@@ -83,6 +71,12 @@ namespace DistributedJobScheduling.Storage
 
         public void InsertAndAssign(Job job)
         {
+            if (!_group.ImCoordinator)
+            {
+                _logger.Error(Tag.JobStorage, new Exception("I'm not the leader, i can't update directly jobs"));
+                return;
+            }
+
             lock(_secureStore)
             {
                 job.Node = JobUtils.FindNodeWithLessJobs(_group, _logger, _secureStore);
@@ -98,24 +92,28 @@ namespace DistributedJobScheduling.Storage
             UnlockJobExecution();
         }
 
-        public void InsertOrUpdateJobLocally(Job job)
+        public void InsertOrUpdateJobLocally(Job updated)
         {
             // If the job is already in the list it is updated
-            if (_secureStore.ContainsKey(job.ID.Value))
+            if (_secureStore.ContainsKey(updated.ID.Value))
             {
-                Job localJob = _secureStore[job.ID.Value];
-                localJob.Node = job.Node;
-                if(localJob.Node != _group.Me.ID)
-                    localJob.Result = job.Result;
-                if(localJob.Node != _group.Me.ID && localJob.Status < job.Status)
-                    localJob.Status = job.Status;
+                Job localJob = _secureStore[updated.ID.Value];
+                if (updated.Status >= localJob.Status)
+                {
+                    localJob.Status = updated.Status;
+                    localJob.Result = updated.Result;
+                    _logger.Log(Tag.JobStorage, $"Job {localJob.ToString()} updated locally");
+                }
+                else
+                    _logger.Log(Tag.JobStorage, $"Job {localJob.ToString()} was not updated because it has a greater status");
             }
             else
             {
-                _secureStore.Add(job.ID.Value, job);
+                _secureStore.Add(updated.ID.Value, updated);
+                _logger.Log(Tag.JobStorage, $"Job {updated.ToString()} inserted locally");
             }
+
             _secureStore.ValuesChanged?.Invoke();
-            _logger.Log(Tag.JobStorage, $"Job {job} inserted locally{(job.Result == null ? "" : ", result: " + job.Result.ToString())}");
             UnlockJobExecution();
         }
 
@@ -132,7 +130,7 @@ namespace DistributedJobScheduling.Storage
             _secureStore.ExecuteTransaction(storedJobs =>
                 storedJobs.Values.ForEach(job => 
                 {
-                    if (job.Node == _group.Me.ID && (job.Status == JobStatus.RUNNING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
+                    if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
                     {
                         _logger.Log(Tag.JobStorage, $"Found job {job}");
                         toExecute = job;

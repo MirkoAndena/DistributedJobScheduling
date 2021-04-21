@@ -114,7 +114,7 @@
                 "env": {
                     "CLIENT": "true",
                     "WORKER": "172.17.0.4",
-                    "WORK": "DIVIDERS",
+                    "DIVIDERS": "true",
                     "START": "10",
                     "END": "20"
                 }
