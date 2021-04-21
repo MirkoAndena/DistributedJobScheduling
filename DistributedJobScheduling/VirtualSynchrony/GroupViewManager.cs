@@ -247,10 +247,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
         private async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
         {
             CancellationTokenSource cts = new CancellationTokenSource();
-            _logger.Log(Tag.VirtualSynchrony, $"Queuing send {message.GetType().Name} to {node}");
+            _logger.Log(Tag.VirtualSynchrony, $"Queuing send {message.GetType().Name} to {(node?.ToString() ?? "MULTICAST")}");
             var sendMessageTask = EnqueueMessage(node, message, cts.Token);
 
-            _logger.Log(Tag.VirtualSynchrony, $"Queued send {message.GetType().Name} to {node}");
+            _logger.Log(Tag.VirtualSynchrony, $"Queued send {message.GetType().Name} to {(node?.ToString() ?? "MULTICAST")}");
             cts.CancelAfter(TimeSpan.FromSeconds(timeout));
 
             await sendMessageTask.Item2.Task;
@@ -258,7 +258,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             if(!sendMessageTask.Item2.Task.IsCompleted || !sendMessageTask.Item2.Task.Result)
             {
                 NotDeliveredException sendException = new NotDeliveredException();
-                _logger.Error(Tag.VirtualSynchrony, $"Delivery of message {sendMessageTask.Item1.TimeStamp} to {node.ID} failed or timedout!", sendException);
+                _logger.Error(Tag.VirtualSynchrony, $"Delivery of message {sendMessageTask.Item1.TimeStamp} to {(node?.ToString() ?? "MULTICAST")} failed or timedout!", sendException);
                 throw sendException;
             }
 
@@ -275,7 +275,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
             
             try
             {
-                await EnqueueMessageAndWaitSend(node, message, timeout);
+                var tempMessage = await EnqueueMessageAndWaitSend(node, message, timeout);
+                var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp.Value);
+                lock(_confirmationQueue)
+                {
+                    ProcessAcknowledge(messageKey, View.Me);
+                }
                 _logger.Log(Tag.VirtualSynchrony, $"Sent {message.GetType().Name}({message.TimeStamp}) to {node}");
             }
             catch
@@ -398,7 +403,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 bool isUnicast = _confirmationQueue.ContainsKey(messageKey) && !_confirmationQueue[messageKey].IsMulticast;
                 if(!_confirmationMap.ContainsKey(messageKey))
+                {
                     _confirmationMap.Add(messageKey, new HashSet<Node>( isUnicast ? new HashSet<Node>(new [] { node }) : View.Others));
+                    
+                    if(messageKey.Item1 == View.Me.ID) //If I'm the sender I should logically ack my message
+                        _confirmationMap[messageKey].Add(View.Me);
+                }
                 
                 var confirmationSet = _confirmationMap[messageKey];
                 confirmationSet.Remove(node);
