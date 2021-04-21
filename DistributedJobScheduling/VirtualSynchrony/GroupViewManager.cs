@@ -275,12 +275,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             
             try
             {
-                var tempMessage = await EnqueueMessageAndWaitSend(node, message, timeout);
-                var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp.Value);
-                lock(_confirmationQueue)
-                {
-                    ProcessAcknowledge(messageKey, View.Me);
-                }
+                await EnqueueMessageAndWaitSend(node, message, timeout);
                 _logger.Log(Tag.VirtualSynchrony, $"Sent {message.GetType().Name}({View.Me.ID},{message.TimeStamp}) to {node}");
             }
             catch
@@ -407,7 +402,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     _confirmationMap.Add(messageKey, new HashSet<Node>( isUnicast ? new HashSet<Node>(new [] { node }) : View.Others));
                     
-                    if(messageKey.Item1 == View.Me.ID) //If I'm the sender I should logically ack my message
+                    if(!isUnicast && messageKey.Item1 == View.Me.ID) //If I'm the sender I should logically ack my message
                         _confirmationMap[messageKey].Add(View.Me);
                 }
                 
