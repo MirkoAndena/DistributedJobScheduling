@@ -312,10 +312,11 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 ProcessAcknowledge(messageKey, View.Me);
             }
 
-            _logger.Log(Tag.VirtualSynchrony, $"Waiting for other acks...");
+            _logger.Log(Tag.VirtualSynchrony, $"Waiting for other acks ({View.Me.ID},{message.TimeStamp})...");
             //True if every node in the view acknowledged the message
             if(!await consolidateTask.Task)
                 throw new MulticastNotDeliveredException();
+            _logger.Log(Tag.VirtualSynchrony, $"Consolidation task finished ({View.Me.ID},{message.TimeStamp})...");
         }
 
         private void OnTemporaryMessageReceived(Node node, Message message)
