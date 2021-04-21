@@ -32,7 +32,7 @@ namespace DistributedJobScheduling.Client
             return jobs;
         }
 
-        public void ComputeResult(List<IJobResult> results)
+        public void ComputeResult(List<IJobResult> results, string directory)
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (IJobResult result in results)
@@ -44,8 +44,8 @@ namespace DistributedJobScheduling.Client
                 }
             }
 
-            File.WriteAllText("result.txt", stringBuilder.ToString());
-            Console.WriteLine($"Results printed in result.txt");
+            File.WriteAllText(directory + "/result.txt", stringBuilder.ToString());
+            Console.WriteLine("Results printed in result.txt");
         }
     }
 }

@@ -5,14 +5,24 @@ using DistributedJobScheduling.Communication.Basic;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
 using DistributedJobScheduling.LifeCycle;
+using System;
 
 namespace DistributedJobScheduling
 {   
+    public struct NotDeliveredMessage
+    {
+        public Node Dest;
+        public bool DestIsCoordintor;
+        public bool Multicast;
+        public Message Message;
+        public Action Action;
+    } 
+
     public class OldMessageHandler : IInitializable
     {
         private IGroupViewManager _groupManager;
         private ILogger _logger;
-        private List<(Message, Node)> _notDeliveredMessages;
+        private List<NotDeliveredMessage> _notDeliveredMessages;
 
         public OldMessageHandler() : this(
             DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
@@ -23,7 +33,7 @@ namespace DistributedJobScheduling
         {
             _groupManager = groupViewManager;
             _logger = logger;
-            _notDeliveredMessages = new List<(Message, Node)>();
+            _notDeliveredMessages = new List<NotDeliveredMessage>();
         }
 
         public void Init()
@@ -44,48 +54,67 @@ namespace DistributedJobScheduling
         
         private void SendOldMessages()
         {
-            _notDeliveredMessages.ForEach(pair => 
+            _notDeliveredMessages.ForEach(message => 
             {
                 try 
                 { 
-                    Node node = pair.Item2;
-                    Message message = pair.Item1;
-                    if (node == null) _groupManager.SendMulticast(message).Wait();
-                    else _groupManager.Send(node, message).Wait(); 
-                    _notDeliveredMessages.Remove(pair);
+                    if (message.Multicast)
+                    {
+                        _groupManager.SendMulticast(message.Message);
+                    }
+                    else
+                    {
+                        Node dest = message.DestIsCoordintor ? _groupManager.View.Coordinator : message.Dest;
+                        _groupManager.Send(dest, message.Message);
+                    }
+
+                    message.Action?.Invoke();
+                    _notDeliveredMessages.Remove(message);
                 }
                 catch (NotDeliveredException) { }
                 catch (MulticastNotDeliveredException) { }
             });
         }
 
-        public bool SendOrKeep(Node node, Message message)
+        public void SendOrKeep(Node node, Message message, Action action = null)
         {
             try 
             { 
                 _groupManager.Send(node, message).Wait();
-                return true;
+                _logger.Log(Tag.OldMessageHandler, $"Sent ({_groupManager.View.Me.ID},{message.TimeStamp}) message: {message.ToString()}");
+                action?.Invoke();
             }
             catch (NotDeliveredException) 
             { 
-                _notDeliveredMessages.Add((message, node)); 
+                NotDeliveredMessage notDelivered = new NotDeliveredMessage();
+                notDelivered.Dest = node;
+                notDelivered.DestIsCoordintor = node == _groupManager.View.Coordinator;
+                notDelivered.Multicast = false;
+                notDelivered.Message = message;
+                notDelivered.Action = action;
+
+                _notDeliveredMessages.Add(notDelivered); 
                 _logger.Warning(Tag.OldMessageHandler, $"Message {message.TimeStamp.Value} to {node.ToString()} was not sent, is added to Queue");
-                return false;
             }
         }
 
-        public bool SendMulticastOrKeep(Message message)
+        public void SendMulticastOrKeep(Message message, Action action = null)
         {
             try 
             { 
                 _groupManager.SendMulticast(message).Wait();
-                return true;
+                _logger.Log(Tag.OldMessageHandler, $"Sent multicast ({_groupManager.View.Me.ID},{message.TimeStamp}) message: {message.ToString()}");
+                action?.Invoke();
             }
             catch (MulticastNotDeliveredException) 
             { 
-                _notDeliveredMessages.Add((message, null)); 
+                NotDeliveredMessage notDelivered = new NotDeliveredMessage();
+                notDelivered.Multicast = true;
+                notDelivered.Message = message;
+                notDelivered.Action = action;
+
+                _notDeliveredMessages.Add(notDelivered); 
                 _logger.Warning(Tag.OldMessageHandler, $"Message {message.TimeStamp.Value} to multicast was not sent, is added to Queue");
-                return false;
             }
         }
     }

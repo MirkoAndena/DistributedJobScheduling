@@ -19,5 +19,7 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
         {
             _job = job;
         }
+
+        public override string ToString() => $"StorageUpdateRequest with {_job.ToString()}";
     }
 }

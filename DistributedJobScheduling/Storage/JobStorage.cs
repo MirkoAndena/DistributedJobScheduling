@@ -132,7 +132,7 @@ namespace DistributedJobScheduling.Storage
             _secureStore.ExecuteTransaction(storedJobs =>
                 storedJobs.Values.ForEach(job => 
                 {
-                    if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
+                    if (job.Node == _group.Me.ID && (job.Status == JobStatus.RUNNING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
                     {
                         _logger.Log(Tag.JobStorage, $"Found job {job}");
                         toExecute = job;

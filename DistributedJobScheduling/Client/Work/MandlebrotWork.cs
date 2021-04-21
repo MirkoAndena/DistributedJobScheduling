@@ -43,7 +43,7 @@ namespace DistributedJobScheduling.Client
             return jobs;
         }
 
-        public void ComputeResult(List<IJobResult> results)
+        public void ComputeResult(List<IJobResult> results, string directory)
         {
             var batchDim = dimension / batches;
             SKBitmap image = new SKBitmap(batchDim, batchDim, true);
@@ -61,7 +61,7 @@ namespace DistributedJobScheduling.Client
             });
             
             Console.WriteLine("Encoding");
-            using(FileStream fileStream = new FileStream("output.jpg", FileMode.Create))
+            using(FileStream fileStream = new FileStream(directory + "/output.jpg", FileMode.Create))
                 image.Encode(fileStream, SKEncodedImageFormat.Jpeg, 98);
         }
 

@@ -32,7 +32,7 @@ namespace DistributedJobScheduling.Client
             return jobs;
         }
 
-        public void ComputeResult(List<IJobResult> results)
+        public void ComputeResult(List<IJobResult> results, string directory)
         {
             StringBuilder stringBuilder = new StringBuilder();
             foreach (IJobResult result in results)

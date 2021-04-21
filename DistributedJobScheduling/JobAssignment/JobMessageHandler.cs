@@ -104,8 +104,10 @@ namespace DistributedJobScheduling.JobAssignment
                 else
                 {
                     var requestMessage = new InsertionRequest(job, requestID);
-                    if (_oldMessageHandler.SendOrKeep(_groupManager.View.Coordinator, requestMessage))
+                    _oldMessageHandler.SendOrKeep(_groupManager.View.Coordinator, requestMessage, () =>
+                    {
                         _logger.Log(Tag.ClientCommunication, $"Insertion requested to coordinator for job with request id {requestID}");
+                    });
                 }
             }
             else
@@ -119,8 +121,10 @@ namespace DistributedJobScheduling.JobAssignment
             _jobStorage.InsertAndAssign(message.Job);
             _logger.Log(Tag.ClientCommunication, $"Job added to storage and assigned");
             var responseMessage = new InsertionResponse(message, message.Job.ID.Value, message.RequestID);
-            if (_oldMessageHandler.SendOrKeep(node, responseMessage))
+            _oldMessageHandler.SendOrKeep(node, responseMessage, () => 
+            {
                 _logger.Log(Tag.ClientCommunication, $"Sent back to {node} the assigned id for the inserted job");
+            });
         }
 
         private void OnInsertionResponseArrived(Node node, Message received)

@@ -6,6 +6,6 @@ namespace DistributedJobScheduling.Client.Work
     public interface IWork
     {
         List<Job> CreateJobs();
-        void ComputeResult(List<IJobResult> results);
+        void ComputeResult(List<IJobResult> results, string directory);
     }
 }

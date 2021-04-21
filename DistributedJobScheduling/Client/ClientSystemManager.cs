@@ -125,13 +125,14 @@ namespace DistributedJobScheduling.Client
                     return;
                 }
                     
-                Console.WriteLine("All responses arrived, shutdown");
+                Console.WriteLine("All responses arrived, compute result");
                 hasFinised = true;
 
                 // Creating final result
                 List<IJobResult> results = store.Results(id => messageHandler.Requests.Contains(id));
-                work.ComputeResult(results);
+                work.ComputeResult(results, ROOT);
 
+                Console.WriteLine("Shutdown");
                 speaker.Stop(); 
                 SystemShutdown.Invoke(); 
             };

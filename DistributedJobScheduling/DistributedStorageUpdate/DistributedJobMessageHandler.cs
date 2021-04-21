@@ -47,17 +47,28 @@ namespace DistributedJobScheduling.DistributedJobUpdate
 
         private void SendDistributedStorageUpdateRequest(Job job)
         {
-            if (_groupManager.View.CoordinatorExists && _groupManager.View.ImCoordinator)
+            if (_groupManager.View.CoordinatorExists)
             {
-                var message = new DistributedStorageUpdate(job);
-                if (_oldMessageHandler.SendMulticastOrKeep(message))
-                    _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                if (_groupManager.View.ImCoordinator)
+                {
+                    var message = new DistributedStorageUpdate(job);
+                    _oldMessageHandler.SendMulticastOrKeep(message, () =>
+                    {
+                        _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                    });
+                }
+                else
+                {
+                    var message = new DistributedStorageUpdateRequest(job);
+                    _oldMessageHandler.SendOrKeep(_groupManager.View.Coordinator, message, () =>
+                    {
+                        _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
+                    });
+                }
             }
             else
             {
-                var message = new DistributedStorageUpdateRequest(job);
-                if (_oldMessageHandler.SendOrKeep(_groupManager.View.Coordinator, message))
-                    _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
+                _logger.Fatal(Tag.DistributedUpdate, "Voglio aggiornare lo storage distribuito ma non c'è il coordinator", new System.Exception("No coordinator during a send distribution request"));
             }
         }
 
@@ -67,16 +78,16 @@ namespace DistributedJobScheduling.DistributedJobUpdate
             if(_groupManager.View.ImCoordinator)
             {
                 DistributedStorageUpdateRequest message = (DistributedStorageUpdateRequest)receivedMessage;
-                _logger.Log(Tag.DistributedUpdate, $"Distributed update request arrived");
+                _logger.Log(Tag.DistributedUpdate, $"Distributed update request arrived,  message: {message.ToString()}");
                 if (message.Job.ID.HasValue && message.Job.Node.HasValue)
                 {
                     var updateMessage = new DistributedStorageUpdate(message.Job);
-                    if (_oldMessageHandler.SendMulticastOrKeep(updateMessage))
+                    _oldMessageHandler.SendMulticastOrKeep(updateMessage, () =>
                     {
                         _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
                         _jobStorage.InsertOrUpdateJobLocally(message.Job);
-                        _logger.Log(Tag.DistributedUpdate, $"Updated local storage");
-                    }                    
+                        _logger.Log(Tag.DistributedUpdate, $"Updated local storage with job: {message.Job.ToString()}");
+                    });         
                 }
                 else
                     _logger.Warning(Tag.DistributedUpdate, $"Arrived job is malformed (id or owner null)");
@@ -88,7 +99,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
         private void OnDistributedStorageUpdateArrived(Node node, Message receivedMessage)
         {
             DistributedStorageUpdate message = (DistributedStorageUpdate)receivedMessage;
-            _logger.Log(Tag.DistributedUpdate, $"Distributed update arrived with content: {message.Job.ToString()}");
+            _logger.Log(Tag.DistributedUpdate, $"Distributed update arrived with content: {message.ToString()}");
             if (message.Job.ID.HasValue && message.Job.Node.HasValue)
                 _jobStorage.InsertOrUpdateJobLocally(message.Job);
             else
