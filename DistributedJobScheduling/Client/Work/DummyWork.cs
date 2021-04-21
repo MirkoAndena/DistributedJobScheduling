@@ -16,16 +16,18 @@ namespace DistributedJobScheduling.Client
     public class DummyWork : IWork
     {
         private int timeout;
+        private int count;
 
-        public DummyWork(int timeout)
+        public DummyWork(int timeout, int count)
         {
             this.timeout = timeout;
+            this.count = count;
         }
 
         public List<Job> CreateJobs()
         {
             List<Job> jobs = new List<Job>();
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < count; i++)
                 jobs.Add(new TimeoutJob(timeout));
             return jobs;
         }

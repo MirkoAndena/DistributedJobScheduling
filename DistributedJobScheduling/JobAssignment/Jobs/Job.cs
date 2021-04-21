@@ -37,7 +37,8 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
         {
             string id = ID.HasValue ? ID.Value.ToString() : "unknown";
             string node = Node.HasValue ? Node.Value.ToString() : "unknown";
-            return $"ID: {id}, NODE: {node}, STATUS: {Status.ToString()}";
+            string result = Result == null ? "null" : Result.GetType().Name;
+            return $"ID: {id}, NODE: {node}, STATUS: {Status.ToString()}, RESULT: {result}";
         }
     }
 }

@@ -25,6 +25,7 @@ using DistributedJobScheduling.VirtualSynchrony;
 using static DistributedJobScheduling.Communication.Basic.Node;
 using DistributedJobScheduling.DependencyInjection;
 using DistributedJobScheduling.Client.Work;
+using DistributedJobScheduling.Utils;
 
 namespace DistributedJobScheduling.Client
 {
@@ -43,28 +44,43 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<IConfigurationService, DictConfigService>(new DictConfigService());
         }
 
+        // args[0] => client
+        // args[1] => worker IP
+        // args[2..] => work type and params
         protected override void CreateConfiguration(IConfigurationService configurationService, string[] args)
-        {
-            bool client = (args.Length > 0 && args[0].Trim().ToLower() == "client") || Environment.GetEnvironmentVariable("CLIENT") == "true";
-        
-            // Read worker ip
-            string envIp = Environment.GetEnvironmentVariable("WORKER");
-            string ip = null;
-
-            if (args.Length > 1)
-                ip = args[1];
-            else if (envIp != null)
-                ip = envIp;
-
+        {        
+            // Worker IP
+            string ip = ArgsUtils.GetStringParam(args, 1, "WORKER");
             bool correctIp = ip != null && NetworkUtils.IsAnIp(ip);
             if (!correctIp) throw new Exception("worker (remote) ip not valid");
 
+            // Pseudo-Unique ID
             var now = DateTime.Now;
             var id = now.Millisecond + now.Second << 4 + now.Minute << 8; // funzione a caso per generare un numero pseudo-univoco
 
+            // Work
+            IWork work = GetWorkFromArgs(args);
+
             configurationService.SetValue<int>("id", id);
-            configurationService.SetValue<bool>("client", client);
             configurationService.SetValue<string>("worker", ip);
+            configurationService.SetValue<IWork>("work", work);
+        }
+
+        private IWork GetWorkFromArgs(string[] args)
+        {
+            if (ArgsUtils.IsPresent(args, "dummy"))
+            {
+                int timeout = ArgsUtils.GetIntParam(args, 3, "TIMEOUT");
+                int count = ArgsUtils.GetIntParam(args, 4, "COUNT");
+                return new DummyWork(timeout, count);
+            }
+            if (ArgsUtils.IsPresent(args, "dividers"))
+            {
+                int startNumber = ArgsUtils.GetIntParam(args, 3, "START");
+                int endNumber = ArgsUtils.GetIntParam(args, 4, "END");
+                return new DividersWork(startNumber, endNumber);
+            }
+            throw new Exception("No work specified");
         }
 
         protected override void CreateSubsystems()
@@ -80,7 +96,12 @@ namespace DistributedJobScheduling.Client
 
         }
 
-        protected override void OnSystemStarted() => Main(new DummyWork(10)).Wait();
+        protected override void OnSystemStarted()
+        {
+            var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
+            IWork work = configuration.GetValue<IWork>("work"); 
+            Main(work).Wait();
+        }
 
         private async Task Main(IWork work)
         {

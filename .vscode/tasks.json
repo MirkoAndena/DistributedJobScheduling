@@ -113,7 +113,10 @@
             "dockerRun": {
                 "env": {
                     "CLIENT": "true",
-                    "WORKER": "172.17.0.4"
+                    "WORKER": "172.17.0.4",
+                    "WORK": "DIVIDERS",
+                    "START": "10",
+                    "END": "20"
                 }
             },
             "netCore": {
