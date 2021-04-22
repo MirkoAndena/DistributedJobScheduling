@@ -162,7 +162,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             if(node != null) //Unicast
                             {
                                 if(View.Contains(node))
-                                    Task.Run(() => _communicationManager.Send(node, message.ApplyStamp(_messageTimeStamper)));
+                                {
+                                    if(View.Me != node)
+                                        Task.Run(() => _communicationManager.Send(node, message.ApplyStamp(_messageTimeStamper)));
+                                    else //LoopBack
+                                        Task.Run(() => _virtualSynchronyTopic.RouteMessage(message.GetType(), node, message));
+                                }
                                 else
                                     _logger.Warning(Tag.VirtualSynchrony, $"Message sender has a message for {node} in queue which isn't in the view anymore!");
                             }
@@ -325,10 +330,16 @@ namespace DistributedJobScheduling.VirtualSynchrony
             //Only care about messages from nodes in my current group view
             if (View.Contains(node))
             {
+                
+                if(node == View.Me) //Loop-Back
+                {
+                    _logger.Log(Tag.VirtualSynchrony, $"Loopback message of type {tempMessage.UnstablePayload.GetType()}");
+                    Task.Run(() => OnMessageReceived?.Invoke(node, tempMessage.UnstablePayload));
+                    return;
+                }
 
                 _logger.Log(Tag.VirtualSynchrony, $"Received temporary message from {node.ID} with timestamp {message.TimeStamp}");
                 var messageKey = (node.ID.Value, tempMessage.TimeStamp.Value);
-
                 lock (_confirmationQueue)
                 {
                     _confirmationQueue.Add(messageKey, tempMessage);
