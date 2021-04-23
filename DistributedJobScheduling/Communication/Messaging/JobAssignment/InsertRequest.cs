@@ -11,16 +11,14 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     [Serializable]
     public class InsertionRequest : Message
     {
-        private Job _job;
-        private int _requestID;
-        public Job Job => _job;
-        public int RequestID => _requestID;
+        public IJobWork JobWork { get; private set; }
+        public int RequestID { get; private set; }
 
         [JsonConstructor]
-        public InsertionRequest(Job job, int requestID) : base()
+        public InsertionRequest(IJobWork jobWork, int requestID) : base()
         {
-            _job = job;
-            _requestID = requestID;
+            this.JobWork = jobWork;
+            this.RequestID = requestID;
         }
     }
 
@@ -31,15 +29,13 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     [Serializable]
     public class InsertionResponse : Message
     {
-        private int _jobID;
-        private int _requestID;
-        public int JobID => _jobID;
-        public int RequestID => _requestID;
+        public int JobID { get; private set; }
+        public int RequestID { get; private set; }
 
         public InsertionResponse(InsertionRequest request, int jobID, int requestID) : base(request)
         {
-            _jobID = jobID;
-            _requestID = requestID;
+            this.JobID = jobID;
+            this.RequestID = requestID;
         }
     }
 }

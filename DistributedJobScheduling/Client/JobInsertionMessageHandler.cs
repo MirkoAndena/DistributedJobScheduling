@@ -19,7 +19,7 @@ namespace DistributedJobScheduling.Client
     public interface IJobInsertionMessageHandler
     {
         List<int> Requests { get; } 
-        void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : Job;
+        void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : IJobWork;
     }
 
     public class JobInsertionMessageHandler : IStartable, IJobInsertionMessageHandler
@@ -56,7 +56,7 @@ namespace DistributedJobScheduling.Client
         }
 
 
-        public void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : Job
+        public void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : IJobWork
         {
             _speaker = speaker;
             if (!_registered) 

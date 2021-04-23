@@ -24,11 +24,11 @@ namespace DistributedJobScheduling.Client
             this.count = count;
         }
 
-        public List<Job> CreateJobs()
+        public List<IJobWork> CreateJobs()
         {
-            List<Job> jobs = new List<Job>();
+            List<IJobWork> jobs = new List<IJobWork>();
             for (int i = 0; i < count; i++)
-                jobs.Add(new TimeoutJob(timeout));
+                jobs.Add(new TimeoutJobWork(timeout));
             return jobs;
         }
 

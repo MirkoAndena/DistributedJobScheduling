@@ -1,3 +1,4 @@
+using System.Threading;
 using System;
 
 namespace DistributedJobScheduling.Storage
@@ -25,12 +26,13 @@ namespace DistributedJobScheduling.Storage
             if (_isIndexCurrentlyUsed != null)
             {
                while (_isIndexCurrentlyUsed.Invoke(_index))
-                    _index = (_index + 1) % BOUND;
+                    Interlocked.Increment(ref _index);
                 return _index;
             }
             else
             {
-                return _index++;
+                Interlocked.Increment(ref _index);
+                return _index;
             }
         }
     }

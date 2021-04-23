@@ -16,17 +16,17 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
     [Serializable]
     [JsonObject(MemberSerialization.Fields)]
-    public class TimeoutJob : Job
+    public class TimeoutJobWork : IJobWork
     {
         private int _seconds;
 
         [JsonConstructor]
-        public TimeoutJob(int seconds) : base ()
+        public TimeoutJobWork(int seconds) : base ()
         {
             _seconds = seconds;
         }
 
-        public override async Task<IJobResult> Run()
+        public async Task<IJobResult> Run()
         {
             await Task.Delay(TimeSpan.FromSeconds(_seconds));
             return new BooleanJobResult(true);

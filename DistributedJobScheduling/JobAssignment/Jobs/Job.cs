@@ -13,32 +13,34 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
     public interface IJobResult { }
 
+    public interface IJobWork
+    {
+        Task<IJobResult> Run();
+    }
+
     [Serializable]
-    public abstract class Job
+    public class Job
     {
         public JobStatus Status { get; set; }
-        public int? ID { get; set; }
-        public int? Node { get; set; }
-
+        public int ID { get; set; }
+        public int Node { get; set; }
         public IJobResult Result { get; set; }
+        private IJobWork _work;
 
-        // ? The constructor will be called only by the client??
-        protected Job()
+        public Job(int id, int node, IJobWork work)
         {
-            Status = JobStatus.PENDING;
-            ID = null;
-            Node = null;
-            Result = null;
+            this.Status = JobStatus.PENDING;
+            this.ID = id;
+            this.Node = node;
+            this.Result = null;
         }
 
-        public abstract Task<IJobResult> Run();
+        public Task<IJobResult> Run() => _work.Run();
 
         public override string ToString() 
         {
-            string id = ID.HasValue ? ID.Value.ToString() : "unknown";
-            string node = Node.HasValue ? Node.Value.ToString() : "unknown";
             string result = Result == null ? "null" : Result.GetType().Name;
-            return $"ID: {id}, NODE: {node}, STATUS: {Status.ToString()}, RESULT: {result}";
+            return $"ID: {ID}, NODE: {Node}, STATUS: {Status.ToString()}, RESULT: {result}";
         }
     }
 }

@@ -9,7 +9,6 @@ namespace DistributedJobScheduling.JobAssignment
     {
         private HashSet<Type> _topics = new HashSet<Type>
         {
-            typeof(AssignmentMessage),
             typeof(InsertionRequest),
             typeof(InsertionResponse)
         };

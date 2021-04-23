@@ -79,18 +79,13 @@ namespace DistributedJobScheduling.DistributedJobUpdate
             {
                 DistributedStorageUpdateRequest message = (DistributedStorageUpdateRequest)receivedMessage;
                 _logger.Log(Tag.DistributedUpdate, $"Distributed update request arrived,  message: {message.ToString()}");
-                if (message.Job.ID.HasValue && message.Job.Node.HasValue)
+                var updateMessage = new DistributedStorageUpdate(message.Job);
+                _oldMessageHandler.SendMulticastOrKeep(updateMessage, () =>
                 {
-                    var updateMessage = new DistributedStorageUpdate(message.Job);
-                    _oldMessageHandler.SendMulticastOrKeep(updateMessage, () =>
-                    {
-                        _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
-                        _jobStorage.InsertOrUpdateJobLocally(message.Job);
-                        _logger.Log(Tag.DistributedUpdate, $"Updated local storage with job: {message.Job.ToString()}");
-                    });         
-                }
-                else
-                    _logger.Warning(Tag.DistributedUpdate, $"Arrived job is malformed (id or owner null)");
+                    _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                    _jobStorage.InsertOrUpdateJobLocally(message.Job);
+                    _logger.Log(Tag.DistributedUpdate, $"Updated local storage with job: {message.Job.ToString()}");
+                });         
             }
             else
                 _logger.Error(Tag.DistributedUpdate, $"Received distributed update request from {node} while I'm not the coordinator");
@@ -100,10 +95,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
         {
             DistributedStorageUpdate message = (DistributedStorageUpdate)receivedMessage;
             _logger.Log(Tag.DistributedUpdate, $"Distributed update arrived with content: {message.ToString()}");
-            if (message.Job.ID.HasValue && message.Job.Node.HasValue)
-                _jobStorage.InsertOrUpdateJobLocally(message.Job);
-            else
-                _logger.Warning(Tag.DistributedUpdate, $"Arrived job is malformed (id or owner null)");
+            _jobStorage.InsertOrUpdateJobLocally(message.Job);
         }
     }
 }

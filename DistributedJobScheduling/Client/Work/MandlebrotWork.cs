@@ -25,9 +25,9 @@ namespace DistributedJobScheduling.Client
             this.iterations = iterations;
         }
 
-        public List<Job> CreateJobs()
+        public List<IJobWork> CreateJobs()
         {
-            List<Job> jobs = new List<Job>();
+            List<IJobWork> jobs = new List<IJobWork>();
             int batchesPerSide = batches / 2;
             for(int i = 0; i < batchesPerSide; i++)
             {
@@ -37,7 +37,7 @@ namespace DistributedJobScheduling.Client
                 {
                     int verticalBatchSize = dimension / batchesPerSide;
                     int startingY = j * verticalBatchSize;
-                   jobs.Add(new MandlebrotJob(new Rectangle(startingX, startingY, horizontalBatchSize, verticalBatchSize), dimension, dimension, iterations));
+                   jobs.Add(new MandlebrotJobWork(new Rectangle(startingX, startingY, horizontalBatchSize, verticalBatchSize), dimension, dimension, iterations));
                 }
             }
             return jobs;
