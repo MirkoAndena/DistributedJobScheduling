@@ -33,6 +33,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
             this.ID = id;
             this.Node = node;
             this.Result = null;
+            this._work = work;
         }
 
         public Task<IJobResult> Run() => _work.Run();
