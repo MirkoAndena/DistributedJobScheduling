@@ -16,7 +16,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             JsonSerializer serializer = new JsonSerializer();
             KeepAliveRequestSerialization(serializer);
-            InsertionRequestSerialization(serializer);
+            DistributedStorageUpdateRequestSerialization(serializer);
         }
 
         [Fact]
@@ -24,7 +24,7 @@ namespace DistributedJobScheduling.DistributedStorage
         {
             ByteBase64Serializer serializer = new ByteBase64Serializer();
             KeepAliveRequestSerialization(serializer);
-            InsertionRequestSerialization(serializer);
+            DistributedStorageUpdateRequestSerialization(serializer);
         }
 
         public void KeepAliveRequestSerialization(ISerializer serializer)
@@ -35,22 +35,18 @@ namespace DistributedJobScheduling.DistributedStorage
             Assert.True(deserialized is KeepAliveRequest);
         }
 
-        public void InsertionRequestSerialization(ISerializer serializer)
+        public void DistributedStorageUpdateRequestSerialization(ISerializer serializer)
         {
             int nodeId = 7262;
-            int requestId = 15272;
             int jobId = 2432;
             Node node = new Node.NodeRegistryService().GetOrCreate("198.168.1.54", nodeId);
-            Job job = new TimeoutJob(0);
-            job.ID = jobId;
-            job.Node = node.ID;
-            Message message = new InsertionRequest(job, requestId);
+            Job job = new Job(jobId, node.ID.Value, new TimeoutJobWork(1));
+            Message message = new DistributedStorageUpdateRequest(job);
             byte[] serialized = serializer.Serialize(message);
-            InsertionRequest deserialized = serializer.Deserialize<InsertionRequest>(serialized);
+            DistributedStorageUpdateRequest deserialized = serializer.Deserialize<DistributedStorageUpdateRequest>(serialized);
 
-            Assert.Equal(deserialized.RequestID, requestId);
-            Assert.Equal(deserialized.Job.ID.Value, jobId);
-            Assert.Equal(deserialized.Job.Node.Value, nodeId);
+            Assert.Equal(jobId, deserialized.Job.ID);
+            Assert.Equal(nodeId, deserialized.Job.Node);
         }
     }
 }

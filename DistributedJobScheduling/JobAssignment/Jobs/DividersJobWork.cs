@@ -19,17 +19,17 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
     [Serializable]
     [JsonObject(MemberSerialization.Fields)]
-    public class DividersJob : Job
+    public class DividersJobWork : IJobWork
     {
         private int _number;
 
         [JsonConstructor]
-        public DividersJob(int number) : base ()
+        public DividersJobWork(int number) : base ()
         {
             _number = number;
         }
 
-        public override async Task<IJobResult> Run()
+        public async Task<IJobResult> Run()
         {
             return await Task.Run(() => 
             {

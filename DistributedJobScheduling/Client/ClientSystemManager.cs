@@ -137,7 +137,7 @@ namespace DistributedJobScheduling.Client
                 SystemShutdown.Invoke(); 
             };
 
-            List<Job> jobs = work.CreateJobs();
+            List<IJobWork> jobs = work.CreateJobs();
             messageHandler.SubmitJob(speaker, jobs);
 
             while(!hasFinised)

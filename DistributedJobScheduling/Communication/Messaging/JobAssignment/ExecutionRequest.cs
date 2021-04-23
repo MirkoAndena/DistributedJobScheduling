@@ -12,12 +12,11 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     [Serializable]
     public class ExecutionRequest : Message
     {
-        private Job _job;
-        public Job Job => _job;
+        public IJobWork JobWork { get; private set; }
 
-        public ExecutionRequest(Job job) : base()
+        public ExecutionRequest(IJobWork job) : base()
         {
-            _job = job;
+            this.JobWork = job;
         }
     }
 

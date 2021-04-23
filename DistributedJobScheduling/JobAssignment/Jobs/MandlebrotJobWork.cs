@@ -39,7 +39,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
 
     [Serializable]
     [JsonObject(MemberSerialization.Fields)]
-    public class MandlebrotJob : Job
+    public class MandlebrotJobWork : IJobWork
     {
         private const double MAX_EXTENT = 2.0;
         private Rectangle _rect;
@@ -48,7 +48,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
         private int _maxIterations;
 
         [JsonConstructor]
-        public MandlebrotJob(Rectangle rect, int totalWidth, int totalHeight, int maxIterations) : base ()
+        public MandlebrotJobWork(Rectangle rect, int totalWidth, int totalHeight, int maxIterations) : base ()
         {
             _rect = rect;
             _totalHeight = totalHeight;
@@ -56,7 +56,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
             _maxIterations = maxIterations;
         }
 
-        public override async Task<IJobResult> Run()
+        public async Task<IJobResult> Run()
         {
             var result = new MandlebrotResult(_rect);
             var xRange = Enumerable.Range(_rect.X, _rect.Width);

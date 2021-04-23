@@ -50,16 +50,16 @@ namespace DistributedJobScheduling.Tests.Jobs
         [Fact]
         public async void ExecuteMyJobsTest()
         {
-            _jobStorage.InsertOrUpdateJobLocally(JobTestUtils.CreateJob(_index, _group.Me));
-            _jobStorage.InsertOrUpdateJobLocally(JobTestUtils.CreateJob(_index, _group.Me));
-            _jobStorage.InsertOrUpdateJobLocally(JobTestUtils.CreateJob(_index, _group.Me));
+            _jobStorage.InsertOrUpdateJobLocally(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
+            _jobStorage.InsertOrUpdateJobLocally(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
+            _jobStorage.InsertOrUpdateJobLocally(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
 
             bool executedAll = false;
             _executor.Start();
 
             await Task.Delay(TimeSpan.FromSeconds(20)).ContinueWith(t => 
             {
-                int count = _jobStorage.Store.Count(value => value.Node.Value == _group.Me.ID.Value && value.Status == JobStatus.COMPLETED);
+                int count = _jobStorage.Store.Count(value => value.Node == _group.Me.ID.Value && value.Status == JobStatus.COMPLETED);
                 Assert.Equal(3, count);
                 executedAll = true;
             });

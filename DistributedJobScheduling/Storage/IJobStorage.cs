@@ -10,7 +10,7 @@ namespace DistributedJobScheduling.Storage
         event Action<Job> JobUpdated;
         void UpdateJob(Job job);
         Job Get(int jobID);
-        void InsertAndAssign(Job job);
+        int CreateJob(IJobWork jobWork);
         void InsertOrUpdateJobLocally(Job job);
         Task<Job> FindJobToExecute(CancellationToken token);
     }

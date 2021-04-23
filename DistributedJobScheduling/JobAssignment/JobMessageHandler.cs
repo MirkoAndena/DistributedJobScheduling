@@ -21,7 +21,7 @@ namespace DistributedJobScheduling.JobAssignment
         private ITranslationTable _translationTable;
         private IJobStorage _jobStorage;
         private ILogger _logger;
-        private Dictionary<(Node, int), Job> _unconfirmedRequestIds;
+        private Dictionary<(Node, int), IJobWork> _unconfirmedRequestIds;
         private OldMessageHandler _oldMessageHandler;
 
 
@@ -42,7 +42,7 @@ namespace DistributedJobScheduling.JobAssignment
             _jobStorage = jobStorage;
             _groupManager = groupManager;
             _communicationManager = communicationManager;
-            _unconfirmedRequestIds = new Dictionary<(Node, int), Job>();
+            _unconfirmedRequestIds = new Dictionary<(Node, int), IJobWork>();
             _oldMessageHandler = new OldMessageHandler();
         }
 
@@ -60,6 +60,7 @@ namespace DistributedJobScheduling.JobAssignment
             clientPublisher.RegisterForMessage(typeof(ResultRequest), OnResultRequestArrived);
         }
 
+        // From Client to Worker
         private void OnExecutionRequestArrived(Node node, Message received)
         {
             var message = (ExecutionRequest)received;
@@ -78,9 +79,10 @@ namespace DistributedJobScheduling.JobAssignment
             }
 
             _translationTable.StoreIndex(requestID); 
-            _unconfirmedRequestIds.Add((node, requestID), message.Job);
+            _unconfirmedRequestIds.Add((node, requestID), message.JobWork);
         }
 
+        // From Client to Worker, and send to Coordinator
         private void OnExecutionAckArrived(Node node, Message received)
         {
             var message = (ExecutionAck)received;
@@ -90,20 +92,20 @@ namespace DistributedJobScheduling.JobAssignment
             int requestID = message.RequestID;
             if (_unconfirmedRequestIds.ContainsKey((node, requestID)))
             {
-                Job job = _unconfirmedRequestIds[(node, requestID)];
+                IJobWork jobWork = _unconfirmedRequestIds[(node, requestID)];
                 _unconfirmedRequestIds.Remove((node, requestID));
                 _logger.Log(Tag.ClientCommunication, $"Request id confirmed, waiting for coordinator assignment");
 
                 // Request to coordinator for an insertion
                 if (_groupManager.View.ImCoordinator)
                 {
-                    _jobStorage.InsertAndAssign(job);
-                    _translationTable.Update(requestID, job.ID.Value);
-                    _logger.Log(Tag.ClientCommunication, $"Job stored and added to the translation table");
+                    int createdJobId = _jobStorage.CreateJob(jobWork);
+                    _translationTable.Update(requestID, createdJobId);
+                    _logger.Log(Tag.ClientCommunication, $"Job stored and added to the translation table, RequestID:{requestID}, JobID:{createdJobId}");
                 }
                 else
                 {
-                    var requestMessage = new InsertionRequest(job, requestID);
+                    var requestMessage = new InsertionRequest(jobWork, requestID);
                     _oldMessageHandler.SendOrKeep(_groupManager.View.Coordinator, requestMessage, () =>
                     {
                         _logger.Log(Tag.ClientCommunication, $"Insertion requested to coordinator for job with request id {requestID}");
@@ -114,26 +116,29 @@ namespace DistributedJobScheduling.JobAssignment
                 _logger.Warning(Tag.ClientCommunication, $"Client request id {requestID} does not match any request id stored");
         }
 
+        // From Worker to Coordinator
         private void OnInsertionRequestArrived(Node node, Message received)
         {
             var message = (InsertionRequest)received;
             _logger.Log(Tag.ClientCommunication, $"Insertion request arrived from {node}");
-            _jobStorage.InsertAndAssign(message.Job);
+            int createdJobId = _jobStorage.CreateJob(message.JobWork);
             _logger.Log(Tag.ClientCommunication, $"Job added to storage and assigned");
-            var responseMessage = new InsertionResponse(message, message.Job.ID.Value, message.RequestID);
+            var responseMessage = new InsertionResponse(message, createdJobId, message.RequestID);
             _oldMessageHandler.SendOrKeep(node, responseMessage, () => 
             {
                 _logger.Log(Tag.ClientCommunication, $"Sent back to {node} the assigned id for the inserted job");
             });
         }
 
+        // From Coordinator to Worker
         private void OnInsertionResponseArrived(Node node, Message received)
         {
             var message = (InsertionResponse)received;
             _translationTable.Update(message.RequestID, message.JobID);
-            _logger.Log(Tag.ClientCommunication, $"Translation added for request {message.RequestID} and job {message.JobID}");
+            _logger.Log(Tag.ClientCommunication, $"Job stored and added to the translation table, RequestID:{message.RequestID}, JobID:{message.JobID}");
         }
 
+        // From Client to Worker
         private void OnResultRequestArrived(Node node, Message received)
         {
             var message = (ResultRequest)received;

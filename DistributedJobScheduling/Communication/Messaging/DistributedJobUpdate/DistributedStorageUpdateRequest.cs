@@ -12,14 +12,13 @@ namespace DistributedJobScheduling.Communication.Messaging.JobAssignment
     [Serializable]
     public class DistributedStorageUpdateRequest : Message
     {
-        private Job _job;
-        public Job Job => _job;
+        public Job Job { get; private set; }
 
         public DistributedStorageUpdateRequest(Job job) : base()
         {
-            _job = job;
+            this.Job = job;
         }
 
-        public override string ToString() => $"StorageUpdateRequest with {_job.ToString()}";
+        public override string ToString() => $"StorageUpdateRequest with {Job.ToString()}";
     }
 }

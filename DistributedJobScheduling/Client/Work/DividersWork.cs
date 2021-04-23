@@ -25,11 +25,11 @@ namespace DistributedJobScheduling.Client
             _end = endNumber;
         }
 
-        public List<Job> CreateJobs()
+        public List<IJobWork> CreateJobs()
         {
-            List<Job> jobs = new List<Job>();
+            List<IJobWork> jobs = new List<IJobWork>();
             for (int i = _start; i < _end; i++)
-                jobs.Add(new DividersJob(i));
+                jobs.Add(new DividersJobWork(i));
             return jobs;
         }
 
