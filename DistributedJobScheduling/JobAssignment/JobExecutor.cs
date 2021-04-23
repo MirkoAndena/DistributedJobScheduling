@@ -59,20 +59,16 @@ namespace DistributedJobScheduling.JobAssignment
         private async Task ExecuteJob(Job current)
         {
             _logger.Log(Tag.JobExecutor, $"Start to execute job {current}");
-            UpdateStatus(current, JobStatus.RUNNING);
+            await _jobStorage.UpdateStatus(current.ID, JobStatus.RUNNING);
             
             IJobResult result = await RunJob(current);
-            if (result == null) return;
-            else current.Result = result;
             
             _logger.Log(Tag.JobExecutor, $"Job {current} has been executed");
-            UpdateStatus(current, JobStatus.COMPLETED);
-        }
-
-        private void UpdateStatus(Job job, JobStatus status)
-        {
-            job.Status = status;
-            _jobStorage.UpdateJob(job);
+            if (result != null)
+            {
+                await _jobStorage.UpdateResult(current.ID, result);
+                _logger.Log(Tag.JobExecutor, $"Risultato {result.GetType().Name} del job {current.ID} aggiornato in tabella");
+            }
         }
 
         private async Task<IJobResult> RunJob(Job job)

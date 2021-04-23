@@ -50,9 +50,9 @@ namespace DistributedJobScheduling.Tests.Jobs
         [Fact]
         public async void ExecuteMyJobsTest()
         {
-            _jobStorage.InsertOrUpdateJobLocally(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
-            _jobStorage.InsertOrUpdateJobLocally(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
-            _jobStorage.InsertOrUpdateJobLocally(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
+            _jobStorage.CommitUpdate(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
+            _jobStorage.CommitUpdate(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
+            _jobStorage.CommitUpdate(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
 
             bool executedAll = false;
             _executor.Start();

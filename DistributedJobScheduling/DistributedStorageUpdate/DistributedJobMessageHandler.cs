@@ -83,7 +83,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
                 _oldMessageHandler.SendMulticastOrKeep(updateMessage, () =>
                 {
                     _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
-                    _jobStorage.InsertOrUpdateJobLocally(message.Job);
+                    _jobStorage.CommitUpdate(message.Job);
                     _logger.Log(Tag.DistributedUpdate, $"Updated local storage with job: {message.Job.ToString()}");
                 });         
             }
@@ -95,7 +95,7 @@ namespace DistributedJobScheduling.DistributedJobUpdate
         {
             DistributedStorageUpdate message = (DistributedStorageUpdate)receivedMessage;
             _logger.Log(Tag.DistributedUpdate, $"Distributed update arrived with content: {message.ToString()}");
-            _jobStorage.InsertOrUpdateJobLocally(message.Job);
+            _jobStorage.CommitUpdate(message.Job);
         }
     }
 }

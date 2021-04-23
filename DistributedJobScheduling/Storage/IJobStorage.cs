@@ -8,10 +8,11 @@ namespace DistributedJobScheduling.Storage
     public interface IJobStorage
     {
         event Action<Job> JobUpdated;
-        void UpdateJob(Job job);
+        Task UpdateStatus(int id, JobStatus status);
+        Task UpdateResult(int id, IJobResult result);
         Job Get(int jobID);
         int CreateJob(IJobWork jobWork);
-        void InsertOrUpdateJobLocally(Job job);
+        void CommitUpdate(Job job);
         Task<Job> FindJobToExecute(CancellationToken token);
     }
 }

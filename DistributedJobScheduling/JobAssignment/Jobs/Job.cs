@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System;
 using System.Threading.Tasks;
 
@@ -36,7 +37,18 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
             this._work = work;
         }
 
+        private Job(int id, int node, IJobWork work, JobStatus status, IJobResult result)
+        {
+            this.Status = status;
+            this.ID = id;
+            this.Node = node;
+            this.Result = result;
+            this._work = work;
+        }
+
         public Task<IJobResult> Run() => _work.Run();
+
+        public Job Clone() => new Job(ID, Node, _work, Status, Result);
 
         public override string ToString() 
         {
