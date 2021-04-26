@@ -23,7 +23,7 @@ namespace DistributedJobScheduling.Storage
         {
             _logger = logger;
             _secureStorage = new BlockingDictionarySecureStore<Dictionary<int, int?>, int, int?>(store, logger);
-            _reusableIndex = new ReusableIndex(index => _secureStorage.ContainsKey(index));
+            _reusableIndex = new ReusableIndex(_secureStorage);
         }
 
         public void Init()

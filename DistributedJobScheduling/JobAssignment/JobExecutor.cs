@@ -67,7 +67,7 @@ namespace DistributedJobScheduling.JobAssignment
             if (result != null)
             {
                 await _jobStorage.UpdateResult(current.ID, result);
-                _logger.Log(Tag.JobExecutor, $"Risultato {result.GetType().Name} del job {current.ID} aggiornato in tabella");
+                _logger.Log(Tag.JobExecutor, $"Result {result.GetType().Name} of job {current.ID} updated");
             }
         }
 

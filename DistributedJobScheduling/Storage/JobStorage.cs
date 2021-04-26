@@ -36,7 +36,7 @@ namespace DistributedJobScheduling.Storage
         public JobStorage(IStore<Dictionary<int, Job>> store, ILogger logger, IGroupViewManager groupView)
         {
             _secureStore = new BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job>(store, logger);
-            _reusableIndex = new ReusableIndex(index => _secureStore.ContainsKey(index));
+            _reusableIndex = new ReusableIndex(_secureStore);
             _executionBlips = new AsyncGenericQueue<int>();
             _logger = logger;
             _group = groupView.View;
@@ -59,27 +59,16 @@ namespace DistributedJobScheduling.Storage
             _logger.Log(Tag.JobStorage, "Memory cleaned (logical deletions)");
         }
 
-        public async Task UpdateStatus(int id, JobStatus status)
+        public async Task UpdateStatus(int id, JobStatus status) => await UpdateJob(id, job => job.Status = status);
+
+        public async Task UpdateResult(int id, IJobResult result) => await UpdateJob(id, job => job.Result = result);
+
+        private async Task UpdateJob(int id, Action<Job> update)
         {   
             if (_secureStore.ContainsKey(id))
             {
                 Job clone = _secureStore[id].Clone();
-                clone.Status = status;
-                JobUpdated?.Invoke(clone);
-
-                var taskCompletionSource = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
-                _unCommitted.Add(clone, taskCompletionSource);
-                await taskCompletionSource.Task;
-            }
-        }
-
-        public async Task UpdateResult(int id, IJobResult result)
-        {   
-            if (_secureStore.ContainsKey(id))
-            {
-                Job clone = _secureStore[id].Clone();
-                clone.Status = JobStatus.COMPLETED;
-                clone.Result = result;
+                update.Invoke(clone);
                 JobUpdated?.Invoke(clone);
 
                 var taskCompletionSource = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
@@ -94,7 +83,7 @@ namespace DistributedJobScheduling.Storage
         {
             if (!_group.ImCoordinator)
             {
-                _logger.Fatal(Tag.JobStorage, "Job update unpermitted", new Exception("I'm not the leader, i can't update directly jobs"));
+                _logger.Fatal(Tag.JobStorage, "Job creation unpermitted", new Exception("I'm not the leader, i can't create jobs"));
             }
 
             int id = _reusableIndex.NewIndex;
