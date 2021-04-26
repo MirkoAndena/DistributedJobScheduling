@@ -42,7 +42,17 @@ namespace DistributedJobScheduling.DistributedJobUpdate
             groupPublisher.RegisterForMessage(typeof(DistributedStorageUpdate), OnDistributedStorageUpdateArrived);
             groupPublisher.RegisterForMessage(typeof(DistributedStorageUpdateRequest), OnDistributedStorageUpdateRequestArrived);
             _jobStorage.JobUpdated += SendDistributedStorageUpdateRequest;
+            _jobStorage.JobCreated += SendCreatedJobs;
             _oldMessageHandler.Init();
+        }
+
+        private void SendCreatedJobs(Job job)
+        {
+            var message = new DistributedStorageUpdate(job);
+            _oldMessageHandler.SendMulticastOrKeep(message, () =>
+            {
+                _logger.Log(Tag.DistributedUpdate, $"Created job sent in multicast");
+            });
         }
 
         private void SendDistributedStorageUpdateRequest(Job job)
@@ -54,7 +64,9 @@ namespace DistributedJobScheduling.DistributedJobUpdate
                     var message = new DistributedStorageUpdate(job);
                     _oldMessageHandler.SendMulticastOrKeep(message, () =>
                     {
-                        _logger.Log(Tag.DistributedUpdate, $"Distributed update sent in multicast");
+                        _logger.Log(Tag.DistributedUpdate, $"Updated job sent in multicast");
+                        _jobStorage.CommitUpdate(job);
+                        _logger.Log(Tag.DistributedUpdate, $"Updated my job: {job.ToString()}");
                     });
                 }
                 else

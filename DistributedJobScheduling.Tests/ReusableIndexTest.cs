@@ -7,6 +7,7 @@ using Xunit;
 using DistributedJobScheduling.Storage.SecureStorage;
 using DistributedJobScheduling.Tests;
 using Xunit.Abstractions;
+using DistributedJobScheduling.Logging;
 
 namespace DistributedJobScheduling.DistributedStorage
 {
@@ -14,9 +15,11 @@ namespace DistributedJobScheduling.DistributedStorage
     {
         private ReusableIndex _index;
         private BlockingDictionarySecureStore<Dictionary<int, bool>, int, bool> _items;
+        private ITestOutputHelper _outputHelper;
 
         public ReusableIndexTest(ITestOutputHelper outputHelper)
         {
+            _outputHelper = outputHelper;
             var store = new MemoryStore<Dictionary<int, bool>>();
             var logger = new StubLogger(outputHelper);
             _items = new BlockingDictionarySecureStore<Dictionary<int, bool>, int, bool>(store, logger);
@@ -41,7 +44,7 @@ namespace DistributedJobScheduling.DistributedStorage
         
         [Theory]
         [InlineData(10)]
-        //[InlineData(10000)]
+        [InlineData(10000)]
         public async void ParallelCreation(int count)
         {
             Task[] tasks = new Task[5];
@@ -50,7 +53,12 @@ namespace DistributedJobScheduling.DistributedStorage
                 tasks[i] = Task.Run(() => 
                 {
                     for (int j = 0; j < countPerTask; j++)
-                        _items.Add(_index.NewIndex, true);
+                    {
+                        lock(_items)
+                        {
+                            _items.Add(_index.NewIndex, true);
+                        }
+                    }
                 });
 
             await Task.WhenAll(tasks);

@@ -73,6 +73,7 @@ namespace DistributedJobScheduling.JobAssignment
 
         private async Task<IJobResult> RunJob(Job job)
         {
+            _logger.Log(Tag.JobExecutor, $"Running job {job.ToString()}");
             try
             {
                 return await job.Run();
