@@ -125,7 +125,7 @@ namespace DistributedJobScheduling.Client
                     return;
                 }
                     
-                Console.WriteLine("All responses arrived, compute result");
+                Console.WriteLine("All jobs are finished, assembling results..");
                 hasFinised = true;
 
                 // Creating final result

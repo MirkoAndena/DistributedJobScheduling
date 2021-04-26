@@ -58,12 +58,7 @@ namespace DistributedJobScheduling.Client
 
         public void RequestAllStoredJobs(BoldSpeaker speaker)
         {
-            if (_pendingRequests > 0)
-            {
-                _logger.Log(Tag.WorkerCommunication, $"Waiting for {_pendingRequests} pending requests");
-                return;
-            }
-
+            _pendingRequests = 0;
             _store.ClientJobs(result => result == null).ForEach(job => 
             {
                 RequestJob(speaker, job);

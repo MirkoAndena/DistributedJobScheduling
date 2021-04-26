@@ -142,7 +142,7 @@ namespace DistributedJobScheduling.JobAssignment
         private void OnResultRequestArrived(Node node, Message received)
         {
             var message = (ResultRequest)received;
-            _logger.Log(Tag.ClientCommunication, $"Job result request arrived");
+            _logger.Log(Tag.ClientCommunication, $"Job result request arrived with id {message.RequestID}");
             int? jobID = _translationTable.Get(message.RequestID);
             if (!jobID.HasValue) 
             {
