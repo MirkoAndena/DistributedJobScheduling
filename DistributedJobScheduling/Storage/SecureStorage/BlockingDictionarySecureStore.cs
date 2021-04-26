@@ -10,13 +10,14 @@ using DistributedJobScheduling.Extensions;
 namespace DistributedJobScheduling.Storage.SecureStorage
 {
     // T must has the default constructor (without parameters)
-    public class BlockingDictionarySecureStore<T, CK, CT> : SecureStore<T>
+    public class BlockingDictionarySecureStore<T, CK, CT> : SecureStore<T>, IContainer<CK>
     where T : IDictionary<CK,CT>
     where CK: notnull
     {
         public BlockingDictionarySecureStore(IStore<T> store) : this(store, DependencyManager.Get<ILogger>()) { }
         public BlockingDictionarySecureStore(IStore<T> store, ILogger logger) : base(store, logger)
         {
+            
         }
 
         public CT this[CK key]
@@ -59,6 +60,14 @@ namespace DistributedJobScheduling.Storage.SecureStorage
             get
             {
                 return _value.Values;
+            }
+        }
+
+        public ICollection<CK> Keys
+        {
+            get
+            {
+                return _value.Keys;
             }
         }
 

@@ -26,6 +26,7 @@ namespace DistributedJobScheduling.Storage
         private Group _group;
         private HashSet<Job> _executionSet;
         public event Action<Job> JobUpdated;
+        public event Action<Job> JobCreated;
         private Dictionary<Job, TaskCompletionSource<bool>> _unCommitted;
 
         public JobStorage() : this (
@@ -36,7 +37,7 @@ namespace DistributedJobScheduling.Storage
         public JobStorage(IStore<Dictionary<int, Job>> store, ILogger logger, IGroupViewManager groupView)
         {
             _secureStore = new BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job>(store, logger);
-            _reusableIndex = new ReusableIndex(index => _secureStore.ContainsKey(index));
+            _reusableIndex = new ReusableIndex(_secureStore);
             _executionBlips = new AsyncGenericQueue<int>();
             _logger = logger;
             _group = groupView.View;
@@ -47,44 +48,36 @@ namespace DistributedJobScheduling.Storage
         {
             _secureStore.Init();
             _executionSet = new HashSet<Job>();
-            DeletePendingAndRemovedJobs();
+            DeleteRemovedJobs();
         }
 
-        private void DeletePendingAndRemovedJobs()
+        private void DeleteRemovedJobs()
         {
-            _secureStore.RemoveAll(job => 
-                job.Status == JobStatus.PENDING || 
-                job.Status == JobStatus.REMOVED);
+            _secureStore.RemoveAll(job => job.Status == JobStatus.REMOVED);
             _secureStore.ValuesChanged.Invoke();
             _logger.Log(Tag.JobStorage, "Memory cleaned (logical deletions)");
         }
 
-        public async Task UpdateStatus(int id, JobStatus status)
+        public async Task UpdateStatus(int id, JobStatus status) => await UpdateJob(id, job => job.Status = status, job => job.Status < status);
+
+        public async Task UpdateResult(int id, IJobResult result) => await UpdateJob(id, job => { job.Result = result; job.Status = JobStatus.COMPLETED; });
+
+        public async Task UpdateJob(int id, Action<Job> update, Predicate<Job> updateCondition = null)
         {   
             if (_secureStore.ContainsKey(id))
             {
-                Job clone = _secureStore[id].Clone();
-                clone.Status = status;
-                JobUpdated?.Invoke(clone);
-
-                var taskCompletionSource = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
-                _unCommitted.Add(clone, taskCompletionSource);
-                await taskCompletionSource.Task;
-            }
-        }
-
-        public async Task UpdateResult(int id, IJobResult result)
-        {   
-            if (_secureStore.ContainsKey(id))
-            {
-                Job clone = _secureStore[id].Clone();
-                clone.Status = JobStatus.COMPLETED;
-                clone.Result = result;
-                JobUpdated?.Invoke(clone);
-
-                var taskCompletionSource = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
-                _unCommitted.Add(clone, taskCompletionSource);
-                await taskCompletionSource.Task;
+                if (updateCondition == null || updateCondition.Invoke(_secureStore[id]))
+                {
+                    _logger.Log(Tag.JobStorage, $"Updating {_secureStore[id]} and wait for commit");
+                    Job clone = _secureStore[id].Clone();
+                    update.Invoke(clone);
+                    
+                    var taskCompletionSource = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
+                    _unCommitted.Add(_secureStore[id], taskCompletionSource);
+                    
+                    JobUpdated?.Invoke(clone);                    
+                    await taskCompletionSource.Task;
+                }
             }
         }
 
@@ -94,22 +87,24 @@ namespace DistributedJobScheduling.Storage
         {
             if (!_group.ImCoordinator)
             {
-                _logger.Fatal(Tag.JobStorage, "Job update unpermitted", new Exception("I'm not the leader, i can't update directly jobs"));
+                _logger.Fatal(Tag.JobStorage, "Job creation unpermitted", new Exception("I'm not the leader, i can't create jobs"));
             }
 
-            int id = _reusableIndex.NewIndex;
+            int id;
             lock(_secureStore)
             {
+                id = _reusableIndex.NewIndex;
                 int assignedNode = JobUtils.FindNodeWithLessJobs(_group, _logger, _secureStore);
                 _logger.Log(Tag.JobStorage, $"new job id: {id}");
 
                 Job job = new Job(id, assignedNode, jobWork);
                 _secureStore.Add(id, job);
                 _secureStore.ValuesChanged?.Invoke();
-                JobUpdated?.Invoke(job);
-
+                JobCreated?.Invoke(job);
+                
                 _logger.Log(Tag.JobStorage, $"Job {job} assigned to {assignedNode}");
             }
+
             UnlockJobExecution();
             return id;
         }
@@ -119,18 +114,21 @@ namespace DistributedJobScheduling.Storage
             // If the job is already in the list it is updated
             if (_secureStore.ContainsKey(updated.ID))
             {
+                Job job = _secureStore[updated.ID];
                 if (updated.Status >= _secureStore[updated.ID].Status)
                 {
-                    _secureStore[updated.ID] = updated;
-                    _logger.Log(Tag.JobStorage, $"Job {_secureStore[updated.ID].ToString()} updated locally");
+                    job.Update(updated);
+                    _logger.Log(Tag.JobStorage, $"Job {job.ToString()} updated locally");
                 }
                 else
-                    _logger.Log(Tag.JobStorage, $"Job {_secureStore[updated.ID].ToString()} was not updated because it has a greater status");
+                    _logger.Log(Tag.JobStorage, $"Job {job.ToString()} was not updated because it has a greater status");
 
-                if (_unCommitted.ContainsKey(updated))
+                if (_unCommitted.ContainsKey(job))
                 {
-                    _unCommitted[updated].SetResult(true);
-                    _unCommitted.Remove(updated);
+                    var source = _unCommitted[job];
+                    _unCommitted.Remove(job);
+                    source.SetResult(true);
+                    _logger.Log(Tag.JobStorage, $"Update committed for {job.ToString()}, lock released");
                 }
             }
             else

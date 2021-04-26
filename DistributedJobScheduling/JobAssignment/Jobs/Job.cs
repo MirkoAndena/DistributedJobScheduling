@@ -23,10 +23,10 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
     public class Job
     {
         public JobStatus Status { get; set; }
-        public int ID { get; set; }
-        public int Node { get; set; }
+        public int ID { get; private set; }
+        public int Node { get; private set; }
         public IJobResult Result { get; set; }
-        private IJobWork _work;
+        public IJobWork Work { get; private set; }
 
         public Job(int id, int node, IJobWork work)
         {
@@ -34,7 +34,7 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
             this.ID = id;
             this.Node = node;
             this.Result = null;
-            this._work = work;
+            this.Work = work;
         }
 
         private Job(int id, int node, IJobWork work, JobStatus status, IJobResult result)
@@ -43,12 +43,18 @@ namespace DistributedJobScheduling.JobAssignment.Jobs
             this.ID = id;
             this.Node = node;
             this.Result = result;
-            this._work = work;
+            this.Work = work;
         }
 
-        public Task<IJobResult> Run() => _work.Run();
+        public Task<IJobResult> Run() => Work.Run();
 
-        public Job Clone() => new Job(ID, Node, _work, Status, Result);
+        public Job Clone() => new Job(ID, Node, Work, Status, Result);
+
+        public void Update(Job job)
+        {
+            Status = job.Status;
+            Result = job.Result;
+        }
 
         public override string ToString() 
         {
