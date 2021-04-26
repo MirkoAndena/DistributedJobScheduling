@@ -13,13 +13,15 @@ using DistributedJobScheduling.Communication.Messaging.JobAssignment;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Configuration;
 using DistributedJobScheduling.Communication.Messaging;
+using System.Collections.Generic;
 
 namespace DistributedJobScheduling.Client
 {
     public interface IJobResultMessageHandler
     {
-        event Action ResponsesArrived;
+        event Action<List<ClientJob>> ResponsesArrived;
         void RequestAllStoredJobs(BoldSpeaker speaker);
+        void RequestJobs(BoldSpeaker speaker, List<ClientJob> jobs);
         void RequestJob(BoldSpeaker speaker, ClientJob job);
     }
 
@@ -33,8 +35,9 @@ namespace DistributedJobScheduling.Client
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
         private int _pendingRequests;
-        public event Action ResponsesArrived;
+        public event Action<List<ClientJob>> ResponsesArrived;
         private bool _registered;
+        private List<ClientJob> _notCompleted;
 
         public JobResultMessageHandler() : this (
             DependencyInjection.DependencyManager.Get<IClientStore>(),
@@ -54,12 +57,25 @@ namespace DistributedJobScheduling.Client
             _configuration = configuration;
             _pendingRequests = 0;
             _registered = false;
+            _notCompleted = new List<ClientJob>();
         }
 
         public void RequestAllStoredJobs(BoldSpeaker speaker)
         {
             _pendingRequests = 0;
+            _notCompleted.Clear();
             _store.ClientJobs(result => result == null).ForEach(job => 
+            {
+                RequestJob(speaker, job);
+                _pendingRequests++;
+            });
+        }
+
+        public void RequestJobs(BoldSpeaker speaker, List<ClientJob> jobs)
+        {
+            _pendingRequests = 0;
+            _notCompleted.Clear();
+            jobs.ForEach(job => 
             {
                 RequestJob(speaker, job);
                 _pendingRequests++;
@@ -109,16 +125,19 @@ namespace DistributedJobScheduling.Client
                 _logger.Log(Tag.WorkerCommunication, $"Job requested {response.ClientJobId} is {response.Status}");
                 if (response.Status == JobStatus.COMPLETED)
                 {
+                    _notCompleted.Remove(_store.Get(response.ClientJobId));
                     _store.UpdateClientJobResult(response.ClientJobId, response.Result);
                     _logger.Log(Tag.WorkerCommunication, $"Job result updated into storage");
                 }
+                else
+                    _notCompleted.Add(_store.Get(response.ClientJobId));
 
                 _pendingRequests--;
                 
                 if (_pendingRequests == 0) 
                 {
                     _logger.Log(Tag.WorkerCommunication, $"All responses arrived");
-                    ResponsesArrived?.Invoke();
+                    ResponsesArrived?.Invoke(_notCompleted);
                 }
             }
         }

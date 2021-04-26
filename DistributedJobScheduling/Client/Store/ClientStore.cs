@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Client
 {
-    using Storage = BlockingListSecureStore<List<ClientJob>, ClientJob>;
+    using Storage = BlockingDictionarySecureStore<Dictionary<int, ClientJob>, int, ClientJob>;
 
     public class ClientStore : IInitializable, IClientStore
     {
@@ -21,11 +21,11 @@ namespace DistributedJobScheduling.Client
         private ILogger _logger;
 
         public ClientStore() : this(
-            DependencyInjection.DependencyManager.Get<IStore<List<ClientJob>>>(),
+            DependencyInjection.DependencyManager.Get<IStore<Dictionary<int, ClientJob>>>(),
             DependencyInjection.DependencyManager.Get<ILogger>())
         { }
 
-        public ClientStore(IStore<List<ClientJob>> store, ILogger logger)
+        public ClientStore(IStore<Dictionary<int, ClientJob>> store, ILogger logger)
         {
             _store = new Storage(store);
             _logger = logger;
@@ -37,7 +37,7 @@ namespace DistributedJobScheduling.Client
         {
             // Remove job with same ID
             _store.RemoveAll(current => current.ID == job.ID);
-            _store.Add(job);
+            _store.Add(job.ID, job);
             _store.ValuesChanged?.Invoke();
         }
 
@@ -46,7 +46,7 @@ namespace DistributedJobScheduling.Client
             _logger.Log(Tag.JobStorage, $"Updating job {jobId} with result {result?.ToString()}");
             _store.ExecuteTransaction(jobs =>
             {
-                foreach (ClientJob job in jobs)
+                foreach (ClientJob job in jobs.Values)
                     if (job.ID == jobId)
                     {
                         job.Result = result;
@@ -56,26 +56,19 @@ namespace DistributedJobScheduling.Client
             });
         }
 
-        public List<ClientJob> ClientJobs(Predicate<IJobResult> predicate)
-        {
-            List<ClientJob> jobs = new List<ClientJob>();
-            _store.ForEach(job =>
-            {
-                if (predicate.Invoke(job.Result))
-                    jobs.Add(job);
-            });
-            return jobs;
-        }
+        public List<ClientJob> ClientJobs(Predicate<IJobResult> predicate) => _store.GetAll(job => predicate.Invoke(job.Result));
 
         public List<IJobResult> Results(Predicate<int> predicate)
         {
             List<IJobResult> jobs = new List<IJobResult>();
-            _store.ForEach(job =>
+            _store.Values.ForEach(job =>
             {
                 if (predicate.Invoke(job.ID))
                     jobs.Add(job.Result);
             });
             return jobs;
         }
+
+        public ClientJob Get(int id) => _store.Get(id);
     }
 }

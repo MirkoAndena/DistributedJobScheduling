@@ -26,10 +26,11 @@ using static DistributedJobScheduling.Communication.Basic.Node;
 using DistributedJobScheduling.DependencyInjection;
 using DistributedJobScheduling.Client.Work;
 using DistributedJobScheduling.Utils;
+using System.Threading;
 
 namespace DistributedJobScheduling.Client
 {
-    using Storage = List<ClientJob>;
+    using Storage = Dictionary<int, ClientJob>;
     public class ClientSystemManager : SystemLifeCycle
     {
         #region Paths
@@ -64,6 +65,7 @@ namespace DistributedJobScheduling.Client
             configurationService.SetValue<int>("id", id);
             configurationService.SetValue<string>("worker", ip);
             configurationService.SetValue<IWork>("work", work);
+            configurationService.SetValue<int>("batch_size", 10);
         }
 
         private IWork GetWorkFromArgs(string[] args)
@@ -100,10 +102,10 @@ namespace DistributedJobScheduling.Client
         {
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
             IWork work = configuration.GetValue<IWork>("work"); 
-            Main(work).Wait();
+            Main(work);
         }
 
-        private async Task Main(IWork work)
+        private async void Main(IWork work)
         {
             var logger = DependencyManager.Get<ILogger>();
             var speaker = CreateConnection();
@@ -113,38 +115,55 @@ namespace DistributedJobScheduling.Client
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
 
             var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
-            var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
 
-            bool hasFinised = false;
-            jobResultHandler.ResponsesArrived += () => 
-            {
-                int nonFinished = store.ClientJobs(result => result == null).Count;
-                if(nonFinished > 0)
-                {
-                    Console.WriteLine(nonFinished + " job not finished yet");
-                    return;
-                }
-                    
-                Console.WriteLine("All jobs are finished, assembling results..");
-                hasFinised = true;
-
-                // Creating final result
-                List<IJobResult> results = store.Results(id => messageHandler.Requests.Contains(id));
-                work.ComputeResult(results, ROOT);
-
-                Console.WriteLine("Shutdown");
-                speaker.Stop(); 
-                SystemShutdown.Invoke(); 
-            };
+            var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
+            int batch_size = configuration.GetValue<int>("batch_size", 1);
 
             List<IJobWork> jobs = work.CreateJobs();
+            for (int i = 0; i < jobs.Count / batch_size; i++)
+            {
+                List<IJobWork> batch = jobs.GetRange(i * batch_size, batch_size);
+                await ExecuteBatch(speaker, batch, work);
+            }
+            
+            Console.WriteLine("All jobs are finished, assembling results..");
+
+            // Creating final result
+            List<IJobResult> results = store.Results(id => messageHandler.Requests.Contains(id));
+            work.ComputeResult(results, ROOT);
+
+            speaker.Stop(); 
+            SystemShutdown.Invoke(); 
+        }
+
+        private async Task ExecuteBatch(BoldSpeaker speaker, List<IJobWork> jobs, IWork work)
+        {
+            var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
+            var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
+            var store = DependencyInjection.DependencyManager.Get<IClientStore>();
+
+            var semaphore = new SemaphoreSlim(0, 1);
+
+            jobResultHandler.ResponsesArrived += async notCompleted => 
+            {
+                if (notCompleted.Count == 0)        
+                {
+                    Console.WriteLine("Batch is finished");
+                    semaphore.Release();
+                }
+                else
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10));
+                    jobResultHandler.RequestJobs(speaker, notCompleted);
+                }
+            };
+
             messageHandler.SubmitJob(speaker, jobs);
 
-            while(!hasFinised)
-            {
-                await Task.Delay(TimeSpan.FromSeconds(10));
-                jobResultHandler.RequestAllStoredJobs(speaker);
-            }
+            await Task.Delay(TimeSpan.FromSeconds(10));
+            jobResultHandler.RequestAllStoredJobs(speaker);
+
+            await semaphore.WaitAsync();
         }
 
         private BoldSpeaker CreateConnection()
