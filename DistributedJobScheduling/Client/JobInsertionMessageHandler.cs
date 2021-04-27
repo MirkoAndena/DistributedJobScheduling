@@ -18,7 +18,7 @@ namespace DistributedJobScheduling.Client
 {
     public interface IJobInsertionMessageHandler
     {
-        List<int> Requests { get; } 
+        event Action<List<int>> JobsSubmitted;
         void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : IJobWork;
     }
 
@@ -32,7 +32,9 @@ namespace DistributedJobScheduling.Client
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
         private bool _registered;
-        public List<int> Requests { get; private set; } 
+        private int _submissionCount;
+        private List<int> _requests;
+        public event Action<List<int>> JobsSubmitted;
 
         public JobInsertionMessageHandler() : this (
             DependencyInjection.DependencyManager.Get<IClientStore>(),
@@ -52,7 +54,7 @@ namespace DistributedJobScheduling.Client
             _configuration = configuration;
             var now = DateTime.Now;
             _registered = false;
-            Requests = new List<int>();
+            _requests = new List<int>();
         }
 
 
@@ -65,7 +67,8 @@ namespace DistributedJobScheduling.Client
                 _registered =  true;
             }
 
-            Requests.Clear();
+            _submissionCount = jobs.Count;
+            _requests.Clear();
             jobs.ForEach(job =>
             {
                 try
@@ -100,8 +103,10 @@ namespace DistributedJobScheduling.Client
                 _logger.Log(Tag.WorkerCommunication, $"Job successfully assigned to network, RequestID: {job.ID}");
                 
                 _store.StoreClientJob(job);
-                Requests.Add(job.ID);
-                _logger.Log(Tag.WorkerCommunication, $"Stored request id ({job.ID})");
+                _requests.Add(job.ID);
+
+                if (_requests.Count == _submissionCount)
+                    JobsSubmitted?.Invoke(_requests);
             }
         }
 

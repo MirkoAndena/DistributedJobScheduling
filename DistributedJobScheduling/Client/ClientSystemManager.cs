@@ -120,50 +120,61 @@ namespace DistributedJobScheduling.Client
             int batch_size = configuration.GetValue<int>("batch_size", 1);
 
             List<IJobWork> jobs = work.CreateJobs();
+            logger.Log(Tag.ClientMain, $"Jobs to execute: {jobs.Count}");
+            List<int> jobIds = new List<int>();
+
             for (int i = 0; i < jobs.Count / batch_size; i++)
             {
+                logger.Log(Tag.ClientMain, $"Start batch from {i * batch_size} to {(i + 1) * batch_size}");
                 List<IJobWork> batch = jobs.GetRange(i * batch_size, batch_size);
-                await ExecuteBatch(speaker, batch, work);
+                jobIds.AddRange(await ExecuteBatch(speaker, batch, work));
+                logger.Log(Tag.ClientMain, "Batch finished");
             }
             
-            Console.WriteLine("All jobs are finished, assembling results..");
+            logger.Log(Tag.ClientMain, "All jabs were be executed, calculating result...");
 
             // Creating final result
-            List<IJobResult> results = store.Results(id => messageHandler.Requests.Contains(id));
+            List<IJobResult> results = store.Results(id => jobIds.Contains(id));
             work.ComputeResult(results, ROOT);
+
+            logger.Log(Tag.ClientMain, "Result calculated, system in shutdown");
 
             speaker.Stop(); 
             SystemShutdown.Invoke(); 
         }
 
-        private async Task ExecuteBatch(BoldSpeaker speaker, List<IJobWork> jobs, IWork work)
+        private async Task<List<int>> ExecuteBatch(BoldSpeaker speaker, List<IJobWork> jobs, IWork work)
         {
             var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
             var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
+            var logger = DependencyManager.Get<ILogger>();
 
-            var semaphore = new SemaphoreSlim(0, 1);
+            var semaphore = new SemaphoreSlim(0);
 
             jobResultHandler.ResponsesArrived += async notCompleted => 
             {
                 if (notCompleted.Count == 0)        
                 {
-                    Console.WriteLine("Batch is finished");
                     semaphore.Release();
                 }
                 else
                 {
+                    logger.Log(Tag.ClientMain, $"{notCompleted.Count} jobs was not completed, retry after 10 seconds");
                     await Task.Delay(TimeSpan.FromSeconds(10));
                     jobResultHandler.RequestJobs(speaker, notCompleted);
                 }
             };
 
+            List<int> requests = null;
+            messageHandler.JobsSubmitted += submittedRequests => requests = submittedRequests;
             messageHandler.SubmitJob(speaker, jobs);
 
             await Task.Delay(TimeSpan.FromSeconds(10));
             jobResultHandler.RequestAllStoredJobs(speaker);
 
             await semaphore.WaitAsync();
+            return requests;
         }
 
         private BoldSpeaker CreateConnection()
