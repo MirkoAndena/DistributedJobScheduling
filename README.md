@@ -5,6 +5,6 @@
 - Links are reliable
 - Processes may fail but they resume back and start the work again (resume from stable storage)
 - Jobs are abstracted as wait operations of different length which can lockup the network thread and other components randomly
-- Executor nodes are already know to each executor (group.json)
+- Executor nodes don't know others before entering in the group
 - No form of authentication for executors
 - Nodes do not crash in the middle of the join procedure
