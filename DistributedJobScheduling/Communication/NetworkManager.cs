@@ -18,7 +18,8 @@ namespace DistributedJobScheduling.Communication
 {
     public class NetworkManager : ICommunicationManager, IStartable
     {
-        private Dictionary<Node, Speaker> _speakers;
+        private Dictionary<Node, Speaker> _senders;
+        private Dictionary<Node, Speaker> _receivers;
         private Listener _listener;
         private Shouter _shouter;
         private Node _me;
@@ -43,7 +44,8 @@ namespace DistributedJobScheduling.Communication
             _me = nodeRegistry.GetOrCreate(null, configurationService.GetValue<int>("nodeId"));
 
             _sendOrdering = new FIFOMessageOrdering(logger);
-            _speakers = new Dictionary<Node, Speaker>();
+            _senders = new Dictionary<Node, Speaker>();
+            _receivers = new Dictionary<Node, Speaker>();
 
             Topics = new GenericTopicOutlet(this, logger,
                 new VirtualSynchronyTopicPublisher(),
@@ -53,18 +55,28 @@ namespace DistributedJobScheduling.Communication
             _shouter = new Shouter(_serializer);
             _shouter.OnMessageReceived += OnMessageReceivedFromSpeakerOrShouter;
             _listener = new Listener(_serializer);
-            _listener.SpeakerCreated += OnSpeakerCreated;
+            _listener.SpeakerCreated += OnListenSpeakerCreated;
         }
 
-        private void OnSpeakerCreated(Node node, Speaker speaker)
+        private void OnListenSpeakerCreated(Node node, Speaker speaker)
         {
-            lock(_speakers)
+            OnSpeakerCreated(node, speaker, _receivers);
+        }
+
+        private void OnSendSpeakerCreated(Node node, Speaker speaker)
+        {
+            OnSpeakerCreated(node, speaker, _senders);
+        }
+
+        private void OnSpeakerCreated(Node node, Speaker speaker, Dictionary<Node, Speaker> speakerTable)
+        {
+            lock(speakerTable)
             {
-                _logger.Log(Tag.Communication, $"New speaker created for communications with {node}");
+                _logger.Log(Tag.Communication, $"New receiving speaker created for communications with {node}");
                 
-                if(_speakers.ContainsKey(node))
+                if(speakerTable.ContainsKey(node))
                 {
-                    var oldSpeaker = _speakers[node];
+                    var oldSpeaker = speakerTable[node];
 
                     if(oldSpeaker.IsConnected)
                     {
@@ -75,12 +87,12 @@ namespace DistributedJobScheduling.Communication
                     _logger.Log(Tag.Communication, $"Speaker for {node} was due to a previous disconnection, updating");
                     oldSpeaker.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
                     oldSpeaker.Stop();
-                    _speakers.Remove(node);
+                    speakerTable.Remove(node);
                 }
 
                 speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
-                speaker.Stopped += OnSpeakerStopped;
-                _speakers.Add(node, speaker);
+                speaker.Stopped += (node) => { OnSpeakerStopped(node, speakerTable); };
+                speakerTable.Add(node, speaker);
             }
 
             speaker.Start();
@@ -101,19 +113,22 @@ namespace DistributedJobScheduling.Communication
             }
         }
 
-        private void OnSpeakerStopped(Node remote)
+        private void OnSpeakerStopped(Node remote, Dictionary<Node, Speaker> speakerTable)
         {
             Node toNotify = null;
-            lock(_speakers)
+            lock(speakerTable)
             {
-                if (_speakers.ContainsKey(remote))
+                if (speakerTable.ContainsKey(remote))
                 {
-                    _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-                    _speakers.Remove(remote);
+                    speakerTable[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
+                    speakerTable.Remove(remote);
                     toNotify = remote;
                 }
             }
-            toNotify?.NotifyDeath();
+
+            //Notify Deaths only for send links
+            if(speakerTable == _senders)
+                toNotify?.NotifyDeath();
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)
@@ -142,12 +157,12 @@ namespace DistributedJobScheduling.Communication
         private async Task<Speaker> GetSpeakerTo(Node node, int timeout)
         {
             // Retrieve an already connected speaker
-            lock(_speakers)
+            lock(_senders)
             {
-                if (_speakers.ContainsKey(node))
+                if (_senders.ContainsKey(node))
                 {
                     _logger.Log(Tag.Communication, $"Speaker to {node} is already created");
-                    return _speakers[node];
+                    return _senders[node];
                 }
             }
 
@@ -156,7 +171,7 @@ namespace DistributedJobScheduling.Communication
             await speaker.Connect(timeout);
             
             if(speaker.IsConnected)
-                OnSpeakerCreated(node, speaker);
+                OnSendSpeakerCreated(node, speaker);
 
             return speaker;
         }
@@ -182,23 +197,31 @@ namespace DistributedJobScheduling.Communication
         public void Start()
         {
             _listener.Start();
-            _speakers.Clear();
+            _senders.Clear();
+            _receivers.Clear();
             _shouter.Start();
         }
         
         public void Stop() 
         {
             _shouter.OnMessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-            _listener.SpeakerCreated -= OnSpeakerCreated;
+            _listener.SpeakerCreated -= OnListenSpeakerCreated;
 
             _shouter.Stop();
             _listener.Stop();
 
-            _speakers.ForEach(speakerIdPair => 
+            _senders.ForEach(speakerIdPair => 
             {
                 speakerIdPair.Value.Stop();
                 speakerIdPair.Value.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-                _speakers.Remove(speakerIdPair.Key);
+                _senders.Remove(speakerIdPair.Key);
+            });
+
+            _receivers.ForEach(speakerIdPair => 
+            {
+                speakerIdPair.Value.Stop();
+                speakerIdPair.Value.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
+                _receivers.Remove(speakerIdPair.Key);
             });
 
             _logger.Warning(Tag.Communication, "Network manager closed, no further communication can be performed");

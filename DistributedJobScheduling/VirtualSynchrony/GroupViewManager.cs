@@ -44,9 +44,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private CancellationTokenSource _senderCancellationTokenSource;
         private Thread _messageSender;
-        private BlockingCollection<(Node, Message)> _sendQueue;
+        private BlockingCollection<(Node, Message, Action)> _sendQueue;
         private Dictionary<Message, TaskCompletionSource<bool>> _messageSendStateMap;
-        private ConcurrentQueue<(Node, Message)> _onHoldMessages;
+        private ConcurrentQueue<(Node, Message, Action)> _onHoldMessages;
 
         
         #region Messaging Variables
@@ -93,6 +93,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _communicationManager = communicationManager;
             _messageTimeStamper = timeStamper;
             _logger = logger;
+
             _confirmationMap = new Dictionary<(int, int), HashSet<Node>>();
             _confirmationQueue = new Dictionary<(int, int), TemporaryMessage>();
             _sentTemporaryMessages = new HashSet<TemporaryMessage>();
@@ -100,7 +101,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _futureMessagesQueue = new Queue<(Node, ViewMessage)>();
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
 
-            _sendQueue = new BlockingCollection<(Node, Message)>();
+            _sendQueue = new BlockingCollection<(Node, Message, Action)>();
             _messageSendStateMap = new Dictionary<Message, TaskCompletionSource<bool>>();
 
             Topics = new GenericTopicOutlet(this, logger,
@@ -126,10 +127,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 //TODO: Maybe a better way than record all messages since start?
                 if(!View.ViewId.HasValue || message.ViewId > View.ViewId) //Future Message
                 {
-                    lock(_futureMessagesQueue)
-                    {
-                        _futureMessagesQueue.Enqueue((node, message));
-                    }
+                    _futureMessagesQueue.Enqueue((node, message));
                 }
 
                 if(message.ViewId < View.ViewId)
@@ -140,7 +138,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         }
 
         /// <summary>
-        /// This task waits for enqueued messages and sends them appropriatly
+        /// This thread waits for enqueued messages and sends them appropriatly
         /// </summary>
         /// <returns></returns>
         private void MessageRouter(CancellationToken cancellationToken)
@@ -155,6 +153,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     {
                         Node node = messageToSend.Item1;
                         Message message = messageToSend.Item2;
+                        Action callback = messageToSend.Item3;
 
                         try
                         {
@@ -189,6 +188,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             //Notify Send Completion
                             _logger.Log(Tag.VirtualSynchrony, $"Routed message {message.GetType().Name}({message.TimeStamp}) to {(node?.ToString() ?? "MULTICAST")}");
                             
+                            callback?.Invoke();
+
                             if(_messageSendStateMap.ContainsKey(message))
                                 _messageSendStateMap[message].SetResult(true);
                         }
@@ -235,7 +236,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 sendCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 token.Register(() => {sendCompletionSource.TrySetResult(false); });
                 _messageSendStateMap[tempMessage] = sendCompletionSource;
-                var sendMessageElement = (node, tempMessage);
+                var sendMessageElement = (node, tempMessage, default(Action));
 
                 if(_pendingViewChange != null)
                 {
@@ -304,7 +305,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network ({View.Me.ID},{message.TimeStamp})");
             var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp.Value);
-            lock(_confirmationQueue)
+            lock(View)
             {
                 _confirmationQueue.Add(messageKey, tempMessage);
                 _sentTemporaryMessages.Add(tempMessage);
@@ -340,7 +341,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 _logger.Log(Tag.VirtualSynchrony, $"Received temporary message from {node.ID} with timestamp {message.TimeStamp}");
                 var messageKey = (node.ID.Value, tempMessage.TimeStamp.Value);
-                lock (_confirmationQueue)
+                lock (View)
                 {
                     _confirmationQueue.Add(messageKey, tempMessage);
                     ProcessAcknowledge(messageKey, node);
@@ -349,7 +350,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 if (tempMessage.IsMulticast)
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"Sending ack for received message {messageKey}");
-                    _sendQueue.Add((null, new TemporaryAckMessage(tempMessage)));
+                    _sendQueue.Add((null, new TemporaryAckMessage(tempMessage), null));
                     _logger.Log(Tag.VirtualSynchrony, $"Correctly sent ack for {messageKey}");
                 }
             }
@@ -404,7 +405,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         ///</summary>
         private void ProcessAcknowledge((int,int) messageKey, Node node)
         {
-            lock(_confirmationQueue)
+            lock(View)
             {
                 _logger.Log(Tag.VirtualSynchrony, $"Processing acknowledge by {node.ID} of message ({messageKey.Item1},{messageKey.Item2})");
 
@@ -432,7 +433,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         ///</summary>
         private void ConsolidateTemporaryMessage((int,int) messageKey)
         {
-            lock(_confirmationQueue)
+            lock(View)
             {
                 _logger.Log(Tag.VirtualSynchrony, $"Consolidating message ({messageKey.Item1},{messageKey.Item2})");
                 _confirmationMap.Remove(messageKey);
@@ -517,7 +518,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     ViewChanging?.Invoke();
 
                     //Stop all messaging
-                    _onHoldMessages = new ConcurrentQueue<(Node, Message)>();
+                    _onHoldMessages = new ConcurrentQueue<(Node, Message, Action)>();
 
                     //Setup Message Flushing and check if we can already flush
                     _flushed = false;
@@ -544,10 +545,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     {
                         //FIXME: Shouldn't we multicast unstable messages from the dead node? Probably handled by timeout (either all or none)
                         //Ignore acknowledges from the dead node
-                        lock(_confirmationQueue)
-                        {
-                            _confirmationMap.Keys.ToArray().ForEach(messageKey => ProcessAcknowledge(messageKey, difference.Key));
-                        }
+                        _confirmationMap.Keys.ToArray().ForEach(messageKey => ProcessAcknowledge(messageKey, difference.Key));
                     }
                 }
 
@@ -561,18 +559,12 @@ namespace DistributedJobScheduling.VirtualSynchrony
         }
 
         //If we are not waiting any more messages from alive nodes we need to consolidate messages
-        private bool FlushCondition()
-        {
-            lock(_confirmationQueue)
-            {
-                return _pendingViewChange != null && !_confirmationMap.Any(pair => { return !pair.Value.IsSubsetOf(_flushedNodes); });
-            }
-        }
         private void HandleFlushCondition()
         {
             lock (View)
             {
-                if (FlushCondition())
+                bool cantConsolidatMoreMessages = !_confirmationMap.Any(pair => { return !pair.Value.IsSubsetOf(_flushedNodes); });
+                if (_pendingViewChange != null && cantConsolidatMoreMessages)
                 {
                     AttemptSendFlushMessage();
                     var confirmationSet = _pendingViewChange.Apply(View.Others, true);
@@ -589,7 +581,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         }
 
                         //Enstablish new View
-                        //FIXME: Something is up here
                         Node coordinator = View.ImCoordinator || _newGroupView.Contains(View.Coordinator) ? View.Coordinator : null;
                         View.Update(_newGroupView, coordinator, _pendingViewChange.ViewId);
                         _logger.Log(Tag.VirtualSynchrony, $"Consolidated view {View.ViewId}: COORD => [{coordinator}], OTHERS => [{string.Join(",", _newGroupView)}]");
@@ -617,8 +608,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             );
                             
                             _logger.Log(Tag.VirtualSynchrony, $"Sending view sync response");
-                            _sendQueue.Add((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value, componentsSyncMessages)));
-                            _currentJoinRequest = null;
+                            _sendQueue.Add((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value, componentsSyncMessages), () => {
+                                _currentJoinRequest = null;
+                            }));
                         }
 
                         //Unlock Message Queue
@@ -643,9 +635,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 lock(View)
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange}!");
-                    flushMessage = new FlushMessage(_pendingViewChange, View.ViewId.Value);
+                    flushMessage = new FlushMessage(_pendingViewChange, _pendingViewChange.ViewId.Value - 1);
                 }
-                _sendQueue.Add((null, flushMessage));
+                _sendQueue.Add((null, flushMessage, default(Action)));
                 _flushed = true;
             }
         }
@@ -654,17 +646,17 @@ namespace DistributedJobScheduling.VirtualSynchrony
         {
             Queue<(Node, ViewMessage)> messageToRouterAgain;
 
-            lock(_futureMessagesQueue)
+            lock(View)
             {
                 messageToRouterAgain = new Queue<(Node, ViewMessage)>(_futureMessagesQueue);
                 _futureMessagesQueue.Clear();
+
+                _logger.Log(Tag.VirtualSynchrony, $"Replaying { messageToRouterAgain?.Count } messages after view change");
+
+                messageToRouterAgain.ForEach((futureMessage) => {
+                    _virtualSynchronyTopic.RouteMessage(futureMessage.Item2.GetType(), futureMessage.Item1, futureMessage.Item2);
+                });
             }
-
-            _logger.Log(Tag.VirtualSynchrony, $"Replaying { messageToRouterAgain?.Count } messages after view change");
-
-            messageToRouterAgain.ForEach((futureMessage) => {
-                _virtualSynchronyTopic.RouteMessage(futureMessage.Item2.GetType(), futureMessage.Item1, futureMessage.Item2);
-            });
         }
 
         private void OnJoinRequestReceived(Node node, Message message)
@@ -677,33 +669,35 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 //Cannot trigger viewchange due to join during another viewchange
                 if(_pendingViewChange != null)
                     return;
-            }
 
-            if(!View.Contains(joinRequest.JoiningNode) && _currentJoinRequest == null)
-            {
-                if(View.Me == View.Coordinator)
+                if(!View.Contains(joinRequest.JoiningNode) && _currentJoinRequest == null)
                 {
-                    _logger.Log(Tag.VirtualSynchrony, $"Starting joining procedure");
-                    //Only the coordinator processes these
-                    _currentJoinRequest = joinRequest;
-                    NotifyViewChanged(new HashSet<Node>(new [] {joinRequest.JoiningNode}), Operation.Joined);
+                    if(View.Me == View.Coordinator)
+                    {
+                        _logger.Log(Tag.VirtualSynchrony, $"Starting joining procedure");
+                        //Only the coordinator processes these
+                        _currentJoinRequest = joinRequest;
+                        NotifyViewChanged(new HashSet<Node>(new [] {joinRequest.JoiningNode}), Operation.Joined);
+                    }
                 }
             }
         }
 
         private void OnViewSyncReceived(Node coordinator, Message message)
         {
+            ViewSyncResponse viewSyncResponse = message as ViewSyncResponse;
+            viewSyncResponse.BindToRegistry(_nodeRegistry);
+
             lock(View)
             {
-                ViewSyncResponse viewSyncResponse = message as ViewSyncResponse;
-                viewSyncResponse.BindToRegistry(_nodeRegistry);
-
                 HashSet<Node> newView = viewSyncResponse.ViewNodes.ToHashSet();
                 
                 if(!newView.Contains(View.Me))
                     _logger.Fatal(Tag.VirtualSynchrony, "Received a new view where I'm not included!", new Exception("Received a new view where I'm not included!"));
                 newView.Remove(View.Me);
-                newView.Add(coordinator);
+
+                if(coordinator != null && coordinator != View.Me)
+                    newView.Add(coordinator);
 
                 View.Update(newView, coordinator, id: viewSyncResponse.ViewId);
                 _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine}");
@@ -717,7 +711,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 );
 
                 //In case some messages were received before the viewsync
-                Task.Run(ProcessFutureMessages);
+                new Thread(ProcessFutureMessages).Start();
             }
         }
 
