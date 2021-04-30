@@ -24,11 +24,18 @@ namespace DistributedJobScheduling.Client
             this.count = count;
         }
 
+        public DummyWork(int count)
+        {
+            this.timeout = -1;
+            this.count = count;
+        }
+
         public List<IJobWork> CreateJobs()
         {
             List<IJobWork> jobs = new List<IJobWork>();
+            Random random = new Random();
             for (int i = 0; i < count; i++)
-                jobs.Add(new TimeoutJobWork(timeout));
+                jobs.Add(new TimeoutJobWork(timeout > 0 ? timeout : 2 + random.Next(15)));
             return jobs;
         }
 

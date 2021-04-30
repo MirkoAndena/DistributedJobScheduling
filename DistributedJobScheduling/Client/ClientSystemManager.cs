@@ -76,6 +76,11 @@ namespace DistributedJobScheduling.Client
                 int count = ArgsUtils.GetIntParam(args, 4, "COUNT");
                 return new DummyWork(timeout, count);
             }
+            if (ArgsUtils.IsPresent(args, "rdummy"))
+            {
+                int count = ArgsUtils.GetIntParam(args, 3, "COUNT");
+                return new DummyWork(count);
+            }
             if (ArgsUtils.IsPresent(args, "dividers"))
             {
                 int startNumber = ArgsUtils.GetIntParam(args, 3, "START");
@@ -160,8 +165,9 @@ namespace DistributedJobScheduling.Client
                 }
                 else
                 {
-                    logger.Log(Tag.ClientMain, $"{notCompleted.Count} jobs was not completed, retry after 10 seconds");
+                    logger.Log(Tag.ClientMain, $"{notCompleted.Count} jobs were not completed, retrying after 10 seconds");
                     await Task.Delay(TimeSpan.FromSeconds(10));
+                    logger.Log(Tag.ClientMain, $"Requesting {notCompleted.Count} not completed jobs");
                     jobResultHandler.RequestJobs(speaker, notCompleted);
                 }
             };

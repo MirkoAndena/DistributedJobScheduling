@@ -19,9 +19,9 @@ namespace DistributedJobScheduling.Client
 {
     public interface IJobResultMessageHandler
     {
-        event Action<List<ClientJob>> ResponsesArrived;
+        event Action<List<int>> ResponsesArrived;
         void RequestAllStoredJobs(BoldSpeaker speaker);
-        void RequestJobs(BoldSpeaker speaker, List<ClientJob> jobs);
+        void RequestJobs(BoldSpeaker speaker, List<int> jobs);
         void RequestJob(BoldSpeaker speaker, ClientJob job);
     }
 
@@ -35,9 +35,9 @@ namespace DistributedJobScheduling.Client
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
         private int _pendingRequests;
-        public event Action<List<ClientJob>> ResponsesArrived;
+        public event Action<List<int>> ResponsesArrived;
         private bool _registered;
-        private List<ClientJob> _notCompleted;
+        private List<int> _notCompleted;
 
         public JobResultMessageHandler() : this (
             DependencyInjection.DependencyManager.Get<IClientStore>(),
@@ -57,7 +57,7 @@ namespace DistributedJobScheduling.Client
             _configuration = configuration;
             _pendingRequests = 0;
             _registered = false;
-            _notCompleted = new List<ClientJob>();
+            _notCompleted = new List<int>();
         }
 
         public void RequestAllStoredJobs(BoldSpeaker speaker)
@@ -71,13 +71,13 @@ namespace DistributedJobScheduling.Client
             });
         }
 
-        public void RequestJobs(BoldSpeaker speaker, List<ClientJob> jobs)
+        public void RequestJobs(BoldSpeaker speaker, List<int> jobs)
         {
             _pendingRequests = 0;
             _notCompleted.Clear();
             jobs.ForEach(job => 
             {
-                RequestJob(speaker, job);
+                RequestJob(speaker, _store.Get(job));
                 _pendingRequests++;
             });
         }
@@ -125,19 +125,19 @@ namespace DistributedJobScheduling.Client
                 _logger.Log(Tag.WorkerCommunication, $"Job requested {response.ClientJobId} is {response.Status}");
                 if (response.Status == JobStatus.COMPLETED)
                 {
-                    _notCompleted.Remove(_store.Get(response.ClientJobId));
+                    _notCompleted.Remove(response.ClientJobId);
                     _store.UpdateClientJobResult(response.ClientJobId, response.Result);
                     _logger.Log(Tag.WorkerCommunication, $"Job result updated into storage");
                 }
                 else
-                    _notCompleted.Add(_store.Get(response.ClientJobId));
+                    _notCompleted.Add(response.ClientJobId);
 
                 _pendingRequests--;
                 
                 if (_pendingRequests == 0) 
                 {
                     _logger.Log(Tag.WorkerCommunication, $"All responses arrived");
-                    ResponsesArrived?.Invoke(_notCompleted);
+                    ResponsesArrived?.Invoke(new List<int>(_notCompleted));
                 }
             }
         }

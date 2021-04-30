@@ -61,6 +61,15 @@ namespace DistributedJobScheduling.Communication
         private void OnListenSpeakerCreated(Node node, Speaker speaker)
         {
             OnSpeakerCreated(node, speaker, _receivers);
+
+            bool isRemoteAClient = !node.ID.HasValue;
+            if (isRemoteAClient)
+            {
+                lock(_senders)
+                {
+                    _senders.Add(node, speaker);
+                }
+            }
         }
 
         private void OnSendSpeakerCreated(Node node, Speaker speaker)
