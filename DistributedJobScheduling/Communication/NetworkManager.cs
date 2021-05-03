@@ -18,9 +18,11 @@ namespace DistributedJobScheduling.Communication
 {
     public class NetworkManager : ICommunicationManager, IStartable
     {
+        public const int GROUP_PORT = 30308;
+        public const int CLIENT_PORT = 30309;
         private Dictionary<Node, Speaker> _senders;
         private Dictionary<Node, Speaker> _receivers;
-        private Listener _listener;
+        private Listener _listener, _clientListener;
         private Shouter _shouter;
         private Node _me;
         private ILogger _logger;
@@ -54,28 +56,24 @@ namespace DistributedJobScheduling.Communication
 
             _shouter = new Shouter(_serializer);
             _shouter.OnMessageReceived += OnMessageReceivedFromSpeakerOrShouter;
-            _listener = new Listener(_serializer);
+            _listener = new Listener(_serializer, GROUP_PORT);
             _listener.SpeakerCreated += OnListenSpeakerCreated;
+            _clientListener = new Listener(_serializer, CLIENT_PORT);
+            _clientListener.SpeakerCreated += OnClientSpeakerCreated;
         }
 
-        private void OnListenSpeakerCreated(Node node, Speaker speaker)
+        private void OnClientSpeakerCreated(Node node, Speaker speaker)
         {
             OnSpeakerCreated(node, speaker, _receivers);
-
-            bool isRemoteAClient = !node.ID.HasValue;
-            if (isRemoteAClient)
+            lock(_senders)
             {
-                lock(_senders)
-                {
-                    _senders.Add(node, speaker);
-                }
+                _senders.Add(node, speaker);
             }
         }
 
-        private void OnSendSpeakerCreated(Node node, Speaker speaker)
-        {
-            OnSpeakerCreated(node, speaker, _senders);
-        }
+        private void OnListenSpeakerCreated(Node node, Speaker speaker) => OnSpeakerCreated(node, speaker, _receivers);
+
+        private void OnSendSpeakerCreated(Node node, Speaker speaker) => OnSpeakerCreated(node, speaker, _senders);
 
         private void OnSpeakerCreated(Node node, Speaker speaker, Dictionary<Node, Speaker> speakerTable)
         {
@@ -177,7 +175,7 @@ namespace DistributedJobScheduling.Communication
 
             // Create a new speaker and connect to remote
             BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
-            await speaker.Connect(timeout);
+            await speaker.Connect(GROUP_PORT, timeout);
             
             if(speaker.IsConnected)
                 OnSendSpeakerCreated(node, speaker);

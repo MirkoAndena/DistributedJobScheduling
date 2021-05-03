@@ -14,7 +14,7 @@ namespace DistributedJobScheduling.Communication.Basic
     {
         private Node.INodeRegistry _nodeRegistry;
 
-        public const int PORT = 30308;
+        public int _port;
         private TcpListener _listener;
         private CancellationTokenSource _cancellationTokenSource;
         public event Action<Node, Speaker> SpeakerCreated;
@@ -22,9 +22,13 @@ namespace DistributedJobScheduling.Communication.Basic
         protected ILogger _logger;
         private ISerializer _serializer;
 
-        public Listener(ISerializer serializer) : this(DependencyManager.Get<Node.INodeRegistry>(),
+        public Listener(ISerializer serializer, int port) : this(DependencyManager.Get<Node.INodeRegistry>(),
                                  DependencyManager.Get<Configuration.IConfigurationService>(),
-                                 DependencyManager.Get<ILogger>(), serializer) {}
+                                 DependencyManager.Get<ILogger>(), serializer) 
+        {
+            _port = port;
+        }
+
         public Listener(Node.INodeRegistry nodeRegistry, Configuration.IConfigurationService configurationService, ILogger logger, ISerializer serializer)
         {
             _serializer = serializer;
@@ -44,12 +48,12 @@ namespace DistributedJobScheduling.Communication.Basic
             Node me = _nodeRegistry.GetNode(_myID);
             _nodeRegistry.UpdateNodeIP(me, address.ToString());
 
-            _listener = new TcpListener(address, PORT);
+            _listener = new TcpListener(address, _port);
             
             try
             {
                 _listener.Start();
-                _logger.Log(Tag.CommunicationBasic, $"Start listening on {address.ToString()}:{PORT}");
+                _logger.Log(Tag.CommunicationBasic, $"Start listening on {address.ToString()}:{_port}");
             }
             catch (Exception e)
             {
@@ -76,11 +80,11 @@ namespace DistributedJobScheduling.Communication.Basic
             }
             catch (OperationCanceledException)
             { 
-                _logger.Warning(Tag.CommunicationBasic, $"Listener (port {PORT}) stopped manually with CancellationToken");
+                _logger.Warning(Tag.CommunicationBasic, $"Listener (port {_port}) stopped manually with CancellationToken");
             }
             catch (AggregateException)
             { 
-                _logger.Warning(Tag.CommunicationBasic, $"Listener (port {PORT}) stopped manually with AggregateCancellationToken");
+                _logger.Warning(Tag.CommunicationBasic, $"Listener (port {_port}) stopped manually with AggregateCancellationToken");
             }
             finally
             {
@@ -89,7 +93,7 @@ namespace DistributedJobScheduling.Communication.Basic
                     _listener.Stop();
                     _listener = null;
                     _cancellationTokenSource = null;
-                    _logger.Warning(Tag.CommunicationBasic, $"Listener (port {PORT}) stopped");
+                    _logger.Warning(Tag.CommunicationBasic, $"Listener (port {_port}) stopped");
                 }
             }
         }

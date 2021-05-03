@@ -12,10 +12,10 @@ using DistributedJobScheduling.Communication.Messaging;
 
 namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
-    public class KeepAliveManager : IStartable
+    public class KeepAliveManager : IInitializable
     {
-        public static TimeSpan RequestSendTimeout = TimeSpan.FromSeconds(15);
-        public static TimeSpan ResponseWindow = TimeSpan.FromSeconds(10);
+        public static TimeSpan RequestSendTimeout = TimeSpan.FromSeconds(10);
+        public static TimeSpan ResponseWindow = TimeSpan.FromSeconds(5);
 
         private IStartable _keepAlive;
         private ILogger _logger;
@@ -31,14 +31,14 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _group = group;
         }
 
-        public void Start()
+        public void Init()
         {
             _logger.Log(Tag.KeepAlive, "Registered to ViewChanged and ViewChanging events");
             _group.View.ViewChanged += OnViewChanged;
-            _group.ViewChanging += Stop;
+            _group.ViewChanging += OnViewChanging;
         }
 
-        public void Stop()
+        private void OnViewChanging()
         {
             if (_keepAlive != null) 
             {
@@ -57,7 +57,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnViewChanged()
         {
-            Stop();
+            OnViewChanging();
             if (_group.View.CoordinatorExists)
             {
                 // Group has coordinator so keep-alive can start

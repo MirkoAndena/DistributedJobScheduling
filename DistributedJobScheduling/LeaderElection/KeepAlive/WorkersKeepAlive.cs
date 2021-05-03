@@ -32,7 +32,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
 
             _cancellationTokenSource = new CancellationTokenSource();
-            Task.Delay(KeepAliveManager.ResponseWindow, _cancellationTokenSource.Token)
+            Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
@@ -48,15 +48,18 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
             _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
-            Stop();
-            Start();
+            
+            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource = new CancellationTokenSource();
+            Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
+                .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
         private void TimeoutFinished()
         {
             _logger.Warning(Tag.KeepAlive, "No keep alive request arrived, coordinator has crashed");
             CoordinatorDied?.Invoke();
-            Stop();
+            this.Stop();
         }
     }
 }

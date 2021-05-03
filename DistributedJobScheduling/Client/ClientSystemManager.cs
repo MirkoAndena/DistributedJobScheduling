@@ -193,7 +193,7 @@ namespace DistributedJobScheduling.Client
 
             try
             {
-                speaker.Connect(30).Wait();
+                speaker.Connect(NetworkManager.CLIENT_PORT, 30).Wait();
                 speaker.Start();
                 return speaker;
             }

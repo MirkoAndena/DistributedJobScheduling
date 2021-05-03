@@ -16,7 +16,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
     public class CoordinatorKeepAlive : IStartable
     {
         public Action<List<Node>> NodesDied;
-        private Dictionary<Node, bool> _ticks;
+        private List<Node> _ticks;
         private ILogger _logger;
         private CancellationTokenSource _cancellationTokenSource;
 
@@ -26,36 +26,29 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _groupManager = group;
             _logger = logger;
-            _ticks = new Dictionary<Node, bool>();
+            _ticks = new List<Node>();
         }
         
         public void Start()
-        {
-            _logger.Log(Tag.KeepAlive, "Starting coordinator keep alive service...");
-            
+        {            
             var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
             jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
 
             _cancellationTokenSource = new CancellationTokenSource();
-            ResetTicks();
-            Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
-                .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
+            _ticks.Clear();
+            _groupManager.View.Others.ForEach(node => _ticks.Add(node));
+
+            SendKeepAliveToNodes();
             Task.Delay(KeepAliveManager.ResponseWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
         public void Stop() 
         {
+            _cancellationTokenSource?.Cancel();
+
             var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
             jobPublisher.UnregisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
-
-            _cancellationTokenSource?.Cancel();
-        }
-
-        private void ResetTicks()
-        {
-            _ticks.Clear();
-            _groupManager.View.Others.ForEach(node => _ticks.Add(node, false));
         }
 
         private void SendKeepAliveToNodes()
@@ -69,15 +62,16 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 catch(NotDeliveredException) { }
                 _logger.Log(Tag.KeepAlive, $"Sent keep-alive request to {node}");
             });
+
             Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
         }
 
         private void OnKeepAliveResponseReceived(Node node, Message message)
         { 
-            if (_ticks.ContainsKey(node))
+            if (_ticks.Contains(node))
             {
-                _ticks[node] = true;
+                _ticks.Remove(node);
                 _logger.Log(Tag.KeepAlive, $"Received keep-alive response from {node}");
             }
             else
@@ -88,18 +82,11 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void TimeoutFinished()
         {
-            List<Node> deaths = new List<Node>();
-            _ticks.ForEach(element => 
+            if (_ticks.Count > 0)
             {
-                if (!element.Value)
-                    deaths.Add(element.Key);
-            });
-            ResetTicks();
-
-            if (deaths.Count > 0)
-            {
-                _logger.Warning(Tag.KeepAlive, $"Nodes {deaths.ToString<Node>()} died");
-                NodesDied?.Invoke(deaths);
+                _logger.Warning(Tag.KeepAlive, $"Nodes {_ticks.ToString<Node>()} died");
+                NodesDied?.Invoke(_ticks);
+                this.Stop();
             }
 
             Task.Delay(KeepAliveManager.ResponseWindow, _cancellationTokenSource.Token)

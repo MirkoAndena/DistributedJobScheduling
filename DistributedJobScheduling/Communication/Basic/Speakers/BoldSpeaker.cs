@@ -16,7 +16,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             
         }
 
-        public async Task Connect(int timeout)
+        public async Task Connect(int port, int timeout)
         {
             if(_connectToken != null)
                 _connectToken.Cancel();
@@ -26,7 +26,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             {
                 _connectToken.CancelAfter(TimeSpan.FromSeconds(timeout));
 
-                await _client.ConnectAsync(_remote.IP, Listener.PORT, _connectToken.Token);
+                await _client.ConnectAsync(_remote.IP, port, _connectToken.Token);
                 _connectToken.Token.ThrowIfCancellationRequested();
                 
                 _logger.Log(Tag.CommunicationBasic, $"Connected to {_remote} [hash: {_remote.GetHashCode()}]");
