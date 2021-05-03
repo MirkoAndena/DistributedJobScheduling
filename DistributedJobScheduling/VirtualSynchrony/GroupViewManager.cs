@@ -582,16 +582,15 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                         //Enstablish new View
                         Node coordinator = View.ImCoordinator || _newGroupView.Contains(View.Coordinator) ? View.Coordinator : null;
-                        View.Update(_newGroupView, coordinator, _pendingViewChange.ViewId);
                         _logger.Log(Tag.VirtualSynchrony, $"Consolidated view {View.ViewId}: COORD => [{coordinator}], OTHERS => [{string.Join(",", _newGroupView)}]");
                         var viewChangeTask = _viewChangeInProgress;
+                        int? newViewId = _pendingViewChange.ViewId;
 
                         //Reset view state change
                         _flushed = false;
                         _flushedNodes = null;
                         _pendingViewChange = null;
                         _viewChangeInProgress = null;
-                        _newGroupView = null;
 
                         //Check if it needs to sync to the new node
                         if (_currentJoinRequest != null)
@@ -612,6 +611,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
                                 _currentJoinRequest = null;
                             }));
                         }
+                        
+                        View.Update(_newGroupView, coordinator, newViewId);
+                        _newGroupView = null;
 
                         //Unlock Message Queue
                         foreach(var message in _onHoldMessages)
