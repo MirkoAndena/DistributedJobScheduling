@@ -66,6 +66,9 @@ namespace DistributedJobScheduling.Communication.Messaging
 
         public HashSet<Node> Apply(HashSet<Node> currentNodes, bool onlyLeft = false)
         {
+            if(!this._isBound)
+                throw new InvalidOperationException("Trying to apply a view change that isn't bound");
+                
             var resultSet = new HashSet<Node>(currentNodes);
             foreach(var node in Changes.Keys)
             {

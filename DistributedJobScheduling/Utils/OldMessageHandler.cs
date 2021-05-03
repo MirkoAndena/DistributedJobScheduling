@@ -21,17 +21,20 @@ namespace DistributedJobScheduling
     public class OldMessageHandler : IInitializable
     {
         private IGroupViewManager _groupManager;
+        private Node.INodeRegistry _nodeRegistry;
         private ILogger _logger;
         private List<NotDeliveredMessage> _notDeliveredMessages;
 
         public OldMessageHandler() : this(
             DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
+            DependencyInjection.DependencyManager.Get<Node.INodeRegistry>(),
             DependencyInjection.DependencyManager.Get<ILogger>()
         ) {}
 
-        public OldMessageHandler(IGroupViewManager groupViewManager, ILogger logger)
+        public OldMessageHandler(IGroupViewManager groupViewManager, Node.INodeRegistry nodeRegistry, ILogger logger)
         {
             _groupManager = groupViewManager;
+            _nodeRegistry = nodeRegistry;
             _logger = logger;
             _notDeliveredMessages = new List<NotDeliveredMessage>();
         }
@@ -64,7 +67,7 @@ namespace DistributedJobScheduling
                     }
                     else
                     {
-                        Node dest = message.DestIsCoordintor ? _groupManager.View.Coordinator : message.Dest;
+                        Node dest = message.DestIsCoordintor ? _groupManager.View.Coordinator : _nodeRegistry.GetOrCreate(message.Dest);
                         _groupManager.Send(dest, message.Message);
                     }
 
