@@ -20,8 +20,8 @@ namespace DistributedJobScheduling.DistributedStorage
     {
         public FastKeepAliveManager(IGroupViewManager group, ILogger logger) : base(group, logger)
         {
-            RequestSendTimeout = TimeSpan.FromSeconds(0.2);
-            ResponseWindow = TimeSpan.FromSeconds(0.3
+            CoordinatorRequestSendTimeout = TimeSpan.FromSeconds(0.2);
+            CoordinatorResponseWindow = TimeSpan.FromSeconds(0.3
             );
         }
     }

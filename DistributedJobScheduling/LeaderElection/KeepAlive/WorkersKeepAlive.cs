@@ -32,7 +32,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
 
             _cancellationTokenSource = new CancellationTokenSource();
-            Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
+            Task.Delay(KeepAliveManager.WorkerRequestWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
@@ -51,7 +51,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             
             _cancellationTokenSource?.Cancel();
             _cancellationTokenSource = new CancellationTokenSource();
-            Task.Delay(KeepAliveManager.RequestSendTimeout, _cancellationTokenSource.Token)
+            Task.Delay(KeepAliveManager.WorkerRequestWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
 

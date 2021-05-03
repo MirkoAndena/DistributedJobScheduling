@@ -14,8 +14,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 {
     public class KeepAliveManager : IInitializable
     {
-        public static TimeSpan RequestSendTimeout = TimeSpan.FromSeconds(10);
-        public static TimeSpan ResponseWindow = TimeSpan.FromSeconds(5);
+        public static TimeSpan CoordinatorRequestSendTimeout = TimeSpan.FromSeconds(10);
+        public static TimeSpan CoordinatorResponseWindow = TimeSpan.FromSeconds(5);
+        public static TimeSpan WorkerRequestWindow = 2 * CoordinatorRequestSendTimeout;
 
         private IStartable _keepAlive;
         private ILogger _logger;
