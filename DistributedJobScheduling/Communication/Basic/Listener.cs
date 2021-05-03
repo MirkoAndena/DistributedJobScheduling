@@ -69,7 +69,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync();
                     Node remote = _nodeRegistry.GetOrCreate(ip: NetworkUtils.GetRemoteIP(client));
-                    _logger.Log(Tag.CommunicationBasic, $"Accepted connection request to {remote}");
+                    _logger.Log(Tag.CommunicationBasic, $"Accepted connection request to {remote} [hash: {remote.GetHashCode()}]");
                     Speaker speaker = new Speaker(client, remote, _serializer);
                     SpeakerCreated?.Invoke(remote, speaker);
                 }

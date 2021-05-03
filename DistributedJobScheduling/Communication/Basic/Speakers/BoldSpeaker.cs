@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 await _client.ConnectAsync(_remote.IP, Listener.PORT, _connectToken.Token);
                 _connectToken.Token.ThrowIfCancellationRequested();
                 
-                _logger.Log(Tag.CommunicationBasic, $"Connected to {_remote}");
+                _logger.Log(Tag.CommunicationBasic, $"Connected to {_remote} [hash: {_remote.GetHashCode()}]");
                 _stream = _client.GetStream();
             }
             catch (ObjectDisposedException)
