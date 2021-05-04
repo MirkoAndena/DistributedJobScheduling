@@ -35,17 +35,14 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
 
             _cancellationTokenSource = new CancellationTokenSource();
-            ResetTicks();
-
             SendKeepAliveToNodes();
-            Task.Delay(KeepAliveManager.CoordinatorResponseWindow, _cancellationTokenSource.Token)
-                .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
 
         private void ResetTicks()
         {
             _ticks.Clear();
             _groupManager.View.Others.ForEach(node => _ticks.Add(node));
+            _logger.Warning(Tag.KeepAlive, $"Ticks resetted: Nodes {_ticks.ToString<Node>()}");
         }
 
         public void Stop() 
@@ -58,6 +55,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void SendKeepAliveToNodes()
         {
+            ResetTicks();
+
             _groupManager.View.Others.ForEach(node => 
             {
                 try
@@ -67,6 +66,9 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 catch(NotDeliveredException) { }
                 _logger.Log(Tag.KeepAlive, $"Sent keep-alive request to {node}");
             });
+
+            Task.Delay(KeepAliveManager.CoordinatorResponseWindow, _cancellationTokenSource.Token)
+                .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
 
             Task.Delay(KeepAliveManager.CoordinatorRequestSendTimeout, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) SendKeepAliveToNodes(); });
@@ -78,6 +80,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             {
                 _ticks.Remove(node);
                 _logger.Log(Tag.KeepAlive, $"Received keep-alive response from {node}");
+                _logger.Log(Tag.KeepAlive, $"After receive keep-alive from {node.ToString()} remains are {_ticks.ToString<Node>()}");
             }
             else
             {
@@ -93,13 +96,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 NodesDied?.Invoke(_ticks);
                 this.Stop();
             }
-            else
-            {
-                ResetTicks();
-            }
-
-            Task.Delay(KeepAliveManager.CoordinatorResponseWindow, _cancellationTokenSource.Token)
-                .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
         }
     }
 }
