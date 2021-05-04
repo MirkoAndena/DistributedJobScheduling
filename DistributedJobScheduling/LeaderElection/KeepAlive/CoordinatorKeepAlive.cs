@@ -35,12 +35,17 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             jobPublisher.RegisterForMessage(typeof(KeepAliveResponse), OnKeepAliveResponseReceived);
 
             _cancellationTokenSource = new CancellationTokenSource();
-            _ticks.Clear();
-            _groupManager.View.Others.ForEach(node => _ticks.Add(node));
+            ResetTicks();
 
             SendKeepAliveToNodes();
             Task.Delay(KeepAliveManager.CoordinatorResponseWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t => { if (!t.IsCanceled) TimeoutFinished(); });
+        }
+
+        private void ResetTicks()
+        {
+            _ticks.Clear();
+            _groupManager.View.Others.ForEach(node => _ticks.Add(node));
         }
 
         public void Stop() 
@@ -87,6 +92,10 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 _logger.Warning(Tag.KeepAlive, $"Nodes {_ticks.ToString<Node>()} died");
                 NodesDied?.Invoke(_ticks);
                 this.Stop();
+            }
+            else
+            {
+                ResetTicks();
             }
 
             Task.Delay(KeepAliveManager.CoordinatorResponseWindow, _cancellationTokenSource.Token)
