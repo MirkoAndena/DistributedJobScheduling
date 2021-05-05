@@ -116,7 +116,11 @@ namespace DistributedJobScheduling.Client
             var speaker = CreateConnection(logger);
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
 
-            var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
+            var jobRequestHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
+            var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
+
+            jobRequestHandler.AttachSpeaker(speaker);
+            jobResultHandler.AttachSpeaker(speaker);
 
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
             int batch_size = configuration.GetValue<int>("batch_size", 1);
@@ -129,11 +133,11 @@ namespace DistributedJobScheduling.Client
             {
                 logger.Log(Tag.ClientMain, $"Start batch from {i * batch_size} to {(i + 1) * batch_size}");
                 List<IJobWork> batch = jobs.GetRange(i * batch_size, batch_size);
-                jobIds.AddRange(await ExecuteBatch(speaker, batch, work));
+                jobIds.AddRange(await ExecuteBatch(jobRequestHandler, jobResultHandler, batch, work));
                 logger.Log(Tag.ClientMain, "Batch finished");
             }
             
-            logger.Log(Tag.ClientMain, "All jabs were be executed, calculating result...");
+            logger.Log(Tag.ClientMain, "All jobs were be executed, calculating result...");
 
             // Creating final result
             List<IJobResult> results = store.Results(id => jobIds.Contains(id));
@@ -145,38 +149,52 @@ namespace DistributedJobScheduling.Client
             SystemShutdown.Invoke(); 
         }
 
-        private async Task<List<int>> ExecuteBatch(BoldSpeaker speaker, List<IJobWork> jobs, IWork work)
+        private async Task<List<int>> ExecuteBatch(IJobInsertionMessageHandler jobRequestHandler, IJobResultMessageHandler jobResultHandler, List<IJobWork> jobs, IWork work)
         {
-            var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
-            var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
             var logger = DependencyManager.Get<ILogger>();
 
-            var semaphore = new SemaphoreSlim(0);
+            var batchSemaphore = new SemaphoreSlim(0);
+            var submissionSemaphore = new SemaphoreSlim(0);
+            List<int> requests = null;
 
-            jobResultHandler.ResponsesArrived += async notCompleted => 
+            Action<List<int>> OnResponseArrived = async notCompleted => 
             {
                 if (notCompleted.Count == 0)        
                 {
-                    semaphore.Release();
+                    batchSemaphore.Release();
                 }
                 else
                 {
                     logger.Log(Tag.ClientMain, $"{notCompleted.Count} jobs were not completed, retrying after 10 seconds");
                     await Task.Delay(TimeSpan.FromSeconds(10));
                     logger.Log(Tag.ClientMain, $"Requesting {notCompleted.Count} not completed jobs");
-                    jobResultHandler.RequestJobs(speaker, notCompleted);
+                    jobResultHandler.RequestJobs(notCompleted);
                 }
             };
 
-            List<int> requests = null;
-            messageHandler.JobsSubmitted += submittedRequests => requests = submittedRequests;
-            messageHandler.SubmitJob(speaker, jobs);
+            Action<List<int>> OnRequestsSubmitted = submittedRequests => 
+            {
+                logger.Log(Tag.ClientMain, "All Jobs submitted!");
+                requests = submittedRequests;
+                submissionSemaphore.Release();
+            };
 
+            jobRequestHandler.JobsSubmitted += OnRequestsSubmitted;
+            jobResultHandler.ResponsesArrived += OnResponseArrived;
+
+            jobRequestHandler.SubmitJob(jobs);
+            await submissionSemaphore.WaitAsync();
+
+            logger.Log(Tag.ClientMain, $"Waiting 10 seconds before ask results");
             await Task.Delay(TimeSpan.FromSeconds(10));
-            jobResultHandler.RequestAllStoredJobs(speaker);
+            jobResultHandler.RequestJobs(requests);
 
-            await semaphore.WaitAsync();
+            await batchSemaphore.WaitAsync();
+            
+            jobRequestHandler.JobsSubmitted -= OnRequestsSubmitted;
+            jobResultHandler.ResponsesArrived -= OnResponseArrived;
+
             return requests;
         }
 

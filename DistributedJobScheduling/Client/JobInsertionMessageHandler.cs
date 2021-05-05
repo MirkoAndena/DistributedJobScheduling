@@ -18,20 +18,20 @@ namespace DistributedJobScheduling.Client
 {
     public interface IJobInsertionMessageHandler
     {
+        void AttachSpeaker(Speaker speaker);
         event Action<List<int>> JobsSubmitted;
-        void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : IJobWork;
+        void SubmitJob<T>(List<T> jobs) where T : IJobWork;
     }
 
-    public class JobInsertionMessageHandler : IStartable, IJobInsertionMessageHandler
+    public class JobInsertionMessageHandler : IJobInsertionMessageHandler
     {
-        private BoldSpeaker _speaker;
+        private Speaker _speaker;
         private ILogger _logger;
         private ISerializer _serializer;
         private ITimeStamper _timeStamper;
         private IClientStore _store;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
-        private bool _registered;
         private int _submissionCount;
         private List<int> _requests;
         public event Action<List<int>> JobsSubmitted;
@@ -53,20 +53,17 @@ namespace DistributedJobScheduling.Client
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
             var now = DateTime.Now;
-            _registered = false;
             _requests = new List<int>();
         }
-
-
-        public void SubmitJob<T>(BoldSpeaker speaker, List<T> jobs) where T : IJobWork
+        
+        public void AttachSpeaker(Speaker speaker)
         {
             _speaker = speaker;
-            if (!_registered) 
-            {
-                _speaker.MessageReceived += OnMessageReceived;
-                _registered =  true;
-            }
+            _speaker.MessageReceived += OnMessageReceived;
+        }
 
+        public void SubmitJob<T>(List<T> jobs) where T : IJobWork
+        {
             _submissionCount = jobs.Count;
             _requests.Clear();
             jobs.ForEach(job =>
@@ -84,15 +81,6 @@ namespace DistributedJobScheduling.Client
             });
         }
 
-        public void Stop()
-        {
-            if (_registered)
-            {
-                _speaker.MessageReceived -= OnMessageReceived;
-                _registered = false;
-            }
-        }
-
         private void OnMessageReceived(Node node, Message message)
         {
             if (message is ExecutionResponse response)
@@ -108,11 +96,6 @@ namespace DistributedJobScheduling.Client
                 if (_requests.Count == _submissionCount)
                     JobsSubmitted?.Invoke(_requests);
             }
-        }
-
-        public void Start()
-        {
-            // Nothing
         }
     }
 }

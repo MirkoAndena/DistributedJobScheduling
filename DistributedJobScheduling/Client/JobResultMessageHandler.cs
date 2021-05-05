@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Security.Cryptography.X509Certificates;
 using System.Globalization;
 using System;
@@ -19,25 +20,25 @@ namespace DistributedJobScheduling.Client
 {
     public interface IJobResultMessageHandler
     {
+        void AttachSpeaker(Speaker speaker);
         event Action<List<int>> ResponsesArrived;
-        void RequestAllStoredJobs(BoldSpeaker speaker);
-        void RequestJobs(BoldSpeaker speaker, List<int> jobs);
-        void RequestJob(BoldSpeaker speaker, ClientJob job);
+        void RequestJobs(List<int> jobs);
     }
 
-    public class JobResultMessageHandler : IStartable, IJobResultMessageHandler
+    public class JobResultMessageHandler : IJobResultMessageHandler
     {
-        private BoldSpeaker _speaker;
         private ILogger _logger;
         private ISerializer _serializer;
         private IClientStore _store;
         private ITimeStamper _timeStamper;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
+
+        private Speaker _speaker;
         private int _pendingRequests;
         public event Action<List<int>> ResponsesArrived;
-        private bool _registered;
         private List<int> _notCompleted;
+        private SemaphoreSlim _semaphore;
 
         public JobResultMessageHandler() : this (
             DependencyInjection.DependencyManager.Get<IClientStore>(),
@@ -56,66 +57,41 @@ namespace DistributedJobScheduling.Client
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
             _pendingRequests = 0;
-            _registered = false;
             _notCompleted = new List<int>();
         }
 
-        public void RequestAllStoredJobs(BoldSpeaker speaker)
+        public void AttachSpeaker(Speaker speaker)
         {
-            _pendingRequests = 0;
-            _notCompleted.Clear();
-            _store.ClientJobs(result => result == null).ForEach(job => 
-            {
-                RequestJob(speaker, job);
-                _pendingRequests++;
-            });
-        }
-
-        public void RequestJobs(BoldSpeaker speaker, List<int> jobs)
-        {
-            _pendingRequests = 0;
-            _notCompleted.Clear();
-            jobs.ForEach(job => 
-            {
-                RequestJob(speaker, _store.Get(job));
-                _pendingRequests++;
-            });
-        }
-
-        public void RequestJob(BoldSpeaker speaker, ClientJob job)
-        {
-            _logger.Log(Tag.WorkerCommunication, $"Requesting result for {job.ID}");
             _speaker = speaker;
-            if (!_registered)
-            {
-                _speaker.MessageReceived += OnMessageReceived;
-                _registered = true;
-            }
-
-            Message message = new ResultRequest(job.ID);
-
-            try
-            {
-                _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
-            }
-            catch (Exception e)
-            {
-                _logger.Error(Tag.WorkerCommunication, "Job request not sent", e);
-            }
+            _speaker.MessageReceived += OnMessageReceived;
         }
 
-        public void Start()
+        public void RequestJobs(List<int> jobIds)
         {
-            // Nothing
-        }
+            // Don't wait the first call
+            if (_semaphore == null)
+                _semaphore = new SemaphoreSlim(0, 1);
+            else
+                _semaphore.Wait();
 
-        public void Stop()
-        {
-            if (_registered)
+            _pendingRequests = 0;
+            _notCompleted.Clear();
+
+            jobIds.ForEach(jobId => 
             {
-                _speaker.MessageReceived -= OnMessageReceived;
-                _registered = false;
-            }
+                _logger.Log(Tag.WorkerCommunication, $"Requesting result for {jobId}");
+
+                try
+                {
+                    Message message = new ResultRequest(jobId);
+                    _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
+                    _pendingRequests++;
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(Tag.WorkerCommunication, "Job request not sent", e);
+                }
+            });
         }
 
         private void OnMessageReceived(Node node, Message message)
@@ -130,7 +106,10 @@ namespace DistributedJobScheduling.Client
                     _logger.Log(Tag.WorkerCommunication, $"Job result updated into storage");
                 }
                 else
-                    _notCompleted.Add(response.ClientJobId);
+                {
+                    if (!_notCompleted.Contains(response.ClientJobId))
+                        _notCompleted.Add(response.ClientJobId);
+                }
 
                 _pendingRequests--;
                 
@@ -138,6 +117,7 @@ namespace DistributedJobScheduling.Client
                 {
                     _logger.Log(Tag.WorkerCommunication, $"All responses arrived");
                     ResponsesArrived?.Invoke(new List<int>(_notCompleted));
+                    _semaphore.Release();
                 }
             }
         }

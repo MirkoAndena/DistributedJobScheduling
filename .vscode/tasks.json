@@ -114,9 +114,8 @@
                 "env": {
                     "CLIENT": "true",
                     "WORKER": "172.17.0.4",
-                    "DIVIDERS": "true",
-                    "START": "10",
-                    "END": "20"
+                    "RDUMMY": "true",
+                    "COUNT": "30"
                 }
             },
             "netCore": {
