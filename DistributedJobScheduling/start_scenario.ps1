@@ -11,7 +11,7 @@ Write-Host 'Creation of' $nodes 'machines'
 $nodeContainers = New-Object string[] $nodes
 For ($i=0; $i -lt $nodeContainers.Count; $i++) {
     $nodeDirectory = $(Get-Location).tostring() + "/AppDataDocker/node_" + $i
-    $toExecute = 'docker run --mount src="' + $nodeDirectory + '",target=/app/AppData,type=bind -d distributedjobscheduling:latest ' + $i
+    $toExecute = "docker run --mount src=" + $nodeDirectory + ",target=/app/AppData,type=bind -d distributedjobscheduling:latest " + $i
     if ($i -eq $initiatorIndex) {
         $toExecute += " coordinator"
     }
