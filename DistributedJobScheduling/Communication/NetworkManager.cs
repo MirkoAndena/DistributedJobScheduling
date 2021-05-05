@@ -19,7 +19,7 @@ namespace DistributedJobScheduling.Communication
     public class NetworkManager : ICommunicationManager, IStartable
     {
         public const int GROUP_PORT = 30308;
-        public const int CLIENT_PORT = 30309;
+        public const int CLIENT_PORT = 30408;
         private Dictionary<Node, Speaker> _senders;
         private Dictionary<Node, Speaker> _receivers;
         private Listener _listener, _clientListener;
@@ -204,6 +204,7 @@ namespace DistributedJobScheduling.Communication
         public void Start()
         {
             _listener.Start();
+            _clientListener.Start();
             _senders.Clear();
             _receivers.Clear();
             _shouter.Start();
@@ -213,9 +214,11 @@ namespace DistributedJobScheduling.Communication
         {
             _shouter.OnMessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
             _listener.SpeakerCreated -= OnListenSpeakerCreated;
+            _clientListener.SpeakerCreated -= OnClientSpeakerCreated;
 
             _shouter.Stop();
             _listener.Stop();
+            _clientListener.Stop();
 
             _senders.ForEach(speakerIdPair => 
             {

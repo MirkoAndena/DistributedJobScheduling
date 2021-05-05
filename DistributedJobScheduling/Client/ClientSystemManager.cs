@@ -113,10 +113,7 @@ namespace DistributedJobScheduling.Client
         private async void Main(IWork work)
         {
             var logger = DependencyManager.Get<ILogger>();
-            var speaker = CreateConnection();
-            if (speaker == null)
-                logger.Fatal(Tag.WorkerCommunication, "Can't communicate with network", new Exception($"Speaker can't connect to worker"));
-
+            var speaker = CreateConnection(logger);
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
 
             var messageHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
@@ -183,7 +180,7 @@ namespace DistributedJobScheduling.Client
             return requests;
         }
 
-        private BoldSpeaker CreateConnection()
+        private BoldSpeaker CreateConnection(ILogger logger)
         {
             var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
@@ -191,16 +188,14 @@ namespace DistributedJobScheduling.Client
             Node node = nodeRegistry.GetOrCreate(ip: configuration.GetValue<string>("worker"));
             var speaker = new BoldSpeaker(node, serializer);
 
-            try
-            {
-                speaker.Connect(NetworkManager.CLIENT_PORT, 30).Wait();
+            speaker.Connect(NetworkManager.CLIENT_PORT, 30).Wait();
+
+            if (speaker.IsConnected)
                 speaker.Start();
-                return speaker;
-            }
-            catch
-            {
-                return null;
-            }
+            else
+                logger.Fatal(Tag.WorkerCommunication, "Can't communicate with network", new Exception($"Speaker can't connect to worker"));
+
+            return speaker;
         }
 
         protected override ILogger GetLogger() => DependencyInjection.DependencyManager.Get<ILogger>();
