@@ -40,9 +40,12 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void ResetTicks()
         {
-            _ticks.Clear();
-            _groupManager.View.Others.ForEach(node => _ticks.Add(node));
-            _logger.Warning(Tag.KeepAlive, $"Ticks resetted: Nodes {_ticks.ToString<Node>()}");
+            lock(_ticks)
+            {
+                _ticks.Clear();
+                _groupManager.View.Others.ForEach(node => _ticks.Add(node));
+                _logger.Warning(Tag.KeepAlive, $"Ticks resetted: Nodes {_ticks.ToString<Node>()}");
+            }
         }
 
         public void Stop() 
@@ -76,25 +79,31 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnKeepAliveResponseReceived(Node node, Message message)
         { 
-            if (_ticks.Contains(node))
+            lock(_ticks)
             {
-                _ticks.Remove(node);
-                _logger.Log(Tag.KeepAlive, $"Received keep-alive response from {node}");
-                _logger.Log(Tag.KeepAlive, $"After receive keep-alive from {node.ToString()} remains are {_ticks.ToString<Node>()}");
-            }
-            else
-            {
-                _logger.Warning(Tag.KeepAlive, $"Received keep-alive response from {node} that's not in view");
+                if (_ticks.Contains(node))
+                {
+                    _ticks.Remove(node);
+                    _logger.Log(Tag.KeepAlive, $"Received keep-alive response from {node}");
+                    _logger.Log(Tag.KeepAlive, $"After receive keep-alive from {node.ToString()} remains are {_ticks.ToString<Node>()}");
+                }
+                else
+                {
+                    _logger.Warning(Tag.KeepAlive, $"Received keep-alive response from {node} that's not in view");
+                }
             }
         }
 
         private void TimeoutFinished()
         {
-            if (_ticks.Count > 0)
+            lock(_ticks)
             {
-                _logger.Warning(Tag.KeepAlive, $"Nodes {_ticks.ToString<Node>()} died");
-                NodesDied?.Invoke(_ticks);
-                this.Stop();
+                if (_ticks.Count > 0)
+                {
+                    _logger.Warning(Tag.KeepAlive, $"Nodes {_ticks.ToString<Node>()} died");
+                    NodesDied?.Invoke(_ticks);
+                    this.Stop();
+                }
             }
         }
     }
