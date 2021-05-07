@@ -52,9 +52,6 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 _stream = _client.GetStream();
         }
 
-        public void AbortSend() => _sendToken.Cancel();
-        public void AbortReceive() => _receiveToken.Cancel();
-
         public void Stop()
         {
             if (_client != null)

@@ -67,7 +67,15 @@ namespace DistributedJobScheduling.Communication
             OnSpeakerCreated(node, speaker, _receivers);
             lock(_senders)
             {
-                _senders.Add(node, speaker);
+                // If there is another connection replace the older
+                if (_senders.ContainsKey(node))
+                {
+                    if (_senders[node].IsConnected)
+                        _senders[node].Stop();
+                    _senders[node] = speaker;
+                }
+                else
+                    _senders.Add(node, speaker);
             }
         }
 
