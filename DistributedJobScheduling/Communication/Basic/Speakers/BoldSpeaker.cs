@@ -45,5 +45,12 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 return;
             }
         }
+
+        public async Task RetryConnect(int port, int timeout)
+        {
+            if (_client == null)
+                _client = new TcpClient();
+            await this.Connect(port, timeout);
+        }
     }
 }

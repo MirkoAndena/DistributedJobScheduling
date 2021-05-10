@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System;
 using System.Threading.Tasks;
@@ -38,7 +39,7 @@ namespace DistributedJobScheduling.Client
 
         public void Start()
         {
-            Connect();
+            ConnectIfNot();
             _speaker.MessageReceived += OnMessageReceived;
         }
 
@@ -48,24 +49,19 @@ namespace DistributedJobScheduling.Client
             MessageReceived?.Invoke(node, message);
         }
 
-        private void Connect()
+        private void ConnectIfNot()
         {
             if (_speaker.Running)
                 _speaker.Stop();
                 
             while (!_speaker.IsConnected)
             {
-                try
-                {
-                    _speaker.Connect(NetworkManager.CLIENT_PORT, 30).Wait();
-                    _speaker.Start();
-                    _logger.Log(Tag.Communication, "Speaker connected and ready");
-                }
-                catch (Exception e)
-                {
-                    _logger.Error(Tag.Communication, $"Client can't connect to remote ({_remote}), retrying...", e);
-                }
+                _speaker.RetryConnect(NetworkManager.CLIENT_PORT, 30).Wait();
+                Task.Delay(TimeSpan.FromSeconds(10)).Wait();
             }
+
+            _speaker.Start();
+            _logger.Log(Tag.Communication, "Speaker connected and ready");
         }
 
         public void Stop()
@@ -76,20 +72,24 @@ namespace DistributedJobScheduling.Client
 
         public void Send(Message message)
         {
-            lock(_speaker)
+            ConnectIfNot();
+
+            try
             {
-                try
-                {
-                    _speaker.Send(message).Wait();
-                    _logger.Log(Tag.Communication, "Message sent successfully");
-                }
-                catch (Exception e)
-                {
-                    _logger.Warning(Tag.Communication, "Error during send, retrying", e);
-                    this.Connect();
-                    this.Send(message);
-                }
+                _speaker.Send(message).Wait();
+                _logger.Log(Tag.Communication, "Message sent successfully");
             }
+            catch (Exception e)
+            {
+                _logger.Warning(Tag.Communication, "Error during send, retrying", e);
+                Resend(message);
+            }
+        }
+
+        private void Resend(Message message)
+        {
+            this.ConnectIfNot();
+            this.Send(message);
         }
     }
 }
