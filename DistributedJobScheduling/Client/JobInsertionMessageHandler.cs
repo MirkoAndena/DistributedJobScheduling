@@ -18,20 +18,19 @@ namespace DistributedJobScheduling.Client
 {
     public interface IJobInsertionMessageHandler
     {
-        void AttachSpeaker(Speaker speaker);
         event Action<List<int>> JobsSubmitted;
         void SubmitJob<T>(List<T> jobs) where T : IJobWork;
     }
 
-    public class JobInsertionMessageHandler : IJobInsertionMessageHandler
+    public class JobInsertionMessageHandler : IJobInsertionMessageHandler, IInitializable
     {
-        private Speaker _speaker;
         private ILogger _logger;
         private ISerializer _serializer;
         private ITimeStamper _timeStamper;
         private IClientStore _store;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
+        private IClientCommunication _clientCommunication;
         private int _submissionCount;
         private List<int> _requests;
         public event Action<List<int>> JobsSubmitted;
@@ -42,9 +41,10 @@ namespace DistributedJobScheduling.Client
             DependencyInjection.DependencyManager.Get<ISerializer>(),
             DependencyInjection.DependencyManager.Get<ITimeStamper>(),
             DependencyInjection.DependencyManager.Get<INodeRegistry>(),
-            DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
+            DependencyInjection.DependencyManager.Get<IConfigurationService>(),
+            DependencyInjection.DependencyManager.Get<IClientCommunication>()) { }
 
-        public JobInsertionMessageHandler(IClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
+        public JobInsertionMessageHandler(IClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration, IClientCommunication clientCommunication)
         {
             _store = store;
             _logger = logger;
@@ -52,14 +52,14 @@ namespace DistributedJobScheduling.Client
             _timeStamper = timeStamper;
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
+            _clientCommunication = clientCommunication;
             var now = DateTime.Now;
             _requests = new List<int>();
         }
-        
-        public void AttachSpeaker(Speaker speaker)
+
+        public void Init()
         {
-            _speaker = speaker;
-            _speaker.MessageReceived += OnMessageReceived;
+            _clientCommunication.MessageReceived += OnMessageReceived;
         }
 
         public void SubmitJob<T>(List<T> jobs) where T : IJobWork
@@ -68,16 +68,9 @@ namespace DistributedJobScheduling.Client
             _requests.Clear();
             jobs.ForEach(job =>
             {
-                try
-                {
-                    Message message = new ExecutionRequest(job);
-                    _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
-                    _logger.Log(Tag.WorkerCommunication, $"Job submit request sent");
-                }
-                catch (Exception e)
-                {
-                    _logger.Fatal(Tag.ClientCommunication, "An error occured during job submission", e);
-                }
+                Message message = new ExecutionRequest(job);
+                _clientCommunication.Send(message);
+                _logger.Log(Tag.WorkerCommunication, $"Job submit request sent");
             });
         }
 
@@ -87,7 +80,7 @@ namespace DistributedJobScheduling.Client
             {
                 var job = new ClientJob(response.RequestID);
                 Message ack = new ExecutionAck(response, job.ID);
-                _speaker.Send(ack.ApplyStamp(_timeStamper)).Wait();
+                _clientCommunication.Send(ack.ApplyStamp(_timeStamper));
                 _logger.Log(Tag.WorkerCommunication, $"Job successfully assigned to network, RequestID: {job.ID}");
                 
                 _store.StoreClientJob(job);

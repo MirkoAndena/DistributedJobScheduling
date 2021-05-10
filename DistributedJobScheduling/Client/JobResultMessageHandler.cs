@@ -20,12 +20,11 @@ namespace DistributedJobScheduling.Client
 {
     public interface IJobResultMessageHandler
     {
-        void AttachSpeaker(Speaker speaker);
         event Action<List<int>> ResponsesArrived;
         void RequestJobs(List<int> jobs);
     }
 
-    public class JobResultMessageHandler : IJobResultMessageHandler
+    public class JobResultMessageHandler : IJobResultMessageHandler, IInitializable
     {
         private ILogger _logger;
         private ISerializer _serializer;
@@ -33,8 +32,8 @@ namespace DistributedJobScheduling.Client
         private ITimeStamper _timeStamper;
         private INodeRegistry _nodeRegistry;
         private IConfigurationService _configuration;
-
-        private Speaker _speaker;
+        private IClientCommunication _clientCommunication;
+ 
         private int _pendingRequests;
         public event Action<List<int>> ResponsesArrived;
         private List<int> _notCompleted;
@@ -46,9 +45,10 @@ namespace DistributedJobScheduling.Client
             DependencyInjection.DependencyManager.Get<ISerializer>(),
             DependencyInjection.DependencyManager.Get<ITimeStamper>(),
             DependencyInjection.DependencyManager.Get<INodeRegistry>(),
-            DependencyInjection.DependencyManager.Get<IConfigurationService>()) { }
+            DependencyInjection.DependencyManager.Get<IConfigurationService>(),
+            DependencyInjection.DependencyManager.Get<IClientCommunication>()) { }
 
-        public JobResultMessageHandler(IClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration)
+        public JobResultMessageHandler(IClientStore store, ILogger logger, ISerializer serializer, ITimeStamper timeStamper, INodeRegistry nodeRegistry, IConfigurationService configuration, IClientCommunication clientCommunication)
         {
             _store = store;
             _logger = logger;
@@ -56,14 +56,14 @@ namespace DistributedJobScheduling.Client
             _timeStamper = timeStamper;
             _nodeRegistry = nodeRegistry;
             _configuration = configuration;
+            _clientCommunication = clientCommunication;
             _pendingRequests = 0;
             _notCompleted = new List<int>();
         }
 
-        public void AttachSpeaker(Speaker speaker)
+        public void Init()
         {
-            _speaker = speaker;
-            _speaker.MessageReceived += OnMessageReceived;
+            _clientCommunication.MessageReceived += OnMessageReceived;
         }
 
         public void RequestJobs(List<int> jobIds)
@@ -81,16 +81,9 @@ namespace DistributedJobScheduling.Client
             {
                 _logger.Log(Tag.WorkerCommunication, $"Requesting result for {jobId}");
 
-                try
-                {
-                    Message message = new ResultRequest(jobId);
-                    _speaker.Send(message.ApplyStamp(_timeStamper)).Wait();
-                    _pendingRequests++;
-                }
-                catch (Exception e)
-                {
-                    _logger.Error(Tag.WorkerCommunication, "Job request not sent", e);
-                }
+                Message message = new ResultRequest(jobId);
+                _clientCommunication.Send(message.ApplyStamp(_timeStamper));
+                _pendingRequests++;
             });
         }
 
