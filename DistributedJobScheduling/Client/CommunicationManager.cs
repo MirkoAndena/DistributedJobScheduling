@@ -39,12 +39,21 @@ namespace DistributedJobScheduling.Client
         public void Start()
         {
             Connect();
-            _speaker.MessageReceived += MessageReceived;
+            _speaker.MessageReceived += OnMessageReceived;
+        }
+
+        private void OnMessageReceived(Node node, Message message)
+        {
+            _logger.Log(Tag.Communication, $"Received message of type {message.GetType().Name}");
+            MessageReceived?.Invoke(node, message);
         }
 
         private void Connect()
         {
-            while (_speaker.IsConnected)
+            if (_speaker.Running)
+                _speaker.Stop();
+                
+            while (!_speaker.IsConnected)
             {
                 try
                 {
@@ -61,22 +70,25 @@ namespace DistributedJobScheduling.Client
 
         public void Stop()
         {
-            _speaker.MessageReceived -= MessageReceived;
+            _speaker.MessageReceived -= OnMessageReceived;
             _speaker.Stop();
         }
 
         public void Send(Message message)
         {
-            try
+            lock(_speaker)
             {
-                _speaker.Send(message).Wait();
-                _logger.Log(Tag.Communication, "Message sent successfully");
-            }
-            catch (Exception e)
-            {
-                _logger.Warning(Tag.Communication, "Error during send, retrying", e);
-                this.Connect();
-                this.Send(message);
+                try
+                {
+                    _speaker.Send(message).Wait();
+                    _logger.Log(Tag.Communication, "Message sent successfully");
+                }
+                catch (Exception e)
+                {
+                    _logger.Warning(Tag.Communication, "Error during send, retrying", e);
+                    this.Connect();
+                    this.Send(message);
+                }
             }
         }
     }

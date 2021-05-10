@@ -109,16 +109,14 @@ namespace DistributedJobScheduling.Client
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
             IWork work = configuration.GetValue<IWork>("work"); 
             Main(work);
-            SystemShutdown.Invoke(); 
         }
 
         private async void Main(IWork work)
         {
+            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
+            
             var logger = DependencyManager.Get<ILogger>();
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
-
-            var jobRequestHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
-            var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
 
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
             int batch_size = configuration.GetValue<int>("batch_size", 1);
@@ -131,7 +129,7 @@ namespace DistributedJobScheduling.Client
             {
                 logger.Log(Tag.ClientMain, $"Start batch from {i * batch_size} to {(i + 1) * batch_size}");
                 List<IJobWork> batch = jobs.GetRange(i * batch_size, batch_size);
-                jobIds.AddRange(await ExecuteBatch(jobRequestHandler, jobResultHandler, batch, work));
+                jobIds.AddRange(await ExecuteBatch(batch, work));
                 logger.Log(Tag.ClientMain, "Batch finished");
             }
             
@@ -142,12 +140,15 @@ namespace DistributedJobScheduling.Client
             work.ComputeResult(results, ROOT);
 
             logger.Log(Tag.ClientMain, "Result calculated");
+            SystemShutdown.Invoke(); 
         }
 
-        private async Task<List<int>> ExecuteBatch(IJobInsertionMessageHandler jobRequestHandler, IJobResultMessageHandler jobResultHandler, List<IJobWork> jobs, IWork work)
+        private async Task<List<int>> ExecuteBatch(List<IJobWork> jobs, IWork work)
         {
-            var store = DependencyInjection.DependencyManager.Get<IClientStore>();
+            var store = DependencyManager.Get<IClientStore>();
             var logger = DependencyManager.Get<ILogger>();
+            var jobRequestHandler = DependencyManager.Get<IJobInsertionMessageHandler>();
+            var jobResultHandler = DependencyManager.Get<IJobResultMessageHandler>();
 
             var batchSemaphore = new SemaphoreSlim(0);
             var submissionSemaphore = new SemaphoreSlim(0);
@@ -194,5 +195,12 @@ namespace DistributedJobScheduling.Client
         }
 
         protected override ILogger GetLogger() => DependencyInjection.DependencyManager.Get<ILogger>();
+
+        private void UnhandledExceptionBehavior(object sender, UnhandledExceptionEventArgs args)
+        {
+            Exception e = (Exception) args.ExceptionObject;
+            var logger = DependencyInjection.DependencyManager.Get<ILogger>();
+            logger.Fatal(Tag.UnHandled, e.Message, e);
+        }
     }
 }
