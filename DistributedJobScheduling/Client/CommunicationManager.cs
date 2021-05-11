@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System;
@@ -23,25 +24,28 @@ namespace DistributedJobScheduling.Client
     {
         private BoldSpeaker _speaker;
         private Node _remote;
+        private ISerializer _serializer;
         private ILogger _logger;
+
+        private SemaphoreSlim _connectionSemaphore;
+        private bool _disconnected;
+
         public event Action<Node, Message> MessageReceived;
 
         public CommunicationManager()
         {
             _logger = DependencyInjection.DependencyManager.Get<ILogger>();
+            _serializer = DependencyInjection.DependencyManager.Get<ISerializer>();
             var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
-            var serializer = DependencyInjection.DependencyManager.Get<ISerializer>();
 
             _remote = nodeRegistry.GetOrCreate(ip: configuration.GetValue<string>("worker"));
-            _speaker = new BoldSpeaker(_remote, serializer);
+            _connectionSemaphore = new SemaphoreSlim(0, 1);
         }
 
-        public void Start()
-        {
-            ConnectIfNot();
-            _speaker.MessageReceived += OnMessageReceived;
-        }
+        public void Start() => ConnectIfNot();
+        
+        public void Stop() => StopSpeaker();
 
         private void OnMessageReceived(Node node, Message message)
         {
@@ -49,30 +53,57 @@ namespace DistributedJobScheduling.Client
             MessageReceived?.Invoke(node, message);
         }
 
-        private void ConnectIfNot()
+        private async Task ConnectIfNot()
         {
-            if (_speaker.Running)
-                _speaker.Stop();
-                
-            while (!_speaker.IsConnected)
+            if (_speaker == null || !_speaker.IsConnected)
             {
-                _speaker.RetryConnect(NetworkManager.CLIENT_PORT, 30).Wait();
-                Task.Delay(TimeSpan.FromSeconds(10)).Wait();
+                // Safe stop speaker
+                StopSpeaker();
+
+                // Create new one
+                _speaker = new BoldSpeaker(_remote, _serializer);
+                bool connected = await _speaker.Connect(NetworkManager.CLIENT_PORT, 30);
+                _logger.Log(Tag.Communication, $"Speaker is connected: {_speaker.IsConnected}");
+
+                if (connected)
+                {
+                    _speaker.MessageReceived += OnMessageReceived;
+                    _speaker.Stopped += OnSpeakerStopped;
+                    _speaker.Start();
+                    _disconnected = false;
+                }
+                else
+                {
+                    _logger.Log(Tag.Communication, $"Wait 10 seconds and retry");
+                    Task.Delay(TimeSpan.FromSeconds(10)).Wait();
+                    await this.ConnectIfNot();
+                }
             }
 
-            _speaker.Start();
-            _logger.Log(Tag.Communication, "Speaker connected and ready");
+            // Here the speaker has connected
+            _connectionSemaphore.Release();
         }
 
-        public void Stop()
+        private void StopSpeaker()
         {
-            _speaker.MessageReceived -= OnMessageReceived;
-            _speaker.Stop();
+            if (_speaker != null)
+            { 
+                _speaker.Stopped -= OnSpeakerStopped;
+                _speaker.MessageReceived -= OnMessageReceived;
+                _speaker.Stop();
+            }
+        }
+
+        private void OnSpeakerStopped(Node node)
+        {
+            _disconnected = true;
+            Task.Run(() => ConnectIfNot());
         }
 
         public void Send(Message message)
         {
-            ConnectIfNot();
+            if (_disconnected)
+                _connectionSemaphore.Wait();
 
             try
             {
@@ -88,7 +119,7 @@ namespace DistributedJobScheduling.Client
 
         private void Resend(Message message)
         {
-            this.ConnectIfNot();
+            this.ConnectIfNot().Wait();
             this.Send(message);
         }
     }
