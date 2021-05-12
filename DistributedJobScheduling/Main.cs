@@ -35,7 +35,17 @@ namespace DistributedJobScheduling
             if(!Debugger.IsAttached)
                 AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
             
+            TaskScheduler.UnobservedTaskException += UnobserveddExceptionBehavior;
+            
             await system.RunAndWait();
+        }
+
+        static void UnobserveddExceptionBehavior(object sender, UnobservedTaskExceptionEventArgs args)
+        {
+            Exception e = (Exception) args.Exception;
+            var logger = DependencyInjection.DependencyManager.Get<ILogger>();
+            logger.Warning(Tag.UnobservedTask, e.Message, e);
+            args.SetObserved();
         }
 
         static void UnhandledExceptionBehavior(object sender, UnhandledExceptionEventArgs args)

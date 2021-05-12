@@ -101,7 +101,6 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<IClientCommunication, CommunicationManager>(new CommunicationManager());
             RegisterSubSystem<IJobInsertionMessageHandler, JobInsertionMessageHandler>(new JobInsertionMessageHandler());
             RegisterSubSystem<IJobResultMessageHandler, JobResultMessageHandler>(new JobResultMessageHandler());
-
         }
 
         protected override void OnSystemStarted()
@@ -113,8 +112,6 @@ namespace DistributedJobScheduling.Client
 
         private async void Main(IWork work)
         {
-            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionBehavior);
-            
             var logger = DependencyManager.Get<ILogger>();
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
 
@@ -195,12 +192,5 @@ namespace DistributedJobScheduling.Client
         }
 
         protected override ILogger GetLogger() => DependencyInjection.DependencyManager.Get<ILogger>();
-
-        private void UnhandledExceptionBehavior(object sender, UnhandledExceptionEventArgs args)
-        {
-            Exception e = (Exception) args.ExceptionObject;
-            var logger = DependencyInjection.DependencyManager.Get<ILogger>();
-            logger.Fatal(Tag.UnHandled, e.Message, e);
-        }
     }
 }
