@@ -34,15 +34,15 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             }
             catch (ObjectDisposedException)
             {
+                _connectToken = null;
                 this.Stop();
                 _logger.Warning(Tag.CommunicationBasic, $"Failed connecting to {_remote} because communication is closed");
-                return;
             }
             catch (Exception ex)
             {
+                _connectToken = null;
                 _logger.Warning(Tag.CommunicationBasic, $"Connection to {_remote} failed because of timeout", ex);
                 this.Stop();
-                return;
             }
         }
     }

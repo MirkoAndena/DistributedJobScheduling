@@ -98,9 +98,9 @@ namespace DistributedJobScheduling.Client
             RegisterSubSystem<ITimeStamper, ScalarTimeStamper>(new ScalarTimeStamper());
             RegisterSubSystem<IStore<Storage>, FileStore<Storage>>(new FileStore<Storage>(STORAGE_PATH));
             RegisterSubSystem<IClientStore, ClientStore>(new ClientStore());
+            RegisterSubSystem<IClientCommunication, CommunicationManager>(new CommunicationManager());
             RegisterSubSystem<IJobInsertionMessageHandler, JobInsertionMessageHandler>(new JobInsertionMessageHandler());
             RegisterSubSystem<IJobResultMessageHandler, JobResultMessageHandler>(new JobResultMessageHandler());
-
         }
 
         protected override void OnSystemStarted()
@@ -113,14 +113,7 @@ namespace DistributedJobScheduling.Client
         private async void Main(IWork work)
         {
             var logger = DependencyManager.Get<ILogger>();
-            var speaker = CreateConnection(logger);
             var store = DependencyInjection.DependencyManager.Get<IClientStore>();
-
-            var jobRequestHandler = DependencyInjection.DependencyManager.Get<IJobInsertionMessageHandler>();
-            var jobResultHandler = DependencyInjection.DependencyManager.Get<IJobResultMessageHandler>();
-
-            jobRequestHandler.AttachSpeaker(speaker);
-            jobResultHandler.AttachSpeaker(speaker);
 
             var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
             int batch_size = configuration.GetValue<int>("batch_size", 1);
@@ -133,7 +126,7 @@ namespace DistributedJobScheduling.Client
             {
                 logger.Log(Tag.ClientMain, $"Start batch from {i * batch_size} to {(i + 1) * batch_size}");
                 List<IJobWork> batch = jobs.GetRange(i * batch_size, batch_size);
-                jobIds.AddRange(await ExecuteBatch(jobRequestHandler, jobResultHandler, batch, work));
+                jobIds.AddRange(await ExecuteBatch(batch, work));
                 logger.Log(Tag.ClientMain, "Batch finished");
             }
             
@@ -143,16 +136,16 @@ namespace DistributedJobScheduling.Client
             List<IJobResult> results = store.Results(id => jobIds.Contains(id));
             work.ComputeResult(results, ROOT);
 
-            logger.Log(Tag.ClientMain, "Result calculated, system in shutdown");
-
-            speaker.Stop(); 
+            logger.Log(Tag.ClientMain, "Result calculated");
             SystemShutdown.Invoke(); 
         }
 
-        private async Task<List<int>> ExecuteBatch(IJobInsertionMessageHandler jobRequestHandler, IJobResultMessageHandler jobResultHandler, List<IJobWork> jobs, IWork work)
+        private async Task<List<int>> ExecuteBatch(List<IJobWork> jobs, IWork work)
         {
-            var store = DependencyInjection.DependencyManager.Get<IClientStore>();
+            var store = DependencyManager.Get<IClientStore>();
             var logger = DependencyManager.Get<ILogger>();
+            var jobRequestHandler = DependencyManager.Get<IJobInsertionMessageHandler>();
+            var jobResultHandler = DependencyManager.Get<IJobResultMessageHandler>();
 
             var batchSemaphore = new SemaphoreSlim(0);
             var submissionSemaphore = new SemaphoreSlim(0);
@@ -196,24 +189,6 @@ namespace DistributedJobScheduling.Client
             jobResultHandler.ResponsesArrived -= OnResponseArrived;
 
             return requests;
-        }
-
-        private BoldSpeaker CreateConnection(ILogger logger)
-        {
-            var nodeRegistry = DependencyInjection.DependencyManager.Get<INodeRegistry>();
-            var configuration = DependencyInjection.DependencyManager.Get<IConfigurationService>();
-            var serializer = DependencyInjection.DependencyManager.Get<ISerializer>();
-            Node node = nodeRegistry.GetOrCreate(ip: configuration.GetValue<string>("worker"));
-            var speaker = new BoldSpeaker(node, serializer);
-
-            speaker.Connect(NetworkManager.CLIENT_PORT, 30).Wait();
-
-            if (speaker.IsConnected)
-                speaker.Start();
-            else
-                logger.Fatal(Tag.WorkerCommunication, "Can't communicate with network", new Exception($"Speaker can't connect to worker"));
-
-            return speaker;
         }
 
         protected override ILogger GetLogger() => DependencyInjection.DependencyManager.Get<ILogger>();

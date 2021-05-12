@@ -107,7 +107,7 @@ namespace DistributedJobScheduling.DistributedStorage
             await Task.WhenAll(killAfterDelay, assertResult);
         }
 
-        public void StartKeepAlive()
+        private void StartKeepAlive()
         {
             _nodes[0].Group.View.ViewChanged += () => _workerDied = _nodes[0].Group.View.Count != 3;
             _nodes[1].Group.View.ViewChanged += () => _coordinatorDied = !_nodes[1].Group.View.CoordinatorExists;

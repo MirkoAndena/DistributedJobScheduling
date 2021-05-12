@@ -16,6 +16,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
     public class Speaker : IStartable
     {
         public bool IsConnected => _client != null && _client.Connected;
+        public bool Running => _globalReceive;
         protected TcpClient _client;
         protected NetworkStream _stream;
         protected MemoryStream _memoryStream;
@@ -137,7 +138,9 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     if(response != null)
                     {
                         _logger.Log(Tag.CommunicationBasic, $"Routing {response.Count} messages from {_remote.IP}");
-                        response.ForEach(message => MessageReceived?.Invoke(_remote, message));
+                        response.ForEach(message => {
+                            MessageReceived?.Invoke(_remote, message);
+                        });
                     }
                 }
                 catch (ObjectDisposedException)
@@ -173,6 +176,8 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
                     _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
                 }
+                else
+                    throw new Exception("Trying to send a message while not connected!");
             }
             catch (ObjectDisposedException)
             {
@@ -184,6 +189,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             {
                 this.Stop();
                 _logger.Error(Tag.CommunicationBasic, $"Failed send to {_remote}", e);
+                throw;
             }
         }
     }

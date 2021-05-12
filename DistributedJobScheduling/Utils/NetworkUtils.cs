@@ -23,13 +23,11 @@ public static class NetworkUtils
 
     public static async Task ConnectAsync(this TcpClient tcpClient, string host, int port, CancellationToken cancellationToken) 
     {
-        using (cancellationToken.Register(cancellationToken.ThrowIfCancellationRequested)) {
-            try {
-                cancellationToken.ThrowIfCancellationRequested();
-                await tcpClient.ConnectAsync(host, port).ConfigureAwait(false);
-            } catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested) {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
+        var cancellationSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using (cancellationToken.Register(() => cancellationSource.TrySetResult(false))) {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.WhenAny(tcpClient.ConnectAsync(host, port), cancellationSource.Task);
+            cancellationToken.ThrowIfCancellationRequested();
         }
     }
 

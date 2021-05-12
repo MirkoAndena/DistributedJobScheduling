@@ -41,13 +41,11 @@ namespace DistributedJobScheduling.DistributedStorage
     public class LeaderElectionTest : IDisposable
     {
         private ILogger _logger;
-        private ITimeStamper _timeStamper;
         private ITestOutputHelper _output;
         private StubNetworkBus _networkBus;
         private LeaderElectionNode[] _nodes;
         private TimeSpan killDelay = TimeSpan.FromSeconds(2);
         private TimeSpan evaluationDelay = TimeSpan.FromSeconds(5);
-        private bool _coordinatorElected;
         
         public LeaderElectionTest(ITestOutputHelper output)
         {
@@ -55,7 +53,6 @@ namespace DistributedJobScheduling.DistributedStorage
             _networkBus = new StubNetworkBus(new Random().Next());
             _logger = new StubLogger(_output);
             _nodes = CreateGroup(_output);
-            _coordinatorElected = false;
         }
 
         private LeaderElectionNode[] CreateGroup(ITestOutputHelper output)
