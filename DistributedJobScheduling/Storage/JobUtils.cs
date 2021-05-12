@@ -17,7 +17,6 @@ namespace DistributedJobScheduling.JobAssignment
             // Init each node with no occurrences
             Dictionary<int, int> nodeJobCount = new Dictionary<int, int>();
             nodeJobCount.Add(group.Me.ID.Value, 0);
-            if (!group.ImCoordinator) nodeJobCount.Add(group.Coordinator.ID.Value, 0);
             group.Others.ForEach(node => nodeJobCount.Add(node.ID.Value, 0));
 
             // For each node calculate how many jobs are assigned

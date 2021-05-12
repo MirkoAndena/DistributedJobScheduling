@@ -176,6 +176,8 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
 
                     _logger.Log(Tag.CommunicationBasic, $"Sent {bytes.Length} bytes to {_remote}");
                 }
+                else
+                    throw new Exception("Trying to send a message while not connected!");
             }
             catch (ObjectDisposedException)
             {
@@ -187,6 +189,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             {
                 this.Stop();
                 _logger.Error(Tag.CommunicationBasic, $"Failed send to {_remote}", e);
+                throw;
             }
         }
     }

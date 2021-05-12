@@ -16,7 +16,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             
         }
 
-        public async Task<bool> Connect(int port, int timeout)
+        public async Task Connect(int port, int timeout)
         {
             if(_connectToken != null)
                 _connectToken.Cancel();
@@ -31,19 +31,18 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 
                 _logger.Log(Tag.CommunicationBasic, $"Connected to {_remote} [hash: {_remote.GetHashCode()}]");
                 _stream = _client.GetStream();
-                return _client.Client.Connected;
             }
             catch (ObjectDisposedException)
             {
+                _connectToken = null;
                 this.Stop();
                 _logger.Warning(Tag.CommunicationBasic, $"Failed connecting to {_remote} because communication is closed");
-                return false;
             }
             catch (Exception ex)
             {
+                _connectToken = null;
                 _logger.Warning(Tag.CommunicationBasic, $"Connection to {_remote} failed because of timeout", ex);
                 this.Stop();
-                return false;
             }
         }
     }
