@@ -22,13 +22,13 @@ namespace DistributedJobScheduling.Client
 
     public class CommunicationManager : IStartable, IClientCommunication
     {
+        private Task _connectionTask;
         private BoldSpeaker _speaker;
         private Node _remote;
         private ISerializer _serializer;
         private ILogger _logger;
 
         private SemaphoreSlim _connectionSemaphore;
-        private bool _disconnected;
 
         public event Action<Node, Message> MessageReceived;
 
@@ -43,7 +43,7 @@ namespace DistributedJobScheduling.Client
             _connectionSemaphore = new SemaphoreSlim(0, 1);
         }
 
-        public void Start() => ConnectIfNot();
+        public void Start() => (_connectionTask = ConnectIfNot()).Wait();
         
         public void Stop() => StopSpeaker();
 
@@ -55,33 +55,31 @@ namespace DistributedJobScheduling.Client
 
         private async Task ConnectIfNot()
         {
-            if (_speaker == null || !_speaker.IsConnected)
+            while(_speaker == null || !_speaker.IsConnected)
             {
                 // Safe stop speaker
                 StopSpeaker();
 
                 // Create new one
                 _speaker = new BoldSpeaker(_remote, _serializer);
-                bool connected = await _speaker.Connect(NetworkManager.CLIENT_PORT, 30);
+                await _speaker.Connect(NetworkManager.CLIENT_PORT, 30);
                 _logger.Log(Tag.Communication, $"Speaker is connected: {_speaker.IsConnected}");
 
-                if (connected)
+                if (_speaker.IsConnected)
                 {
                     _speaker.MessageReceived += OnMessageReceived;
                     _speaker.Stopped += OnSpeakerStopped;
                     _speaker.Start();
-                    _disconnected = false;
+
+                    // Here the speaker has connected
+                    if(_connectionSemaphore.CurrentCount == 0) _connectionSemaphore.Release();
                 }
                 else
                 {
                     _logger.Log(Tag.Communication, $"Wait 10 seconds and retry");
-                    Task.Delay(TimeSpan.FromSeconds(10)).Wait();
-                    await this.ConnectIfNot();
+                    await Task.Delay(TimeSpan.FromSeconds(10));
                 }
             }
-
-            // Here the speaker has connected
-            _connectionSemaphore.Release();
         }
 
         private void StopSpeaker()
@@ -96,14 +94,16 @@ namespace DistributedJobScheduling.Client
 
         private void OnSpeakerStopped(Node node)
         {
-            _disconnected = true;
-            Task.Run(() => ConnectIfNot());
+            lock(_connectionTask)
+            {
+                if(_connectionTask.IsCompleted)
+                    _connectionTask = ConnectIfNot();
+            }
         }
 
         public void Send(Message message)
         {
-            if (_disconnected)
-                _connectionSemaphore.Wait();
+            if (!_speaker.IsConnected) _connectionSemaphore.Wait();
 
             try
             {
@@ -119,7 +119,12 @@ namespace DistributedJobScheduling.Client
 
         private void Resend(Message message)
         {
-            this.ConnectIfNot().Wait();
+            lock(_connectionTask)
+            {
+                if(_connectionTask.IsCompleted && !_speaker.IsConnected)
+                    _connectionTask = ConnectIfNot();
+            }
+            _connectionTask.Wait();
             this.Send(message);
         }
     }
