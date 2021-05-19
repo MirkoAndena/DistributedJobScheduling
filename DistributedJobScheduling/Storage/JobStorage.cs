@@ -24,7 +24,6 @@ namespace DistributedJobScheduling.Storage
         protected BlockingDictionarySecureStore<Dictionary<int, Job>, int, Job> _secureStore;
         private ILogger _logger;
         private Group _group;
-        private HashSet<Job> _executionSet;
         public event Action<Job> JobUpdated;
         public event Action<Job> JobCreated;
         private Dictionary<Job, TaskCompletionSource<bool>> _unCommitted;
@@ -47,7 +46,6 @@ namespace DistributedJobScheduling.Storage
         public void Init()
         {
             _secureStore.Init();
-            _executionSet = new HashSet<Job>();
             DeleteRemovedJobs();
         }
 
@@ -62,7 +60,7 @@ namespace DistributedJobScheduling.Storage
 
         public async Task UpdateResult(int id, IJobResult result) => await UpdateJob(id, job => { job.Result = result; job.Status = JobStatus.COMPLETED; });
 
-        public async Task UpdateJob(int id, Action<Job> update, Predicate<Job> updateCondition = null)
+        public virtual async Task UpdateJob(int id, Action<Job> update, Predicate<Job> updateCondition = null)
         {   
             if (_secureStore.ContainsKey(id))
             {
@@ -154,11 +152,10 @@ namespace DistributedJobScheduling.Storage
             _secureStore.ExecuteTransaction(storedJobs =>
                 storedJobs.Values.ForEach(job => 
                 {
-                    if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || (job.Status == JobStatus.RUNNING && !_executionSet.Contains(job))))
+                    if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || job.Status == JobStatus.RUNNING))
                     {
                         _logger.Log(Tag.JobStorage, $"Found job {job}");
                         toExecute = job;
-                        _executionSet.Add(toExecute);
                     }
                 })
             );

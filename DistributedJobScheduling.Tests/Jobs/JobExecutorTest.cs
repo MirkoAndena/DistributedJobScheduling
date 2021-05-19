@@ -26,6 +26,20 @@ namespace DistributedJobScheduling.Tests.Jobs
         base (store, logger, groupViewManager) { }
 
         public Store Store => _secureStore;
+        
+        public override async Task UpdateJob(int id, Action<Job> update, Predicate<Job> updateCondition = null)
+        {
+            if (_secureStore.ContainsKey(id))
+            {
+                if (updateCondition == null || updateCondition.Invoke(_secureStore[id]))
+                {
+                    Job clone = _secureStore[id].Clone();
+                    update.Invoke(clone);
+                    await Task.Yield();
+                    CommitUpdate(clone);
+                }
+            }
+        }
     }
 
     public class JobExecutorTest
@@ -51,9 +65,9 @@ namespace DistributedJobScheduling.Tests.Jobs
         public async void ExecuteMyJobsTest()
         {
             _jobStorage.CommitUpdate(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
+            _jobStorage.CommitUpdate(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)) { Status = JobStatus.RUNNING });
             _jobStorage.CommitUpdate(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
-            _jobStorage.CommitUpdate(new Job(_index.NewIndex, _group.Me.ID.Value, new TimeoutJobWork(1)));
-
+            
             bool executedAll = false;
             _executor.Start();
 
