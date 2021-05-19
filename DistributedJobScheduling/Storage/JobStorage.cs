@@ -155,7 +155,9 @@ namespace DistributedJobScheduling.Storage
                     if (job.Node == _group.Me.ID && (job.Status == JobStatus.PENDING || job.Status == JobStatus.RUNNING))
                     {
                         _logger.Log(Tag.JobStorage, $"Found job {job}");
-                        toExecute = job;
+
+                        if(toExecute == null || toExecute.Status < job.Status)
+                            toExecute = job;
                     }
                 })
             );
