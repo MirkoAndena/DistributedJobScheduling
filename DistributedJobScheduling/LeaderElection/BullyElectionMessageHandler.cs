@@ -124,8 +124,8 @@ namespace DistributedJobScheduling.LeaderElection
             arrived.BindToRegistry(_nodeRegistry);
 
             _electionInProgress = false;
-            _groupManager.View.UpdateCoordinator(arrived.Coordinator);
             _logger.Log(Tag.LeaderElection, $"Received COORD from {node.ID.Value}, updated");
+            _groupManager.View.UpdateCoordinator(arrived.Coordinator);
             Stop();
         }
 

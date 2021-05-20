@@ -1,5 +1,5 @@
 $nodeDirectory = $(Get-Location).tostring() + "/AppDataDocker/client_" + $(Get-Date).tostring("yyyymmdd_hhmmss")
-$toExecute = 'docker run --mount src=' + $nodeDirectory + ',target=/app/AppDataClient,type=bind --sig-proxy=false -d distributedjobscheduling:latest client ' + $args
+$toExecute = 'docker run --network=distributedprojnet --mount src=' + $nodeDirectory + ',target=/app/AppDataClient,type=bind --sig-proxy=false -d distributedjobscheduling:latest client ' + $args
 $clientContainer = Invoke-Expression($toExecute)
 
 docker attach $clientContainer
