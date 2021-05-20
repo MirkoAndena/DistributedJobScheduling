@@ -193,13 +193,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             callback?.Invoke();
 
                             if(_messageSendStateMap.ContainsKey(message))
-                                _messageSendStateMap[message].SetResult(true);
+                                _messageSendStateMap[message].TrySetResult(true);
                         }
                         catch(Exception ex)
                         {
                             _logger.Error(Tag.VirtualSynchrony, ex);
                             if(_messageSendStateMap.ContainsKey(message))
-                                _messageSendStateMap[message].SetResult(false);
+                                _messageSendStateMap[message].TrySetResult(false);
                         }
                         finally
                         {
