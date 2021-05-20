@@ -106,7 +106,7 @@ namespace DistributedJobScheduling.JobAssignment
                 else
                 {
                     var requestMessage = new InsertionRequest(jobWork, requestID);
-                    _oldMessageHandler.SendOrKeep(_groupManager.View.Coordinator, requestMessage, () =>
+                    _oldMessageHandler.SendOrKeepToCoordinator(requestMessage, () =>
                     {
                         _logger.Log(Tag.ClientCommunication, $"Insertion requested to coordinator for job with request id {requestID}");
                     });

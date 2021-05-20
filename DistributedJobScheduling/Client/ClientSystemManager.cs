@@ -122,13 +122,16 @@ namespace DistributedJobScheduling.Client
             logger.Log(Tag.ClientMain, $"Jobs to execute: {jobs.Count}");
             List<int> jobIds = new List<int>();
 
-            for (int i = 0; i < jobs.Count / batch_size; i++)
+            int jobsDone = 0;
+            do
             {
-                logger.Log(Tag.ClientMain, $"Start batch from {i * batch_size} to {(i + 1) * batch_size}");
-                List<IJobWork> batch = jobs.GetRange(i * batch_size, batch_size);
+                int toDo = Math.Min(batch_size, jobs.Count - jobsDone);
+                logger.Log(Tag.ClientMain, $"Start batch from {jobsDone} to {jobsDone + toDo}");
+                List<IJobWork> batch = jobs.GetRange(jobsDone, toDo);
                 jobIds.AddRange(await ExecuteBatch(batch, work));
                 logger.Log(Tag.ClientMain, "Batch finished");
-            }
+                jobsDone += toDo;
+            } while(jobsDone < jobs.Count);
             
             logger.Log(Tag.ClientMain, "All jobs were be executed, calculating result...");
 

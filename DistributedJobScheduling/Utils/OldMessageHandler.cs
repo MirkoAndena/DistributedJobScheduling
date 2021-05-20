@@ -79,10 +79,26 @@ namespace DistributedJobScheduling
             });
         }
 
+        public void SendOrKeepToCoordinator(Message message, Action action = null)
+        {
+            if(_groupManager.View.Coordinator != null)
+                SendOrKeep(_groupManager.View.Coordinator, message, action);
+            else
+            {
+                NotDeliveredMessage notDelivered = new NotDeliveredMessage();
+                notDelivered.DestIsCoordintor = true;
+                notDelivered.Multicast = false;
+                notDelivered.Message = message;
+                notDelivered.Action = action;
+                _notDeliveredMessages.Add(notDelivered); 
+                _logger.Warning(Tag.OldMessageHandler, $"Message to coordinator was not sent, is added to Queue");
+            }
+        }
+
         public void SendOrKeep(Node node, Message message, Action action = null)
         {
             try 
-            { 
+            {
                 _groupManager.Send(node, message).Wait();
                 _logger.Log(Tag.OldMessageHandler, $"Sent ({_groupManager.View.Me.ID},{message.TimeStamp}) message: {message.ToString()}");
                 action?.Invoke();

@@ -57,30 +57,23 @@ namespace DistributedJobScheduling.DistributedJobUpdate
 
         private void SendDistributedStorageUpdateRequest(Job job)
         {
-            if (_groupManager.View.CoordinatorExists)
+            if (_groupManager.View.ImCoordinator)
             {
-                if (_groupManager.View.ImCoordinator)
+                var message = new DistributedStorageUpdate(job);
+                _oldMessageHandler.SendMulticastOrKeep(message, () =>
                 {
-                    var message = new DistributedStorageUpdate(job);
-                    _oldMessageHandler.SendMulticastOrKeep(message, () =>
-                    {
-                        _logger.Log(Tag.DistributedUpdate, $"Updated job sent in multicast");
-                        _jobStorage.CommitUpdate(job);
-                        _logger.Log(Tag.DistributedUpdate, $"Updated my job: {job.ToString()}");
-                    });
-                }
-                else
-                {
-                    var message = new DistributedStorageUpdateRequest(job);
-                    _oldMessageHandler.SendOrKeep(_groupManager.View.Coordinator, message, () =>
-                    {
-                        _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
-                    });
-                }
+                    _logger.Log(Tag.DistributedUpdate, $"Updated job sent in multicast");
+                    _jobStorage.CommitUpdate(job);
+                    _logger.Log(Tag.DistributedUpdate, $"Updated my job: {job.ToString()}");
+                });
             }
             else
             {
-                _logger.Fatal(Tag.DistributedUpdate, "Voglio aggiornare lo storage distribuito ma non c'è il coordinator", new System.Exception("No coordinator during a send distribution request"));
+                var message = new DistributedStorageUpdateRequest(job);
+                _oldMessageHandler.SendOrKeepToCoordinator(message, () =>
+                {
+                    _logger.Log(Tag.DistributedUpdate, $"Sent to coordinator a distributed update request");
+                });
             }
         }
 
