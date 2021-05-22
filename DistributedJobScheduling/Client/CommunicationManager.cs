@@ -62,7 +62,7 @@ namespace DistributedJobScheduling.Client
 
                 // Create new one
                 _speaker = new BoldSpeaker(_remote, _serializer);
-                await _speaker.Connect(NetworkManager.CLIENT_PORT, 30);
+                await _speaker.Connect(NetworkManager.PORT, 30);
                 _logger.Log(Tag.Communication, $"Speaker is connected: {_speaker.IsConnected}");
 
                 if (_speaker.IsConnected)

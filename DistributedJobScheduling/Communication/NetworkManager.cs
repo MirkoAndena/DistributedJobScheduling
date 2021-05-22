@@ -13,6 +13,7 @@ using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.Serialization;
 using DistributedJobScheduling.JobAssignment;
 using DistributedJobScheduling.Client;
+using System.Threading;
 
 namespace DistributedJobScheduling.Communication
 {
@@ -59,14 +60,24 @@ namespace DistributedJobScheduling.Communication
             _listener.SpeakerCreated += OnSpeakerCreated;
         }
 
-        private async void OnNodeCreated(Node node)
+        private void OnNodeCreated(Node node)
         {
+            _logger.Log(Tag.Communication, $"Node {node} created");
             // Do not connect with myself
             if (node.ID.Value == _sender)
                 return;
 
             // Open connection only with lower nodes
-            if (node.ID.Value < _sender)
+            if (node.ID.Value > _sender)
+            {
+                _logger.Log(Tag.Communication, $"Node {node} has greater id (mine is {_sender}), creating connection");
+                CreateSpeakerAndConnect(node);
+            }
+        }
+
+        private void CreateSpeakerAndConnect(Node node)
+        {
+            Task.Run(async () =>
             {
                 BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
                 await speaker.Connect(PORT, 30);
@@ -75,8 +86,13 @@ namespace DistributedJobScheduling.Communication
                 speaker.Stopped += OnSpeakerStopped;
                 speaker.Start();
 
-                _speakers.Add(node, speaker);
-            }
+                lock(_speakers)
+                {
+                    _speakers.Add(node, speaker);
+                }
+                
+                _logger.Log(Tag.Communication, $"Speaker to {node} created");
+            });
         }
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
@@ -102,7 +118,7 @@ namespace DistributedJobScheduling.Communication
                 }
 
                 speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
-                speaker.Stopped += (node) => { OnSpeakerStopped(node); };
+                speaker.Stopped += OnSpeakerStopped;
                 _speakers.Add(node, speaker);
             }
 
@@ -126,14 +142,25 @@ namespace DistributedJobScheduling.Communication
 
         private void OnSpeakerStopped(Node remote)
         {
+            bool isBoldSpeaker = false;
             lock(_speakers)
             {
                 if (_speakers.ContainsKey(remote))
                 {
+                    isBoldSpeaker = _speakers[remote] is BoldSpeaker;
                     _speakers[remote].MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
+                    _speakers[remote].Stopped -= OnSpeakerStopped;
                     _speakers.Remove(remote);
                     remote.NotifyDeath();
+                    _logger.Log(Tag.Communication, $"Speaker to {remote} deleted");
                 }
+            }
+
+            // Reconnection
+            if (isBoldSpeaker)
+            {
+                _logger.Log(Tag.Communication, $"Reconnection to {remote}");
+                CreateSpeakerAndConnect(remote);
             }
         }
 
@@ -182,7 +209,6 @@ namespace DistributedJobScheduling.Communication
         public void Start()
         {
             _listener.Start();
-            _clientListener.Start();
             _speakers.Clear();
             _shouter.Start();
         }
@@ -190,12 +216,10 @@ namespace DistributedJobScheduling.Communication
         public void Stop() 
         {
             _shouter.OnMessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-            _listener.SpeakerCreated -= OnListenSpeakerCreated;
-            _clientListener.SpeakerCreated -= OnClientSpeakerCreated;
+            _listener.SpeakerCreated -= OnSpeakerCreated;
 
             _shouter.Stop();
             _listener.Stop();
-            _clientListener.Stop();
 
             _speakers.ForEach(speakerIdPair => 
             {
