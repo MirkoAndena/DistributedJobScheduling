@@ -1,3 +1,5 @@
+using System;
+
 namespace DistributedJobScheduling.Communication.Basic
 {
     public partial class Node
@@ -33,6 +35,11 @@ namespace DistributedJobScheduling.Communication.Basic
             /// Updates a node with a new ID
             /// </summary>
             void UpdateNodeID(Node node, int newID);
+
+            /// <summary>
+            /// Event invoked when a new node (with both id and ip) is created
+            /// </summary>
+            event Action<Node> NodeCreated;
         }
     }
 }

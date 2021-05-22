@@ -11,6 +11,8 @@ namespace DistributedJobScheduling.Communication.Basic
             private Dictionary<int, Node> _nodeIDMap = new Dictionary<int, Node>();
             private Dictionary<string, Node> _nodeIPMap = new Dictionary<string, Node>();
 
+            public event Action<Node> NodeCreated;
+
             public Node GetNode(int ID)
             {
                 lock(this)
@@ -49,6 +51,8 @@ namespace DistributedJobScheduling.Communication.Basic
                         _localNodes.Add(nodeToReturn);
                         if(ip != null) _nodeIPMap.Add(ip, nodeToReturn);
                         if(id.HasValue) _nodeIDMap.Add(id.Value, nodeToReturn);
+
+                        InvokeNodeCreatedIfComplete(nodeToReturn);
                     }
 
                     return nodeToReturn;
@@ -96,7 +100,15 @@ namespace DistributedJobScheduling.Communication.Basic
                         _nodeIPMap.Remove(node.IP);
                     node.IP = newIP;
                     _nodeIPMap.Add(newIP, node);
+
+                    InvokeNodeCreatedIfComplete(node);
                 }
+            }
+
+            private void InvokeNodeCreatedIfComplete(Node node)
+            {
+                if (NetworkUtils.IsAnIp(node.IP) && node.ID.HasValue)
+                    NodeCreated?.Invoke(node);
             }
         }
     }
