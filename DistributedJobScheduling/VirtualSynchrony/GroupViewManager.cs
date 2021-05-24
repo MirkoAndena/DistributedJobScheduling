@@ -18,6 +18,7 @@ using DistributedJobScheduling.LeaderElection.KeepAlive;
 using DistributedJobScheduling.LeaderElection;
 using DistributedJobScheduling.Queues;
 using DistributedJobScheduling.DistributedJobUpdate;
+using DistributedJobScheduling.Communication.Messaging.Discovery;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -680,6 +681,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                         _logger.Log(Tag.VirtualSynchrony, $"Starting joining procedure");
                         //Only the coordinator processes these
                         _currentJoinRequest = joinRequest;
+                        Task.Run(() => _communicationManager.SendMulticast(new NetworkStateMessage(View.Others.Union(new [] { View.Me }).ToArray())));
                         NotifyViewChanged(new HashSet<Node>(new [] {joinRequest.JoiningNode}), Operation.Joined);
                     }
                 }

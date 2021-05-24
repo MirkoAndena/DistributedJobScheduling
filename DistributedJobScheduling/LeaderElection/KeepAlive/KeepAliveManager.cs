@@ -22,6 +22,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private ILogger _logger;
         private IGroupViewManager _group;
 
+        private List<KeepAliveRequest> _requestQueue;
+
         public KeepAliveManager() : this (
             DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
             DependencyInjection.DependencyManager.Get<ILogger>()) {}
@@ -30,6 +32,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _logger = logger;
             _group = group;
+            _requestQueue = new List<KeepAliveRequest>();
         }
 
         public void Init()
@@ -37,6 +40,16 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _logger.Log(Tag.KeepAlive, "Registered to ViewChanged and ViewChanging events");
             _group.View.ViewChanged += OnViewChanged;
             _group.ViewChanging += OnViewChanging;
+            _group.Topics.GetPublisher<KeepAlivePublisher>().RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
+        }
+
+        private void OnKeepAliveRequestReceived(Node node, Message message)
+        {
+            if(_keepAlive == null)
+            {
+                _logger.Log(Tag.KeepAlive, "Keepalive recived when service is disabled, saving request for later");
+                _requestQueue.Add((KeepAliveRequest)message);
+            }
         }
 
         private void OnViewChanging()
@@ -67,6 +80,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 // Create and start proper keep-alive handler
                 if (_group.View.ImCoordinator) StartCoordinatorKeepAlive();
                 else StartWorkerKeepAlive();
+
+                _requestQueue.Clear();
             }
             else
             {
@@ -91,7 +106,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private void StartWorkerKeepAlive()
         {
             _logger.Log(Tag.KeepAlive, "Starting workers keep-alive");
-            _keepAlive = new WorkersKeepAlive(_group, _logger);
+            _keepAlive = new WorkersKeepAlive(_group, _logger, _requestQueue);
             ((WorkersKeepAlive)_keepAlive).CoordinatorDied += OnCoordinatorDied;
             _keepAlive.Start();
         }

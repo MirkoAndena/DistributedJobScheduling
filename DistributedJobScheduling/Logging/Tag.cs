@@ -20,6 +20,7 @@ namespace DistributedJobScheduling.Logging
         DistributedUpdate,
         ClientCommunication,
         OldMessageHandler,
-        ClientMain
+        ClientMain,
+        ConnectionManager
     }
 }
