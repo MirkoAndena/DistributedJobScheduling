@@ -80,7 +80,8 @@
             "dockerRun": {
                 "env": {
                     "NODE_ID" : "9999"
-                }
+                },
+                "network": "distributedprojnet"
             },
             "netCore": {
                 "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj",
@@ -97,7 +98,8 @@
                 "env": {
                     "NODE_ID" : "9999",
                     "COORD": "true"
-                }
+                },
+                "network": "distributedprojnet"
             },
             "netCore": {
                 "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj",
@@ -113,10 +115,11 @@
             "dockerRun": {
                 "env": {
                     "CLIENT": "true",
-                    "WORKER": "172.17.0.3",
+                    "WORKER": "172.18.0.3",
                     "RDUMMY": "true",
                     "COUNT": "15"
-                }
+                },
+                "network": "distributedprojnet"
             },
             "netCore": {
                 "appProject": "${workspaceFolder}/DistributedJobScheduling/DistributedJobScheduling.csproj",

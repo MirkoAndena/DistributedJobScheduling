@@ -209,7 +209,7 @@ namespace DistributedJobScheduling.Communication
 
                 await _sendOrdering.OrderedExecute(message, async () => {
                     if (!_speakers.ContainsKey(node))
-                        throw new Exception($"Speakers does not contain a speaker for node {node}");
+                        throw new Exception($"Speakers does not contain a speaker for node {node}, Message ({_sender},{message.TimeStamp})");
                     await _speakers[node].Send(message);
                 });
             }
