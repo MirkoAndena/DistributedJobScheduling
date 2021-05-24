@@ -20,10 +20,13 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private CancellationTokenSource _cancellationTokenSource;
         private IGroupViewManager _groupManager;
 
-        public WorkersKeepAlive(IGroupViewManager group, ILogger logger)
+        private List<KeepAliveRequest> _requestQueue;
+
+        public WorkersKeepAlive(IGroupViewManager group, ILogger logger, List<KeepAliveRequest> requestQueue)
         {
             _groupManager = group;
             _logger = logger;
+            _requestQueue = requestQueue;
         }
         
         public void Start()
@@ -31,7 +34,13 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             var jobPublisher = _groupManager.Topics.GetPublisher<KeepAlivePublisher>();
             jobPublisher.RegisterForMessage(typeof(KeepAliveRequest), OnKeepAliveRequestReceived);
 
-            _cancellationTokenSource = new CancellationTokenSource();
+            _logger.Log(Tag.KeepAlive, $"Replaying {_requestQueue.Count} keep alive requests");
+            foreach(var request in _requestQueue.ToArray())
+                _groupManager.Send(_groupManager.View.Coordinator, new KeepAliveResponse(request)).Wait();
+            _requestQueue = null;
+
+            //If the coordinator never sent a keep-alive, timeout after a window
+            CancelWindowTimeout();
             Task.Delay(KeepAliveManager.WorkerRequestWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
         }
@@ -49,10 +58,18 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
             _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
             
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource = new CancellationTokenSource();
+            CancelWindowTimeout();
             Task.Delay(KeepAliveManager.WorkerRequestWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
+        }
+
+        private void CancelWindowTimeout()
+        {
+            lock(this)
+            {
+                _cancellationTokenSource?.Cancel();
+                _cancellationTokenSource = new CancellationTokenSource();
+            }
         }
 
         private void TimeoutFinished()

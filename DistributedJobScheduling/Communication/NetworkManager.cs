@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.Serialization;
 using System.Reflection.PortableExecutable;
 using System;
@@ -14,6 +15,7 @@ using DistributedJobScheduling.Serialization;
 using DistributedJobScheduling.JobAssignment;
 using DistributedJobScheduling.Client;
 using System.Threading;
+using DistributedJobScheduling.Communication.Messaging.Discovery;
 
 namespace DistributedJobScheduling.Communication
 {
@@ -28,6 +30,7 @@ namespace DistributedJobScheduling.Communication
         private ISerializer _serializer;
         private IMessageOrdering _sendOrdering;
         private Node.INodeRegistry _registry;
+        private Dictionary<Node, Task> _connectionTasks;
 
         public ITopicOutlet Topics { get; private set; }
 
@@ -43,6 +46,7 @@ namespace DistributedJobScheduling.Communication
             _registry = nodeRegistry;
             _logger = logger;
             _sender = configurationService.GetValue<int>("nodeId");
+            _connectionTasks = new Dictionary<Node, Task>();
 
             _sendOrdering = new FIFOMessageOrdering(logger);
             _speakers = new Dictionary<Node, Speaker>();
@@ -55,9 +59,24 @@ namespace DistributedJobScheduling.Communication
             _registry.NodeCreated += OnNodeCreated;
 
             _shouter = new Shouter(_serializer);
-            _shouter.OnMessageReceived += OnMessageReceivedFromSpeakerOrShouter;
+            _shouter.OnMessageReceived += OnMulticastReceived;
             _listener = new Listener(_serializer, PORT);
             _listener.SpeakerCreated += OnSpeakerCreated;
+        }
+
+        private void OnMulticastReceived(Node node, Message message)
+        {
+            if(!_speakers.ContainsKey(node))
+                OnNodeCreated(node);
+            OnMessageReceivedFromSpeakerOrShouter(node, message);
+        }
+
+        private void OnNetworkStateReceived(Node node, NetworkStateMessage message)
+        {
+            message.BindToRegistry(_registry);
+            
+            if(!_speakers.ContainsKey(node))
+                OnNodeCreated(node);
         }
 
         private void OnNodeCreated(Node node)
@@ -77,22 +96,35 @@ namespace DistributedJobScheduling.Communication
 
         private void CreateSpeakerAndConnect(Node node)
         {
-            Task.Run(async () =>
+            lock(_connectionTasks)
             {
-                BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
-                await speaker.Connect(PORT, 30);
-
-                speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
-                speaker.Stopped += OnSpeakerStopped;
-                speaker.Start();
-
-                lock(_speakers)
+                if(_connectionTasks.ContainsKey(node))
                 {
-                    _speakers.Add(node, speaker);
+                    if(_connectionTasks[node].IsCompleted)
+                        _connectionTasks.Remove(node);
+                    else
+                        return;
                 }
                 
-                _logger.Log(Tag.Communication, $"Speaker to {node} created");
-            });
+                _connectionTasks.Add(node, 
+                    Task.Run(async () =>
+                    {
+                        BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
+                        await speaker.Connect(PORT, 30);
+
+                        speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
+                        speaker.Stopped += OnSpeakerStopped;
+                        speaker.Start();
+
+                        lock(_speakers)
+                        {
+                            _speakers.Add(node, speaker);
+                        }
+                        
+                        _logger.Log(Tag.Communication, $"Speaker to {node} created");
+                    })
+                );
+            }
         }
 
         private void OnSpeakerCreated(Node node, Speaker speaker)
@@ -131,9 +163,13 @@ namespace DistributedJobScheduling.Communication
                 _registry.UpdateNodeID(node, message.SenderID.Value);
 
             _logger.Log(Tag.Communication, $"Received message of type {message.GetType()} from {node.ToString()}");
+            
             try
             {
-                OnMessageReceived?.Invoke(node, message);
+                if(message is NetworkStateMessage networkStateMessage)
+                    OnNetworkStateReceived(node, networkStateMessage);
+                else
+                    OnMessageReceived?.Invoke(node, message);
             }
             catch(Exception ex) {
                 _logger.Error(Tag.Communication, $"Exception generated while handling {message.GetType()} from {node.ToString()}", ex);
@@ -157,11 +193,11 @@ namespace DistributedJobScheduling.Communication
             }
 
             // Reconnection
-            if (isBoldSpeaker)
-            {
-                _logger.Log(Tag.Communication, $"Reconnection to {remote}");
-                CreateSpeakerAndConnect(remote);
-            }
+            //if (isBoldSpeaker)
+            //{
+            //    _logger.Log(Tag.Communication, $"Reconnection to {remote}");
+            //    CreateSpeakerAndConnect(remote);
+            //}
         }
 
         public async Task Send(Node node, Message message, int timeout = 30)
