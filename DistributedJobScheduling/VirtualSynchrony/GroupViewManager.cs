@@ -463,7 +463,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 else
                 {
                     //If receiver notify reception
-                    Node sender = _nodeRegistry.GetNode(message.SenderID.Value);
+                    Node sender = _nodeRegistry.GetNode(message.SenderID);
                     Task.Run(() => OnMessageReceived?.Invoke(sender, message.UnstablePayload));
                 }  
             }

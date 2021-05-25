@@ -45,7 +45,7 @@ namespace DistributedJobScheduling
             if (!isId) throw new Exception("id not valid");
             
             Console.WriteLine($"Configuration nodeId: {id}");
-            configurationService.SetValue<int?>("nodeId", id);
+            configurationService.SetValue<int>("nodeId", id);
             configurationService.SetValue<bool>("coordinator", coordinator);
         }
 

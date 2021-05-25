@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using DistributedJobScheduling.Communication.Messaging;
+using DistributedJobScheduling.Configuration;
 using Newtonsoft.Json;
 using static DistributedJobScheduling.Communication.Basic.Node;
 
@@ -18,10 +19,14 @@ namespace DistributedJobScheduling.Communication.Basic
         private int? _messageID;
         private int? _isResponseOf;
 
-        public int? SenderID;
+        public int SenderID { get; private set; }
         public int? ReceiverID;
 
-        public Message() { }
+        public Message()
+        {
+            var configurationService = DependencyInjection.DependencyManager.Get<IConfigurationService>();
+            this.SenderID = configurationService.GetValue<int>("nodeId", -1);
+        }
 
         /// <summary>
         /// Create a message that is the response of another message
@@ -31,14 +36,14 @@ namespace DistributedJobScheduling.Communication.Basic
             _isResponseOf = message._messageID;
         }
 
-        private bool NodesInfoPresent => SenderID.HasValue && ReceiverID.HasValue;
+        private bool NodesInfoPresent => ReceiverID.HasValue;
 
         public bool IsTheExpectedMessage(Message previous)
         {
             bool idCheck = _isResponseOf == previous._messageID;
             bool nodeCheckEnabled = this.NodesInfoPresent && previous.NodesInfoPresent;
             if (nodeCheckEnabled)
-                return idCheck && SenderID.Value == previous.ReceiverID.Value && ReceiverID.Value == previous.SenderID.Value;
+                return idCheck && SenderID == previous.ReceiverID.Value && ReceiverID.Value == previous.SenderID;
             else
                 return idCheck;
         }

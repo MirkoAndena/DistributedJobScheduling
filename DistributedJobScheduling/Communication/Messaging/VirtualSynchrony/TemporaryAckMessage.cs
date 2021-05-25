@@ -17,6 +17,6 @@ namespace DistributedJobScheduling.Communication.Messaging
             OriginalSenderID = originalSenderID; //AckMessages need to have a sender and TimeStamp
             OriginalTimestamp = originalTimestamp;
         }
-        public TemporaryAckMessage(TemporaryMessage receivedMessage) : this(receivedMessage.SenderID.Value, receivedMessage.TimeStamp.Value, receivedMessage.ViewId) {}
+        public TemporaryAckMessage(TemporaryMessage receivedMessage) : this(receivedMessage.SenderID, receivedMessage.TimeStamp.Value, receivedMessage.ViewId) {}
     }
 }

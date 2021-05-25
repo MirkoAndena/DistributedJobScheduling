@@ -159,8 +159,8 @@ namespace DistributedJobScheduling.Communication
 
         private void OnMessageReceivedFromSpeakerOrShouter(Node node, Message message)
         {
-            if (message.SenderID.HasValue && node.ID != message.SenderID)
-                _registry.UpdateNodeID(node, message.SenderID.Value);
+            if (node.ID != message.SenderID)
+                _registry.UpdateNodeID(node, message.SenderID);
 
             _logger.Log(Tag.Communication, $"Received message of type {message.GetType()} from {node.ToString()}");
             
@@ -197,7 +197,6 @@ namespace DistributedJobScheduling.Communication
         {
             try
             {
-                message.SenderID = _sender;
                 message.ReceiverID = node.ID;
 
                 await _sendOrdering.OrderedExecute(message, async () => {
@@ -221,7 +220,6 @@ namespace DistributedJobScheduling.Communication
         {
             try
             {
-                message.SenderID = _sender;
                 await _sendOrdering.OrderedExecute(message, () => _shouter.SendMulticast(message));
             }
             catch
