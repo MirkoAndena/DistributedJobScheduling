@@ -85,6 +85,15 @@ namespace DistributedJobScheduling.Communication
                 return;
             }
 
+            lock(_speakers)
+            {
+                if (_speakers.ContainsKey(node) && _speakers[node].IsConnected)
+                {
+                    _logger.Log(Tag.Communication, $"Already connected to {node}");
+                    return;
+                }
+            }
+
             _logger.Log(Tag.Communication, $"Handle connectio with {node}, Do i have to connect with him or not?");
 
             // Do not connect with myself
