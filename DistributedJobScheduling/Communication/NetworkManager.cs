@@ -79,6 +79,12 @@ namespace DistributedJobScheduling.Communication
 
         private void ConnectWith(Node node)
         {
+            if (!node.ID.HasValue)
+            {
+                _logger.Warning(Tag.Communication, $"Try to connect to {node} that hasn't an ID");
+                return;
+            }
+
             _logger.Log(Tag.Communication, $"Handle connectio with {node}, Do i have to connect with him or not?");
 
             // Do not connect with myself
