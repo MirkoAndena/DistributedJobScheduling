@@ -64,7 +64,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             {
                 try
                 {
-                    _groupManager.Send(node, new KeepAliveRequest()).Wait();
+                    _groupManager.Send(node, new KeepAliveRequest(), Communication.NetworkManager.SendFailureStrategy.Reconnect).Wait();
                 }
                 catch(NotDeliveredException) { }
                 _logger.Log(Tag.KeepAlive, $"Sent keep-alive request to {node}");

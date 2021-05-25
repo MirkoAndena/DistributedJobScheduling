@@ -19,6 +19,7 @@ using DistributedJobScheduling.LeaderElection;
 using DistributedJobScheduling.Queues;
 using DistributedJobScheduling.DistributedJobUpdate;
 using DistributedJobScheduling.Communication.Messaging.Discovery;
+using static DistributedJobScheduling.Communication.NetworkManager;
 
 namespace DistributedJobScheduling.VirtualSynchrony
 {
@@ -45,9 +46,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
         private CancellationTokenSource _senderCancellationTokenSource;
         private Thread _messageSender;
-        private BlockingCollection<(Node, Message, Action)> _sendQueue;
+        private BlockingCollection<(Node, Message, SendFailureStrategy, Action)> _sendQueue;
         private Dictionary<Message, TaskCompletionSource<bool>> _messageSendStateMap;
-        private ConcurrentQueue<(Node, Message, Action)> _onHoldMessages;
+        private ConcurrentQueue<(Node, Message, SendFailureStrategy, Action)> _onHoldMessages;
 
         
         #region Messaging Variables
@@ -102,7 +103,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             _futureMessagesQueue = new Queue<(Node, ViewMessage)>();
             _virtualSynchronyTopic = _communicationManager.Topics.GetPublisher<VirtualSynchronyTopicPublisher>();
 
-            _sendQueue = new BlockingCollection<(Node, Message, Action)>();
+            _sendQueue = new BlockingCollection<(Node, Message, SendFailureStrategy, Action)>();
             _messageSendStateMap = new Dictionary<Message, TaskCompletionSource<bool>>();
 
             Topics = new GenericTopicOutlet(this, logger,
@@ -154,7 +155,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     {
                         Node node = messageToSend.Item1;
                         Message message = messageToSend.Item2;
-                        Action callback = messageToSend.Item3;
+                        SendFailureStrategy strategy = messageToSend.Item3;
+                        Action callback = messageToSend.Item4;
 
                         try
                         {
@@ -164,7 +166,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                                 if(View.Contains(node))
                                 {
                                     if(View.Me != node)
-                                        _communicationManager.Send(node, message.ApplyStamp(_messageTimeStamper)).Wait();
+                                        _communicationManager.Send(node, message.ApplyStamp(_messageTimeStamper), strategy).Wait();
                                     else //LoopBack
                                         Task.Run(() => _virtualSynchronyTopic.RouteMessage(message.GetType(), node, message));
                                 }
@@ -182,7 +184,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                                     
                                     //Reliable Multicast
                                     for(int i = 0; i <  viewMembers.Count; i++)
-                                        awaitMulticast[i] = _communicationManager.Send(viewMembers[i], timeStampedMessage);
+                                        awaitMulticast[i] = _communicationManager.Send(viewMembers[i], timeStampedMessage, strategy);
                                     
                                     Task.WhenAll(awaitMulticast).Wait();
                                 }
@@ -221,7 +223,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             }
         }
 
-        private (TemporaryMessage, TaskCompletionSource<bool>) EnqueueMessage(Node node, Message message, CancellationToken token = default)
+        private (TemporaryMessage, TaskCompletionSource<bool>) EnqueueMessage(Node node, Message message, SendFailureStrategy sendFailureStrategy, CancellationToken token = default)
         {
             //Checks that the node is in the view
             if(node != null && !View.Contains(node))
@@ -239,7 +241,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 sendCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                 token.Register(() => {sendCompletionSource.TrySetResult(false); });
                 _messageSendStateMap[tempMessage] = sendCompletionSource;
-                var sendMessageElement = (node, tempMessage, default(Action));
+                var sendMessageElement = (node, tempMessage, sendFailureStrategy, default(Action));
 
                 if(_pendingViewChange != null)
                 {
@@ -253,11 +255,11 @@ namespace DistributedJobScheduling.VirtualSynchrony
             return (tempMessage, sendCompletionSource);
         }
 
-        private async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
+        private async Task<TemporaryMessage> EnqueueMessageAndWaitSend(Node node, Message message, SendFailureStrategy sendFailureStrategy, int timeout = DEFAULT_SEND_TIMEOUT)
         {
             CancellationTokenSource cts = new CancellationTokenSource();
             _logger.Log(Tag.VirtualSynchrony, $"Queuing send {message.GetType().Name} to {(node?.ToString() ?? "MULTICAST")}");
-            var sendMessageTask = EnqueueMessage(node, message, cts.Token);
+            var sendMessageTask = EnqueueMessage(node, message, sendFailureStrategy, cts.Token);
 
             _logger.Log(Tag.VirtualSynchrony, $"Queued send {message.GetType().Name} to {(node?.ToString() ?? "MULTICAST")}");
             cts.CancelAfter(TimeSpan.FromSeconds(timeout));
@@ -274,7 +276,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             return sendMessageTask.Item1;
         }
 
-        public async Task Send(Node node, Message message, int timeout = DEFAULT_SEND_TIMEOUT)
+        public async Task Send(Node node, Message message, SendFailureStrategy strategy)
         {
             if(node == null)
             {
@@ -284,7 +286,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             
             try
             {
-                await EnqueueMessageAndWaitSend(node, message, timeout);
+                await EnqueueMessageAndWaitSend(node, message, strategy, DEFAULT_SEND_TIMEOUT);
                 _logger.Log(Tag.VirtualSynchrony, $"Sent {message.GetType().Name}({View.Me.ID},{message.TimeStamp}) to {node}");
             }
             catch
@@ -304,7 +306,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
             
             _logger.Log(Tag.VirtualSynchrony, $"Queuing send multicast {message.GetType().Name}");
             TaskCompletionSource<bool> consolidateTask;
-            var tempMessage = await EnqueueMessageAndWaitSend(null, message, 30);
+            var tempMessage = await EnqueueMessageAndWaitSend(null, message, SendFailureStrategy.Discard, 30);
 
             _logger.Log(Tag.VirtualSynchrony, $"Multicast sent on network ({View.Me.ID},{message.TimeStamp})");
             var messageKey = (View.Me.ID.Value, tempMessage.TimeStamp.Value);
@@ -353,7 +355,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 if (tempMessage.IsMulticast)
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"Sending ack for received message {messageKey}");
-                    _sendQueue.Add((null, new TemporaryAckMessage(tempMessage), null));
+                    _sendQueue.Add((null, new TemporaryAckMessage(tempMessage), SendFailureStrategy.Discard, null));
                     _logger.Log(Tag.VirtualSynchrony, $"Correctly sent ack for {messageKey}");
                 }
             }
@@ -521,7 +523,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     ViewChanging?.Invoke();
 
                     //Stop all messaging
-                    _onHoldMessages = new ConcurrentQueue<(Node, Message, Action)>();
+                    _onHoldMessages = new ConcurrentQueue<(Node, Message, SendFailureStrategy, Action)>();
 
                     //Setup Message Flushing and check if we can already flush
                     _flushed = false;
@@ -611,7 +613,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                             );
                             
                             _logger.Log(Tag.VirtualSynchrony, $"Sending view sync response");
-                            _sendQueue.Add((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value, componentsSyncMessages), () => {
+                            _sendQueue.Add((_currentJoinRequest.JoiningNode, new ViewSyncResponse(View.Others.ToList(), View.ViewId.Value, componentsSyncMessages), SendFailureStrategy.Reconnect, () => {
                                 _currentJoinRequest = null;
                             }));
                         }
@@ -641,7 +643,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange}!");
                     flushMessage = new FlushMessage(_pendingViewChange, _pendingViewChange.ViewId.Value - 1);
                 }
-                _sendQueue.Add((null, flushMessage, default(Action)));
+                _sendQueue.Add((null, flushMessage, SendFailureStrategy.Reconnect, default(Action)));
                 _flushed = true;
             }
         }

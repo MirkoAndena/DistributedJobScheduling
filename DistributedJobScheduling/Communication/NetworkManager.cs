@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+using System.Xml.Serialization;
 using System.Collections.Concurrent;
 using System.Runtime.Serialization;
 using System.Reflection.PortableExecutable;
@@ -21,6 +23,8 @@ namespace DistributedJobScheduling.Communication
 {
     public class NetworkManager : ICommunicationManager, IStartable
     {
+        public enum SendFailureStrategy { Discard, Reconnect }
+
         public const int PORT = 30308;
         private Dictionary<Node, Speaker> _speakers;
         private Listener _listener;
@@ -31,6 +35,8 @@ namespace DistributedJobScheduling.Communication
         private IMessageOrdering _sendOrdering;
         private Node.INodeRegistry _registry;
         private Dictionary<Node, Task> _connectionTasks;
+        private Dictionary<Node, Queue<Message>> _notSent;
+        private Dictionary<Node, SemaphoreSlim> _reconnectionSemaphores;
 
         public ITopicOutlet Topics { get; private set; }
 
@@ -47,6 +53,8 @@ namespace DistributedJobScheduling.Communication
             _logger = logger;
             _sender = configurationService.GetValue<int>("nodeId");
             _connectionTasks = new Dictionary<Node, Task>();
+            _notSent = new Dictionary<Node, Queue<Message>>();
+            _reconnectionSemaphores = new Dictionary<Node, SemaphoreSlim>();
 
             _sendOrdering = new FIFOMessageOrdering(logger);
             _speakers = new Dictionary<Node, Speaker>();
@@ -126,23 +134,31 @@ namespace DistributedJobScheduling.Communication
                         BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
                         await speaker.Connect(PORT, 30);
 
-                        speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
-                        speaker.Stopped += OnSpeakerStopped;
-                        speaker.Start();
-
-                        lock(_speakers)
+                        if (speaker.IsConnected)
                         {
-                            _speakers.Add(node, speaker);
+                            speaker.MessageReceived += OnMessageReceivedFromSpeakerOrShouter;
+                            speaker.Stopped += OnSpeakerStopped;
+                            speaker.Start();
+
+                            await GetOrCreateSemaphore(node).WaitAsync();
+                            lock(_speakers)
+                            {
+                                _speakers.Add(node, speaker);
+                            }
+                            
+                            _logger.Log(Tag.Communication, $"Speaker to {node} created");
+
+                            SendEnqueued(node);
+                            GetOrCreateSemaphore(node).Release();
                         }
-                        
-                        _logger.Log(Tag.Communication, $"Speaker to {node} created");
                     })
                 );
             }
         }
 
-        private void OnSpeakerCreated(Node node, Speaker speaker)
+        private async void OnSpeakerCreated(Node node, Speaker speaker)
         {
+            await GetOrCreateSemaphore(node).WaitAsync();
             lock(_speakers)
             {
                 _logger.Log(Tag.Communication, $"New receiving speaker created for communications with {node}");
@@ -169,6 +185,8 @@ namespace DistributedJobScheduling.Communication
             }
 
             speaker.Start();
+            SendEnqueued(node);
+            GetOrCreateSemaphore(node).Release();
         }
 
         private void OnMessageReceivedFromSpeakerOrShouter(Node node, Message message)
@@ -207,17 +225,29 @@ namespace DistributedJobScheduling.Communication
             }
         }
 
-        public async Task Send(Node node, Message message, int timeout = 30)
+        public async Task Send(Node node, Message message, SendFailureStrategy sendFailureStrategy = SendFailureStrategy.Discard)
         {
+            await Send(node, message, sendFailureStrategy, false);
+        }
+
+        private async Task Send(Node node, Message message, SendFailureStrategy sendFailureStrategy, bool ignoreSemaphore)
+        {
+            if (!ignoreSemaphore)
+                await GetOrCreateSemaphore(node).WaitAsync();
+
             try
             {
                 message.ReceiverID = node.ID;
 
                 await _sendOrdering.OrderedExecute(message, async () => {
-                    if (!_speakers.ContainsKey(node))
-                        _logger.Warning(Tag.Communication, $"Doesn't exist a speaker for node {node}, Message ({_sender},{message.TimeStamp})");
-                    else
+                    if (_speakers.ContainsKey(node))
                         await _speakers[node].Send(message);
+                    else
+                    {
+                        _logger.Warning(Tag.Communication, $"Doesn't exist a speaker for node {node}, Message ({_sender},{message.TimeStamp})");
+                        if (sendFailureStrategy == SendFailureStrategy.Reconnect)
+                            EnqueueMessage(node, message);
+                    }
                 });
             }
             catch (Exception e)
@@ -229,6 +259,35 @@ namespace DistributedJobScheduling.Communication
             {
                 if(message != null && message.TimeStamp.HasValue)
                     _sendOrdering.Observe(message);
+                if (!ignoreSemaphore)
+                    GetOrCreateSemaphore(node).Release();
+            }
+        }
+
+        private SemaphoreSlim GetOrCreateSemaphore(Node node)
+        {
+            lock(_reconnectionSemaphores)
+            {
+                if (!_reconnectionSemaphores.ContainsKey(node))
+                    _reconnectionSemaphores.Add(node, new SemaphoreSlim(1, 1));
+                return _reconnectionSemaphores[node];
+            }
+        }
+
+        private void EnqueueMessage(Node node, Message message)
+        {
+            if (!_notSent.ContainsKey(node))
+                _notSent.Add(node, new Queue<Message>());
+            _notSent[node].Enqueue(message);
+            _logger.Log(Tag.Communication, $"Equeued message {message}, will be sent as soon as the speaker is connected to {node}");
+        }
+
+        private void SendEnqueued(Node node)
+        {
+            if (_notSent.ContainsKey(node))
+            {
+                _logger.Log(Tag.Communication, $"Start to send messages ({_notSent[node].Count}) enqueued to {node}");
+                _notSent[node].ForEach<Message>(message => Send(node, message, SendFailureStrategy.Reconnect, true).Wait());
             }
         }
 

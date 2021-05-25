@@ -74,5 +74,7 @@ namespace DistributedJobScheduling.Communication.Basic
             }
             return this;
         }
+
+        public override string ToString() => $"({SenderID},{TimeStamp})";
     }
 }
