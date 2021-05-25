@@ -59,8 +59,7 @@ namespace DistributedJobScheduling.Communication.Basic
                 {
                     UdpReceiveResult result = await _client.ReceiveAsync();
                     Message message = _serializer.Deserialize<Message>(result.Buffer);
-                    Node remote = _nodeRegistry.GetOrCreate(ip: result.RemoteEndPoint.Address.ToString(), id: message.SenderID);
-                    _logger.Log(Tag.CommunicationBasic, $"Received {result.Buffer.Length} bytes from MULTICAST ({remote.IP}/{remote.ID})");
+                    Node remote = GetNodeFromMessage(message, result);
                     OnMessageReceived?.Invoke(remote, message);
                 }
             }
@@ -73,6 +72,14 @@ namespace DistributedJobScheduling.Communication.Basic
                 _closeTokenSource = null;
                 _logger.Warning(Tag.CommunicationBasic, $"Shouter (port {MULTICAST_IP}) stopped");
             }
+        }
+
+        private Node GetNodeFromMessage(Message message, UdpReceiveResult result)
+        {
+            message.BindToRegistry(_nodeRegistry);
+            string ip = result.RemoteEndPoint.Address.ToString();
+            _logger.Log(Tag.CommunicationBasic, $"Received multicast from {message.SenderID}({ip})");
+            return _nodeRegistry.GetOrCreate(ip, message.SenderID);
         }
 
         public async Task SendMulticast(Message message)
