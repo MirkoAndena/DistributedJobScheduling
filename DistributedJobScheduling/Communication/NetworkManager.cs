@@ -56,7 +56,7 @@ namespace DistributedJobScheduling.Communication
                 new JobClientPublisher()
             );
 
-            _registry.NodeCreated += OnNodeCreated;
+            _registry.NodeCreated += ConnectWith;
 
             _shouter = new Shouter(_serializer);
             _shouter.OnMessageReceived += OnMulticastReceived;
@@ -67,21 +67,20 @@ namespace DistributedJobScheduling.Communication
         private void OnMulticastReceived(Node node, Message message)
         {
             if(!_speakers.ContainsKey(node))
-                OnNodeCreated(node);
+                ConnectWith(node);
             OnMessageReceivedFromSpeakerOrShouter(node, message);
         }
 
         private void OnNetworkStateReceived(Node node, NetworkStateMessage message)
         {
-            message.BindToRegistry(_registry);
-            
             if(!_speakers.ContainsKey(node))
-                OnNodeCreated(node);
+                ConnectWith(node);
         }
 
-        private void OnNodeCreated(Node node)
+        private void ConnectWith(Node node)
         {
-            _logger.Log(Tag.Communication, $"Node {node} created");
+            _logger.Log(Tag.Communication, $"Handle connectio with {node}, Do i have to connect with him or not?");
+
             // Do not connect with myself
             if (node.ID.Value == _sender)
                 return;
@@ -201,12 +200,14 @@ namespace DistributedJobScheduling.Communication
 
                 await _sendOrdering.OrderedExecute(message, async () => {
                     if (!_speakers.ContainsKey(node))
-                        _logger.Warning(Tag.Communication, $"Speakers does not contain a speaker for node {node}, Message ({_sender},{message.TimeStamp})");
-                    await _speakers[node].Send(message);
+                        _logger.Warning(Tag.Communication, $"Doesn't exist a speaker for node {node}, Message ({_sender},{message.TimeStamp})");
+                    else
+                        await _speakers[node].Send(message);
                 });
             }
-            catch
+            catch (Exception e)
             {
+                _logger.Error(Tag.Communication, $"Exception during sent to {node}", e);
                 throw;
             }
             finally
