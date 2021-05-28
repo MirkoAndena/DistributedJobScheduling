@@ -1,12 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using DistributedJobScheduling.Communication.Basic;
-using DistributedJobScheduling.Communication.Messaging;
 using DistributedJobScheduling.Communication.Messaging.LeaderElection.KeepAlive;
-using DistributedJobScheduling.Extensions;
 using DistributedJobScheduling.LifeCycle;
 using DistributedJobScheduling.Logging;
 using DistributedJobScheduling.VirtualSynchrony;
@@ -36,7 +33,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
             _logger.Log(Tag.KeepAlive, $"Replaying {_requestQueue.Count} keep alive requests");
             foreach(var request in _requestQueue.ToArray())
-                _groupManager.Send(_groupManager.View.Coordinator, new KeepAliveResponse(request)).Wait();
+                SendResponseToCoordinator(request);
             _requestQueue = null;
 
             //If the coordinator never sent a keep-alive, timeout after a window
@@ -55,12 +52,25 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
-            _groupManager.Send(node, new KeepAliveResponse((KeepAliveRequest)message)).Wait();
+            SendResponseToCoordinator((KeepAliveRequest)message);
             _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
             
             CancelWindowTimeout();
             Task.Delay(KeepAliveManager.WorkerRequestWindow, _cancellationTokenSource.Token)
                 .ContinueWith(t =>  { if (!t.IsCanceled) TimeoutFinished(); });
+        }
+
+        private void SendResponseToCoordinator(KeepAliveRequest request)
+        {
+            try
+            {
+                _groupManager.Send(_groupManager.View.Coordinator, new KeepAliveResponse(request)).Wait();
+                _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
+            }
+            catch (NotDeliveredException e)
+            {
+               _logger.Warning(Tag.KeepAlive, "keep-alive response not delivered", e);
+            }
         }
 
         private void CancelWindowTimeout()
