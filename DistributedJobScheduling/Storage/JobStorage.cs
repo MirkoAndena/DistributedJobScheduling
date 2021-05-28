@@ -26,7 +26,7 @@ namespace DistributedJobScheduling.Storage
         private Group _group;
         public event Action<Job> JobUpdated;
         public event Action<Job> JobCreated;
-        private Dictionary<Job, TaskCompletionSource<bool>> _unCommitted;
+        private Dictionary<int, Queue<TaskCompletionSource<bool>>> _unCommitted; // Ci possono essere piu modifiche ad uno stesso job
 
         public JobStorage() : this (
             DependencyInjection.DependencyManager.Get<IStore<Dictionary<int, Job>>>(), 
@@ -40,7 +40,7 @@ namespace DistributedJobScheduling.Storage
             _executionBlips = new AsyncGenericQueue<int>();
             _logger = logger;
             _group = groupView.View;
-            _unCommitted = new Dictionary<Job, TaskCompletionSource<bool>>();
+            _unCommitted = new Dictionary<int, Queue<TaskCompletionSource<bool>>>();
         }
 
         public void Init()
@@ -64,16 +64,23 @@ namespace DistributedJobScheduling.Storage
         {   
             if (_secureStore.ContainsKey(id))
             {
-                if (updateCondition == null || updateCondition.Invoke(_secureStore[id]))
+                Job job = _secureStore[id];
+                if (updateCondition == null || updateCondition.Invoke(job))
                 {
-                    _logger.Log(Tag.JobStorage, $"Updating {_secureStore[id]} and wait for commit");
-                    Job clone = _secureStore[id].Clone();
+                    _logger.Log(Tag.JobStorage, $"Updating {job} and wait for commit");
+                    Job clone = job.Clone();
                     update.Invoke(clone);
                     
                     var taskCompletionSource = new TaskCompletionSource<bool>(TaskContinuationOptions.RunContinuationsAsynchronously);
-                    _unCommitted.Add(_secureStore[id], taskCompletionSource);
                     
-                    JobUpdated?.Invoke(clone);                    
+                    lock(_unCommitted)
+                    {
+                        if (!_unCommitted.ContainsKey(job.ID))
+                            _unCommitted.Add(job.ID, new Queue<TaskCompletionSource<bool>>());
+                        _unCommitted[job.ID].Enqueue(taskCompletionSource);       
+                    }    
+                           
+                    JobUpdated?.Invoke(clone);  
                     await taskCompletionSource.Task;
                 }
             }
@@ -109,7 +116,6 @@ namespace DistributedJobScheduling.Storage
 
         public void CommitUpdate(Job updated)
         {
-            // If the job is already in the list it is updated
             if (_secureStore.ContainsKey(updated.ID))
             {
                 Job job = _secureStore[updated.ID];
@@ -121,12 +127,14 @@ namespace DistributedJobScheduling.Storage
                 else
                     _logger.Log(Tag.JobStorage, $"Job {job.ToString()} was not updated because it has a greater status");
 
-                if (_unCommitted.ContainsKey(job))
+                lock(_unCommitted)
                 {
-                    var source = _unCommitted[job];
-                    _unCommitted.Remove(job);
-                    source.SetResult(true);
-                    _logger.Log(Tag.JobStorage, $"Update committed for {job.ToString()}, lock released");
+                    if (_unCommitted.ContainsKey(job.ID) && _unCommitted[job.ID].Count > 0)
+                    {
+                        var source = _unCommitted[job.ID].Dequeue();
+                        source.SetResult(true);
+                        _logger.Log(Tag.JobStorage, $"Update committed for {job.ToString()}, lock released");
+                    }
                 }
             }
             else
