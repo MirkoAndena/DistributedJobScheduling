@@ -22,10 +22,13 @@ namespace DistributedJobScheduling.JobAssignment
             // For each node calculate how many jobs are assigned
             secureStore.Values.ForEach(job =>
             {
-                if (nodeJobCount.ContainsKey(job.Node))
-                    nodeJobCount[job.Node]++;
-                else
-                    nodeJobCount.Add(job.Node, 1);
+                if(job.Status < JobStatus.COMPLETED)
+                {
+                    if (nodeJobCount.ContainsKey(job.Node))
+                        nodeJobCount[job.Node]++;
+                    else
+                        nodeJobCount.Add(job.Node, 1);
+                }
             });
 
             logger.Log(Tag.JobUtils, $"Total job assigned per node: {nodeJobCount.ToString<int, int>()}");
