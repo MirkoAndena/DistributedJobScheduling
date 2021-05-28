@@ -159,7 +159,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
             this.Stop();
         }
 
-        public async Task Send(Message message)
+        public async Task<bool> Send(Message message)
         {
             try
             {
@@ -180,13 +180,14 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 {
                     this.Stop();
                     _logger.Warning(Tag.CommunicationBasic, $"Failed sent to {_remote} because speaker is not connect");
+                    return false;
                 }
             }
             catch (ObjectDisposedException)
             {
                 this.Stop();
                 _logger.Warning(Tag.CommunicationBasic, $"Failed sent to {_remote} because communication is closed");
-                return;
+                return false;
             }
             catch (Exception e)
             {
@@ -194,6 +195,8 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 _logger.Error(Tag.CommunicationBasic, $"Failed send to {_remote}", e);
                 throw;
             }
+            
+            return true;
         }
     }
 }

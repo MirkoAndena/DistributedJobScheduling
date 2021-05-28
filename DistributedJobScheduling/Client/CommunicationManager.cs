@@ -107,8 +107,12 @@ namespace DistributedJobScheduling.Client
 
             try
             {
-                _speaker.Send(message).Wait();
-                _logger.Log(Tag.Communication, "Message sent successfully");
+                var sendTask = _speaker.Send(message);
+                sendTask.Wait();
+                if(sendTask.Result)
+                    _logger.Log(Tag.Communication, "Message sent successfully");
+                else
+                    Resend(message);
             }
             catch (Exception e)
             {
