@@ -111,7 +111,7 @@ namespace DistributedJobScheduling.Communication
             // Open connection only with lower nodes
             if (node.ID.Value > _sender)
             {
-                _logger.Log(Tag.Communication, $"Node {node} has greater id (mine is {_sender}), creating connection");
+                _logger.Log(Tag.Communication, $"Node {node} has greater id (mine is {_sender}), creating connection [hash:{node.GetHashCode()}]");
                 CreateSpeakerAndConnect(node);
             }
         }
@@ -131,6 +131,18 @@ namespace DistributedJobScheduling.Communication
                 _connectionTasks.Add(node, 
                     Task.Run(async () =>
                     {
+                        await GetOrCreateSemaphore(node).WaitAsync();
+
+                        lock(_speakers)
+                        {
+                            if(_speakers.ContainsKey(node))
+                            {
+                                _logger.Warning(Tag.Communication, "An attempt to connect two times to the same node was made, returning early");
+                                GetOrCreateSemaphore(node).Release();
+                                return;
+                            }
+                        }
+                        
                         BoldSpeaker speaker = new BoldSpeaker(node, _serializer);
                         await speaker.Connect(PORT, 30);
 
@@ -140,17 +152,16 @@ namespace DistributedJobScheduling.Communication
                             speaker.Stopped += OnSpeakerStopped;
                             speaker.Start();
 
-                            await GetOrCreateSemaphore(node).WaitAsync();
                             lock(_speakers)
                             {
                                 _speakers.Add(node, speaker);
                             }
-                            
                             _logger.Log(Tag.Communication, $"Speaker to {node} created");
 
+                            await Send(node, new HelloMessage(), ignoreSemaphore: true);
                             SendEnqueued(node);
-                            GetOrCreateSemaphore(node).Release();
                         }
+                        GetOrCreateSemaphore(node).Release();
                     })
                 );
             }
@@ -230,7 +241,7 @@ namespace DistributedJobScheduling.Communication
             await Send(node, message, sendFailureStrategy, false);
         }
 
-        private async Task Send(Node node, Message message, SendFailureStrategy sendFailureStrategy, bool ignoreSemaphore)
+        private async Task Send(Node node, Message message, SendFailureStrategy sendFailureStrategy = SendFailureStrategy.Discard, bool ignoreSemaphore = false)
         {
             if (!ignoreSemaphore)
                 await GetOrCreateSemaphore(node).WaitAsync();

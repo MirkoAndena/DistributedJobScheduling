@@ -53,7 +53,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
             SendResponseToCoordinator((KeepAliveRequest)message);
-            _logger.Log(Tag.KeepAlive, "Sent keep-alive response to coordinator, i'm alive");
             
             CancelWindowTimeout();
             Task.Delay(KeepAliveManager.WorkerRequestWindow, _cancellationTokenSource.Token)

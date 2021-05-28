@@ -123,7 +123,7 @@ namespace DistributedJobScheduling.Tests
                 });
             }
         }
-        
+
         private Task[] SetupGroupJoinAwaiters(FakeNode coordinator, params FakeNode[] nodes)
         {
             List<Task> waitForNodes = new List<Task>();

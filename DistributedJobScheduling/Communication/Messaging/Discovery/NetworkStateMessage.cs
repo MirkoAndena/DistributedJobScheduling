@@ -4,10 +4,10 @@ using Newtonsoft.Json;
 
 namespace DistributedJobScheduling.Communication.Messaging.Discovery
 {
-    [JsonObject(MemberSerialization.Fields)]
     [Serializable]
     public class NetworkStateMessage : Message 
     {
+        [JsonProperty]
         public Node[] Nodes { get; private set; }
         
         [JsonConstructor]
