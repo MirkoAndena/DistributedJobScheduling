@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Threading;
 using System.Security.Cryptography.X509Certificates;
 using System.Globalization;
@@ -38,6 +39,9 @@ namespace DistributedJobScheduling.Client
         public event Action<List<int>> ResponsesArrived;
         private List<int> _notCompleted;
         private SemaphoreSlim _semaphore;
+
+        // If responses not arrive in the window, send another request
+        private CancellationTokenSource _responseWindowCancellationToken;
 
         public JobResultMessageHandler() : this (
             DependencyInjection.DependencyManager.Get<IClientStore>(),
@@ -85,6 +89,23 @@ namespace DistributedJobScheduling.Client
                 _clientCommunication.Send(message.ApplyStamp(_timeStamper));
                 _pendingRequests++;
             });
+
+            StartResponseWindow();
+        }
+
+        private void StartResponseWindow()
+        {
+            _responseWindowCancellationToken?.Cancel();
+            _responseWindowCancellationToken = new CancellationTokenSource();
+            Task.Delay(TimeSpan.FromSeconds(5), _responseWindowCancellationToken.Token)
+            .ContinueWith(task => 
+            {
+                if (!task.IsCompleted) 
+                {
+                    _logger.Log(Tag.WorkerCommunication, "No response arrived in the window, request again");
+                    AllResponsesArrived();
+                }
+            });
         }
 
         private void OnMessageReceived(Node node, Message message)
@@ -107,12 +128,17 @@ namespace DistributedJobScheduling.Client
                 _pendingRequests--;
                 
                 if (_pendingRequests == 0) 
-                {
-                    _logger.Log(Tag.WorkerCommunication, $"All responses arrived");
-                    ResponsesArrived?.Invoke(new List<int>(_notCompleted));
-                    _semaphore.Release();
-                }
+                    AllResponsesArrived();
+                else
+                    StartResponseWindow();
             }
+        }
+
+        private void AllResponsesArrived()
+        {
+            _logger.Log(Tag.WorkerCommunication, $"All responses arrived");
+            ResponsesArrived?.Invoke(new List<int>(_notCompleted));
+            _semaphore.Release();
         }
     }
 }
