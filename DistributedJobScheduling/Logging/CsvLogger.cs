@@ -29,7 +29,7 @@ namespace DistributedJobScheduling.Logging
         public CsvLogger(string path, bool consoleWrite = true, string separator = ",")
         {
             _directory = $"{path}/Logs";
-            _filepath = $"{_directory}/logs.csv";
+            _filepath = $"{_directory}/logs_{DateTime.Now.ToString("yyyyMMdd_hhmmss")}.csv";
 
             _sepatator = separator;
             _consoleWrite = consoleWrite;

@@ -25,7 +25,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 {
     public class GroupViewManager : IGroupViewManager, IStartable
     {
-        private const int DEFAULT_SEND_TIMEOUT = 1;
+        private const int DEFAULT_SEND_TIMEOUT = 30;
 
         public int JoinRequestTimeout { get; set; } = 5000;
         
@@ -546,6 +546,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
                 foreach(var difference in viewDifferences)
                 {
+                    _logger.Log(Tag.VirtualSynchrony, $"Processing difference CurrentView({View.ViewId}): {{'{difference.Key}': {difference.Value}}}");
                     if(difference.Value == Operation.Left)
                     {
                         //FIXME: Shouldn't we multicast unstable messages from the dead node? Probably handled by timeout (either all or none)
@@ -707,7 +708,9 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     newView.Add(coordinator);
 
                 View.Update(newView, coordinator, id: viewSyncResponse.ViewId);
-                _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}{Environment.NewLine}");
+                _logger.Log(Tag.VirtualSynchrony, $"Received view sync from coordinator {View.Coordinator}");
+                _logger.Log(Tag.VirtualSynchrony, $"Join complete with view {View.ViewId}: COORD => [{View.Coordinator}], OTHERS => [{string.Join(",", View.Others)}]");
+                
 
                 if(!_joinRequestCancellation.Token.IsCancellationRequested)
                     _joinRequestCancellation.Cancel();
@@ -716,7 +719,6 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 DependencyManager.Implementing<IViewStatefull>().ForEach(
                     statefull => statefull.OnViewSync(viewSyncResponse.ViewStates[statefull.GetType()])
                 );
-
                 //In case some messages were received before the viewsync
                 new Thread(ProcessFutureMessages).Start();
             }

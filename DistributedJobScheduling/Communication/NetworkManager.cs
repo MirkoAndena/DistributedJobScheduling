@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net.Http.Headers;
 using System.Xml.Serialization;
 using System.Collections.Concurrent;
@@ -37,6 +38,7 @@ namespace DistributedJobScheduling.Communication
         private Dictionary<Node, Task> _connectionTasks;
         private Dictionary<Node, Queue<Message>> _notSent;
         private Dictionary<Node, SemaphoreSlim> _reconnectionSemaphores;
+        private Thread _pingThread;
 
         public ITopicOutlet Topics { get; private set; }
 
@@ -324,10 +326,26 @@ namespace DistributedJobScheduling.Communication
             _listener.Start();
             _speakers.Clear();
             _shouter.Start();
+            _pingThread = new Thread(() => {
+                while(_pingThread != null)
+                {
+                    Speaker[] aliveSpeakers;
+                    lock(_speakers)
+                    {
+                        aliveSpeakers = _speakers.Values.ToArray();
+                    }
+                    aliveSpeakers.ForEach(speaker => {
+                        speaker.Ping().Wait();
+                    });
+                    Thread.Sleep(10000);
+                }
+            });
+            _pingThread.Start();
         }
         
         public void Stop() 
         {
+            _pingThread = null;
             _shouter.OnMessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
             _listener.SpeakerCreated -= OnSpeakerCreated;
 
@@ -338,8 +356,8 @@ namespace DistributedJobScheduling.Communication
             {
                 speakerIdPair.Value.Stop();
                 speakerIdPair.Value.MessageReceived -= OnMessageReceivedFromSpeakerOrShouter;
-                _speakers.Remove(speakerIdPair.Key);
             });
+            _speakers.Clear();
 
             _logger.Warning(Tag.Communication, "Network manager closed, no further communication can be performed");
         }

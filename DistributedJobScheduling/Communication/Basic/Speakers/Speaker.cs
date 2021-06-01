@@ -53,6 +53,43 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                 _stream = _client.GetStream();
         }
 
+        public async Task<bool> Ping()
+        {
+            try
+            {
+                if(IsConnected)
+                {
+                    //One sender at a time
+                    await _sendSemaphore.WaitAsync();
+                    await _stream.WriteAsync(new byte[] { (byte)'\0' }, _sendToken.Token);
+                    await _stream.FlushAsync(_sendToken.Token);
+                    _sendSemaphore.Release();
+
+                    _logger.Log(Tag.CommunicationBasic, $"Sent ping to {_remote}");
+                }
+                else
+                {
+                    this.Stop();
+                    _logger.Warning(Tag.CommunicationBasic, $"Failed ping to {_remote} because speaker is not connect");
+                    return false;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                this.Stop();
+                _logger.Warning(Tag.CommunicationBasic, $"Failed ping to {_remote} because communication is closed");
+                return false;
+            }
+            catch (Exception e)
+            {
+                this.Stop();
+                _logger.Error(Tag.CommunicationBasic, $"Failed ping to {_remote}", e);
+                throw;
+            }
+            
+            return true;
+        }
+
         public void Stop()
         {
             if (_client != null)
@@ -84,7 +121,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                         break;
                     }
                 
-                _logger.Log(Tag.CommunicationBasic, $"Expecting {bytesReceived} bytes from {_remote} and terminator at {_lastTerminatorIndex}");
+                if(bytesReceived > 1) _logger.Log(Tag.CommunicationBasic, $"Expecting {bytesReceived} bytes from {_remote} and terminator at {_lastTerminatorIndex}");
                 if(_lastTerminatorIndex >= 0)
                 {
                     //New Message Completed
@@ -93,7 +130,7 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     await _memoryStream.DisposeAsync();
                     _memoryStream = new MemoryStream();
                     await _memoryStream.WriteAsync(_partialBuffer, _lastTerminatorIndex + 1, bytesReceived - (_lastTerminatorIndex + 1), _receiveToken.Token);
-                    _logger.Log(Tag.CommunicationBasic, $"Received {fullMessage.Length} bytes from {_remote}");
+                    if(bytesReceived > 1) _logger.Log(Tag.CommunicationBasic, $"Received {fullMessage.Length} bytes from {_remote}");
                     return ParseMessages<T>(fullMessage);
                 }
                 else
@@ -139,7 +176,8 @@ namespace DistributedJobScheduling.Communication.Basic.Speakers
                     {
                         _logger.Log(Tag.CommunicationBasic, $"Routing {response.Count} messages from {_remote.IP}");
                         response.ForEach(message => {
-                            MessageReceived?.Invoke(_remote, message);
+                            if(message != null)
+                                MessageReceived?.Invoke(_remote, message);
                         });
                     }
                 }

@@ -23,6 +23,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         private IGroupViewManager _group;
 
         private List<KeepAliveRequest> _requestQueue;
+        private SemaphoreSlim _keepAliveSemaphore;
 
         public KeepAliveManager() : this (
             DependencyInjection.DependencyManager.Get<IGroupViewManager>(),
@@ -33,6 +34,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
             _logger = logger;
             _group = group;
             _requestQueue = new List<KeepAliveRequest>();
+            _keepAliveSemaphore = new SemaphoreSlim(1,1);
         }
 
         public void Init()
@@ -45,19 +47,24 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void OnKeepAliveRequestReceived(Node node, Message message)
         {
+            _keepAliveSemaphore.Wait();
             if(_keepAlive == null)
             {
                 _logger.Log(Tag.KeepAlive, "Keepalive recived when service is disabled, saving request for later");
                 _requestQueue.Add((KeepAliveRequest)message);
             }
+            _keepAliveSemaphore.Release();
         }
 
         private void OnViewChanging()
         {
+            _keepAliveSemaphore.Wait();
+
             if (_keepAlive != null) 
             {
                 _logger.Log(Tag.KeepAlive, "Keep-alive stopped");
                 _keepAlive.Stop();
+                _requestQueue.Clear();
 
                 // Unregister from previous events
                 if (_keepAlive is CoordinatorKeepAlive coordinatorKeepAlive)
@@ -67,6 +74,8 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
                 _keepAlive = null;
             }
+            
+            _keepAliveSemaphore.Release();
         } 
 
         private void OnViewChanged()
@@ -80,8 +89,6 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
                 // Create and start proper keep-alive handler
                 if (_group.View.ImCoordinator) StartCoordinatorKeepAlive();
                 else StartWorkerKeepAlive();
-
-                _requestQueue.Clear();
             }
             else
             {
@@ -92,10 +99,12 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void StartCoordinatorKeepAlive()
         {
+            _keepAliveSemaphore.Wait();
             _logger.Log(Tag.KeepAlive, "Starting coordinator keep-alive");
             _keepAlive = new CoordinatorKeepAlive(_group, _logger);
             ((CoordinatorKeepAlive)_keepAlive).NodesDied += OnNodesDied;
             _keepAlive.Start();
+            _keepAliveSemaphore.Release();
         }
 
         private void OnNodesDied(List<Node> nodes) 
@@ -105,10 +114,12 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
 
         private void StartWorkerKeepAlive()
         {
+            _keepAliveSemaphore.Wait();
             _logger.Log(Tag.KeepAlive, "Starting workers keep-alive");
             _keepAlive = new WorkersKeepAlive(_group, _logger, _requestQueue);
             ((WorkersKeepAlive)_keepAlive).CoordinatorDied += OnCoordinatorDied;
             _keepAlive.Start();
+            _keepAliveSemaphore.Release();
         }
 
         private void OnCoordinatorDied()
