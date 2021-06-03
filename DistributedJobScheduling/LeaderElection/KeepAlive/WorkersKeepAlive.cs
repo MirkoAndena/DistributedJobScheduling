@@ -23,7 +23,7 @@ namespace DistributedJobScheduling.LeaderElection.KeepAlive
         {
             _groupManager = group;
             _logger = logger;
-            _requestQueue = requestQueue;
+            _requestQueue = new List<KeepAliveRequest>(requestQueue);
         }
         
         public void Start()
