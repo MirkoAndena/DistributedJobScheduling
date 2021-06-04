@@ -487,11 +487,13 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 {
                     //Flush messages can arrive before anyone notified this node about the change
                     if(_viewChangeInProgress == null)
-                        HandleViewChange(node, flushMessage.RelatedChange); //Self-Report Viewchange
+                        HandleViewChange(node, flushMessage.RelatedChange, flushMessage.Flushed); //Self-Report Viewchange
                     else if(_pendingViewChange?.IsSame(flushMessage.RelatedChange) == true)
                     {
                         _logger.Log(Tag.VirtualSynchrony, $"Processing flush state");
-                        _flushedNodes.Add(node);
+
+                        if(flushMessage.Flushed)
+                            _flushedNodes.Add(node);
 
                         MergeChangesAndProcessAcknowledges(flushMessage.RelatedChange);
 
@@ -507,7 +509,7 @@ namespace DistributedJobScheduling.VirtualSynchrony
         /// Handles a View change notified by someone
         /// </summary>
         /// <param name="viewChange">Message containing the view change</param>
-        private void HandleViewChange(Node initiator, ViewChange viewChange)
+        private void HandleViewChange(Node initiator, ViewChange viewChange, bool initiatorFlushed)
         {
             //FIXME: These locks on View are probably just bad rapresentation of a view, they should all be included in the view object
             viewChange.BindToRegistry(_nodeRegistry);
@@ -528,11 +530,22 @@ namespace DistributedJobScheduling.VirtualSynchrony
                     //Setup Message Flushing and check if we can already flush
                     _flushed = false;
                     _flushedNodes = new HashSet<Node>();
-                    _flushedNodes.Add(initiator);
+
+                    if(initiatorFlushed)
+                        _flushedNodes.Add(initiator);
 
                     MergeChangesAndProcessAcknowledges(viewChange);
                     
                     HandleFlushCondition();
+
+                    if(_pendingViewChange != null && !_flushed)
+                    {
+                        //View Change Message
+                        FlushMessage flushMessage = null;
+                        _logger.Log(Tag.VirtualSynchrony, $"Notifying new detected viewchange {_pendingViewChange}!");
+                        flushMessage = new FlushMessage(_pendingViewChange, false, _pendingViewChange.ViewId.Value - 1);
+                        _sendQueue.Add((null, flushMessage, SendFailureStrategy.Reconnect, default(Action)));
+                    }
                 }
             }
         }
@@ -642,9 +655,10 @@ namespace DistributedJobScheduling.VirtualSynchrony
                 lock(View)
                 {
                     _logger.Log(Tag.VirtualSynchrony, $"I can send my flush message for pending view change {_pendingViewChange}!");
-                    flushMessage = new FlushMessage(_pendingViewChange, _pendingViewChange.ViewId.Value - 1);
+                    flushMessage = new FlushMessage(_pendingViewChange, true, _pendingViewChange.ViewId.Value - 1);
                 }
                 _sendQueue.Add((null, flushMessage, SendFailureStrategy.Reconnect, default(Action)));
+                _flushedNodes.Add(View.Me);
                 _flushed = true;
             }
         }
@@ -741,7 +755,8 @@ namespace DistributedJobScheduling.VirtualSynchrony
 
             HandleViewChange(
                 View.Me, 
-                viewChange
+                viewChange,
+                false
             );
         }
 

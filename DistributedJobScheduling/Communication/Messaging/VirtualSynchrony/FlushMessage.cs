@@ -9,11 +9,13 @@ namespace DistributedJobScheduling.Communication.Messaging
     public class FlushMessage : ViewMessage 
     {
         public ViewChange RelatedChange { get; private set; }
+        public bool Flushed { get; private set; }
         
         [JsonConstructor]
-        public FlushMessage(ViewChange relatedChange, int viewId) : base(viewId) 
+        public FlushMessage(ViewChange relatedChange, bool flushed, int viewId) : base(viewId) 
         {
             RelatedChange = relatedChange;
+            Flushed = flushed;
         }
 
         public override void BindToRegistry(Node.INodeRegistry registry)
